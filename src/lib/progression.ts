@@ -4,7 +4,8 @@ import { addDays, isoDate, parseISO } from './date'
 
 /**
  * Did the athlete actually complete the block? TB only progresses if the block
- * was finished — we check the final week had its lift sessions logged & done.
+ * was finished — we require the heavy weeks (3 & 6) AND the final week to have
+ * logged, done lifts (not just the final week).
  */
 export function blockCompleted(
   sessions: SessionLog[],
@@ -12,6 +13,11 @@ export function blockCompleted(
   lengthWeeks: number,
 ): boolean {
   const start = parseISO(phaseStartDate)
+  const liftDoneInWeek = (wk: number) => {
+    const s = isoDate(addDays(start, (wk - 1) * 7))
+    const e = isoDate(addDays(start, wk * 7 - 1))
+    return sessions.some((x) => x.type === 'lift' && x.done && x.date >= s && x.date <= e)
+  }
   const finalWeekStart = isoDate(addDays(start, (lengthWeeks - 1) * 7))
   const finalWeekEnd = isoDate(addDays(start, lengthWeeks * 7 - 1))
   const doneLifts = sessions.filter(
@@ -21,7 +27,9 @@ export function blockCompleted(
       s.date >= finalWeekStart &&
       s.date <= finalWeekEnd,
   )
-  return doneLifts.length >= 2
+  // TB: only "earned" if the block was actually run — including the heavy weeks
+  // (3 & 6), not just the final week.
+  return liftDoneInWeek(3) && liftDoneInWeek(6) && doneLifts.length >= 2
 }
 
 export interface ProgressionItem {

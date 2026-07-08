@@ -75,4 +75,6 @@ export interface Settings {
   phaseStartDate: string // ISO yyyy-mm-dd (Monday of week 1)
   theme?: ThemeMode
   onboarded?: boolean
+  /** which 6-week Operator block since the last retest (1-based); first run = 12 wks before retest */
+  operatorBlock?: number
 }

@@ -137,7 +137,7 @@ export async function seedFakeData(): Promise<string> {
     await db.maxes.clear()
     await db.sessions.bulkAdd(sessions)
     await db.maxes.bulkPut(Object.values(block2Maxes))
-    await db.settings.put(baseSettings('operator', block2Start))
+    await db.settings.put({ ...baseSettings('operator', block2Start), operatorBlock: 2 })
   })
 
   return `seeded ${sessions.length} sessions (BB done → Op block 1 done → mid Op block 2)`

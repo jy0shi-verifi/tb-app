@@ -44,9 +44,9 @@ export default function Today() {
           <Card className="p-4">
             <p className="font-semibold text-ink mb-2">Your first week</p>
             <ul className="text-sm text-muted space-y-1.5">
-              <li>🏃 3 easy runs (Mon · Wed · Fri) — jog/walk ~30 min, flat</li>
-              <li>🔁 2 light circuits (Tue · Thu)</li>
-              <li>😴 Rest Sunday</li>
+              <li>💪 2 SE circuits (Mon · Thu) — light &amp; high-rep</li>
+              <li>🏃 3 easy runs (Tue · Wed · Sat) — LSS, flat, 30 min+</li>
+              <li>🧘 Recovery Friday · 😴 Rest Sunday</li>
             </ul>
           </Card>
         )}
@@ -67,7 +67,7 @@ export default function Today() {
   if (pos.status === 'complete') {
     if (phase.id === 'base-building') {
       async function startOperator() {
-        await saveSettings({ currentPhaseId: 'operator', phaseStartDate: nextMonday() })
+        await saveSettings({ currentPhaseId: 'operator', phaseStartDate: nextMonday(), operatorBlock: 1 })
       }
       return (
         <Card className="p-6 text-center space-y-3">
@@ -91,22 +91,26 @@ export default function Today() {
     const completed = blockCompleted(sessions, settings.phaseStartDate, phase.lengthWeeks)
     const items = suggestBlockProgression(OPERATOR_LIFTS, mm)
     const hasMaxes = items.some((i) => i.hasMax)
+    const opBlock = settings.operatorBlock ?? 1
+    // TB new-lifter ladder: your first Operator run is 12 weeks (two 6-wk blocks on the
+    // same numbers) BEFORE the first retest. Forced progression is a later fallback.
+    const firstRun = opBlock < 2
     const thisMonday = isoDate(addDays(now, -mondayIndex(now)))
     const blockEndIso = isoDate(addDays(parseISO(settings.phaseStartDate), phase.lengthWeeks * 7 - 1))
     const blockCount = sessions.filter(
       (s) => s.done && s.date >= settings.phaseStartDate && s.date <= blockEndIso,
     ).length
 
-    async function startNextBlock() {
+    async function forceProgress() {
       for (const it of items) {
         if (!it.hasMax) continue
         const entry = maxes.find((m) => m.liftId === it.liftId)
         if (entry) await db.maxes.put(bumpedEntry(entry, it.step))
       }
-      await saveSettings({ phaseStartDate: thisMonday })
+      await saveSettings({ phaseStartDate: thisMonday, operatorBlock: opBlock + 1 })
     }
     async function repeatBlock() {
-      await saveSettings({ phaseStartDate: thisMonday })
+      await saveSettings({ phaseStartDate: thisMonday, operatorBlock: opBlock + 1 })
     }
     async function retest() {
       if (
@@ -116,6 +120,7 @@ export default function Today() {
       )
         return
       await clearProgression()
+      await saveSettings({ operatorBlock: 1 })
       nav('/maxes')
     }
 
@@ -128,46 +133,22 @@ export default function Today() {
           </div>
           <p className="text-sm text-ink">
             {completed ? '🎉 ' : ''}
-            {phase.lengthWeeks} weeks · <b className="text-load tnum">{blockCount}</b> sessions logged.
+            {phase.lengthWeeks} weeks · block {opBlock} · <b className="text-load tnum">{blockCount}</b>{' '}
+            sessions logged.
           </p>
 
           {!hasMaxes ? (
             <>
-              <p className="text-sm text-muted">Enter your maxes to progress into the next block.</p>
+              <p className="text-sm text-muted">Enter your maxes to set up your next block.</p>
               <Button className="w-full" onClick={() => nav('/maxes')}>
                 Go to Maxes
               </Button>
             </>
-          ) : completed ? (
-            <>
-              <p className="text-sm text-muted">
-                You finished every heavy week — you've earned the bump. New weights for your next
-                6-week block:
-              </p>
-              <div className="divide-y divide-line/60">
-                {items.map((it) => (
-                  <div key={it.liftId} className="flex items-center justify-between py-2">
-                    <span className="font-medium text-ink text-[15px]">{it.name}</span>
-                    <span className="text-sm tnum">
-                      <span className="text-muted">TM {it.currentTM.toFixed(1)}</span>
-                      <span className="text-load font-bold"> → {it.nextTM.toFixed(1)} kg</span>
-                      <span className="text-muted"> (+{it.step})</span>
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <Button className="w-full" onClick={startNextBlock}>
-                Confirm &amp; start next block
-              </Button>
-              <button onClick={retest} className="w-full text-sm text-muted font-medium py-1">
-                Retest instead →
-              </button>
-            </>
-          ) : (
+          ) : !completed ? (
             <>
               <div className="rounded-xl bg-warm p-3 text-sm text-ink">
-                Looks like you didn't finish the heavy weeks of this block. No drama — <b>don't add
-                weight yet.</b> Run it back at the same loads and nail it this time.
+                Looks like you didn't finish the heavy weeks (3 &amp; 6). No drama — <b>don't change
+                anything.</b> Run it back at the same weights and nail it this time.
               </div>
               <Button className="w-full" onClick={repeatBlock}>
                 Repeat this block (same weights)
@@ -176,7 +157,43 @@ export default function Today() {
                 Retest my maxes instead →
               </button>
             </>
+          ) : firstRun ? (
+            <>
+              <p className="text-sm text-muted">
+                Your <b>first Operator run is 12 weeks</b> — bank one more 6-week block on the{' '}
+                <b>same weights</b> before you retest. On a cut, holding steady is exactly right.
+              </p>
+              <Button className="w-full" onClick={repeatBlock}>
+                Start next block — same weights
+              </Button>
+              <button onClick={retest} className="w-full text-sm text-muted font-medium py-1">
+                Retest my maxes instead →
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted">
+                Past your first 12 weeks — time to <b>retest</b> and cash in your gains (retest
+                ~every 6 weeks while they keep coming). Forced progression is the later fallback,
+                once retests stop moving.
+              </p>
+              <Button className="w-full" onClick={retest}>
+                Retest my maxes
+              </Button>
+              <button onClick={forceProgress} className="w-full text-sm text-muted font-medium py-1">
+                Force-progress a small bump &amp; continue →
+              </button>
+              <button onClick={repeatBlock} className="w-full text-sm text-muted font-medium py-1">
+                Repeat the same weights →
+              </button>
+            </>
           )}
+
+          <p className="text-[11px] text-muted border-t border-line/60 pt-2 leading-relaxed">
+            🧘 Recovery: the every-3rd-week easy weeks cover the regular load. Take a <b>full week
+            off every few months</b>, and a light week when you switch phases — TB programs rest at
+            the seams.
+          </p>
         </Card>
       </div>
     )
@@ -283,9 +300,9 @@ export default function Today() {
         </div>
         <p className="text-[11px] text-muted mt-1">
           {phase.lengthWeeks - pos.week > 0
-            ? `${phase.lengthWeeks - pos.week} week${phase.lengthWeeks - pos.week === 1 ? '' : 's'} to ${pos.phaseId === 'operator' ? 'the next bump' : 'Test Day'}`
+            ? `${phase.lengthWeeks - pos.week} week${phase.lengthWeeks - pos.week === 1 ? '' : 's'} to ${pos.phaseId === 'operator' ? 'block review' : 'Test Day'}`
             : pos.phaseId === 'operator'
-              ? 'Final week — earn the bump'
+              ? 'Final week — block review'
               : 'Final week — Test Day'}
         </p>
       </div>
@@ -406,7 +423,11 @@ export default function Today() {
             </>
           ) : plan.type === 'rest' ? (
             <div className="text-center">
-              <p className="text-sm text-muted">Rest day — recovery is training too.</p>
+              <p className="text-sm text-muted">
+                {plan.title === 'Recovery'
+                  ? 'Recovery — mobility or an easy walk. Keep it genuinely light.'
+                  : 'Rest day — recovery is training too.'}
+              </p>
               {tmrPlan && (
                 <p className="text-xs text-muted mt-1">
                   Tomorrow: <span className="font-semibold text-ink">{tmrPlan.title}</span>

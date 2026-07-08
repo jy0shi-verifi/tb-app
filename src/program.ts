@@ -46,10 +46,10 @@ export const OPERATOR_LIFTS: Lift[] = [
 export const OPERATOR_WAVE: WaveWeek[] = [
   { week: 1, pct: 70, sets: 3, reps: 5 },
   { week: 2, pct: 80, sets: 3, reps: 5 },
-  { week: 3, pct: 90, sets: 3, reps: 3, note: 'heavy week — rest 3–5 min, drop HIC' },
+  { week: 3, pct: 90, sets: 3, reps: 3, note: 'heavy week — rest 3–5 min; easy conditioning week' },
   { week: 4, pct: 75, sets: 3, reps: 5 },
   { week: 5, pct: 85, sets: 3, reps: 3 },
-  { week: 6, pct: 95, sets: 3, reps: 2, note: 'heavy week — rest 3–5 min, drop HIC' },
+  { week: 6, pct: 95, sets: 3, reps: 2, note: 'heavy week — rest 3–5 min; easy conditioning week' },
 ]
 
 const mk = (n: number, reps: number, perDumbbell: boolean): PlannedSet[] =>
@@ -96,16 +96,20 @@ function operatorLift(
   }
 }
 
-const opRun = (): SessionPlan => ({
+const opRun = (easy = false): SessionPlan => ({
   type: 'run',
   title: 'Easy Run',
-  detail: 'Easy conversational pace — Black endurance-lean. Keep the engine ticking.',
+  detail: easy
+    ? 'Short easy run (easy week). Conversational pace — keep the engine ticking.'
+    : 'Easy conversational pace (LSS) — keep the engine ticking.',
   exercises: [],
 })
-const opHic = (): SessionPlan => ({
+const opHic = (easy = false): SessionPlan => ({
   type: 'hic',
-  title: 'HIC — Conditioning',
-  detail: 'Hill sprints / 600m resets / tempo. Hard but short. (Dropped on heavy weeks.)',
+  title: easy ? 'HIC — Easy Week' : 'HIC — Conditioning',
+  detail: easy
+    ? 'Easy week: halve the rounds / effort. This lands on your heavy lifting week — keep it light.'
+    : 'Short Hills / 600m Resets / Fast-5 Tempo. Run each at its prescribed effort; obey the rest.',
   exercises: [],
 })
 const rest = (): SessionPlan => ({
@@ -121,86 +125,89 @@ function operatorDay(
   maxes: Record<string, MaxEntry>,
   settings: Settings,
 ): SessionPlan {
-  const heavy = week === 3 || week === 6
+  // Weeks 3 & 6 are the every-3rd-week EASY conditioning weeks (they land on the
+  // heavy 90/95% strength weeks) — the HICs stay but go easy; they are NOT dropped.
+  const easy = week === 3 || week === 6
   switch (day) {
-    case 0: // Mon
-    case 2: // Wed
-    case 4: // Fri
+    case 0: // Mon lift
+    case 2: // Wed lift
+    case 4: // Fri lift
       return operatorLift(week, maxes, settings)
-    case 1: // Tue
-      return heavy ? opRun() : opHic()
-    case 3: // Thu
-      return opRun()
-    case 5: // Sat
-      return heavy ? opRun() : opHic()
-    default: // Sun
+    case 1: // Tue HIC
+      return opHic(easy)
+    case 3: // Thu easy run
+      return opRun(easy)
+    case 5: // Sat HIC
+      return opHic(easy)
+    default: // Sun rest
       return rest()
   }
 }
 
 // ---------------------------------------------------------------------------
-// Base Building (Phase 1)
+// Base Building (Phase 1) — the book's 7-day TB2 template
+//   wks 1–5: Mon SE(3) · Tue E · Wed E · Thu SE(2) · Fri Recovery · Sat long E · Sun Rest
+//   wks 6–8: Mon Strength · Tue HIC · Wed Recovery · Thu Strength(/Test) · Fri HIC · Sat E · Sun Rest
 // ---------------------------------------------------------------------------
-const BB_RUN: Record<number, { jog: string; total: string }> = {
-  1: { jog: 'Jog 2 min / walk 1 min', total: '30 min' },
-  2: { jog: 'Jog 2 min / walk 1 min', total: '30 min' },
-  3: { jog: 'Jog 4 min / walk 1 min', total: '30–35 min' },
-  4: { jog: 'Jog 4 min / walk 1 min', total: '30–35 min' },
-  5: { jog: 'Jog 8–10 min / walk 1–2 min', total: '35 min' },
-  6: { jog: 'Jog 8–10 min / walk 1–2 min', total: '35 min' },
-  7: { jog: '20–30 min continuous easy jog', total: '~35 min' },
-  8: { jog: 'Benchmark: 30 min continuous — record distance', total: '30 min' },
+// Easy-run durations (LSS, by time): weekday E vs the deliberate long Saturday E.
+const BB_E_WEEKDAY: Record<number, string> = {
+  1: '30 min', 2: '40 min', 3: '50 min', 4: '60 min', 5: '45–60 min',
 }
-const SE_REPS: Record<number, { reps: number; note?: string }> = {
-  1: { reps: 10 },
-  2: { reps: 20 },
-  3: { reps: 30 },
-  4: { reps: 20, note: 'shorter rest' },
-  5: { reps: 30, note: 'shorter rest' },
+const BB_E_LONG: Record<number, string> = {
+  1: '35 min', 2: '45 min', 3: '55 min', 4: '60 min', 5: '45–60 min',
 }
+// SE circuit rep target per week (per exercise). Reps ramp 20 → 50.
+const SE_REPS: Record<number, number> = { 1: 20, 2: 30, 3: 40, 4: 50, 5: 50 }
 const SE_MOVES: { name: string; loaded: boolean; note?: string }[] = [
   { name: 'Push-ups', loaded: false },
-  { name: 'Bodyweight squats', loaded: false, note: 'or light goblet, one DB' },
+  { name: 'Bodyweight squats', loaded: false, note: 'or light DB goblet' },
   { name: 'Inverted rows on the beam', loaded: false },
-  { name: 'DB Romanian Deadlift', loaded: true, note: 'the DBs — one weight, set once' },
-  { name: 'Plank + core', loaded: false, note: '30–60s hold' },
+  { name: 'DB Romanian Deadlift', loaded: true, note: 'the DBs — light, set once' },
+  { name: 'Back extensions / Supermans', loaded: false },
+  { name: 'Bicycle crunches', loaded: false, note: 'or a plank hold' },
 ]
 
-const bbRun = (week: number): SessionPlan => {
-  const r = BB_RUN[week] ?? BB_RUN[8]
-  return {
-    type: 'run',
-    title: 'Easy Run',
-    detail: `${r.jog} · ${r.total}. Flat park only, conversational pace — walk whenever you need to.`,
-    exercises: [],
-  }
-}
-const bbSe = (week: number): SessionPlan => {
-  const { reps, note } = SE_REPS[week] ?? { reps: 30 }
+const bbRun = (durLabel: string, long = false): SessionPlan => ({
+  type: 'run',
+  title: long ? 'Long Easy Run' : 'Easy Run',
+  detail: `LSS ${durLabel} — flat, conversational (120–150 bpm). Run-walk as needed; work for time, not distance.${
+    long ? ' The deliberate long one.' : ''
+  }`,
+  exercises: [],
+})
+const bbSe = (week: number, rounds: number): SessionPlan => {
+  const reps = SE_REPS[week] ?? 50
   return {
     type: 'se',
     title: 'SE Circuit',
-    scheme: `3 rounds × ${reps}${note ? ` (${note})` : ''}`,
+    scheme: `${rounds} round${rounds > 1 ? 's' : ''} × ${reps}`,
     detail:
-      'One weight, set once. Circuit style: one set of each move, short rests (30–90s), 2 min between rounds, 3 rounds.',
+      'Circuit: one set of each move in order, short rests (30–120s), ~2 min between rounds. One token weight, set once. Rest-pause to finish the reps.',
     exercises: SE_MOVES.map((m) => ({
       name: m.name,
       note: m.note,
       loaded: m.loaded,
-      sets: Array.from({ length: 3 }, () => ({ reps, ...(m.loaded ? { perDumbbell: true } : {}) })),
+      sets: Array.from({ length: rounds }, () => ({ reps, ...(m.loaded ? { perDumbbell: true } : {}) })),
     })),
   }
 }
+const bbRecovery = (): SessionPlan => ({
+  type: 'rest',
+  title: 'Recovery',
+  detail: 'Light — mobility, easy walk, stretch, or easy bike/swim. Or just extra rest. Keep it genuinely easy.',
+  exercises: [],
+})
 const bbStrengthIntro = (): SessionPlan => ({
   type: 'lift',
-  title: 'Light Strength Intro',
-  scheme: '3 × 8, comfortable',
-  detail: 'Relearn the lifts light, ready to test at the end of the phase.',
+  title: 'Strength Intro',
+  scheme: '3 × 5, comfortable',
+  detail:
+    'Light re-acclimation of your 3 lifts (the book’s weeks 6–8 max-strength is 3–5×5). Comfortable weight, leave 2+ in the tank — groove the movement, ready to test.',
   exercises: [
-    { name: 'DB Bench Press', loaded: true, sets: mk(3, 8, true) },
-    { name: 'Two-DB Front-rack Squat', loaded: true, sets: mk(3, 8, true) },
-    { name: '1-Arm DB Row', loaded: true, sets: mk(3, 8, true) },
-    { name: 'Pull-up progression', loaded: false, note: 'beam negatives / inverted rows', sets: mk(3, 8, false) },
+    { name: 'DB Bench Press', loaded: true, sets: mk(3, 5, true) },
+    { name: 'Two-DB Front-rack Squat', loaded: true, sets: mk(3, 5, true) },
+    { name: '1-Arm DB Row', loaded: true, sets: mk(3, 5, true) },
+    { name: 'Pull-up progression', loaded: false, note: 'beam negatives / inverted rows', sets: mk(3, 5, false) },
   ],
 })
 const bbTestDay = (): SessionPlan => ({
@@ -219,45 +226,43 @@ const bbTestDay = (): SessionPlan => ({
 const bbHic = (): SessionPlan => ({
   type: 'hic',
   title: 'HIC — Easy Hills',
-  detail: 'First taste of the hill. Short efforts, walk down to recover.',
-  exercises: [],
-})
-const bbOptional = (): SessionPlan => ({
-  type: 'run',
-  title: 'Optional easy run / rest',
-  detail: 'A longer easy run (30–45 min) or a full rest — your call.',
+  detail: 'HIC #1–10 only (aerobic-compatible): easy hills / tempo / resets. Short efforts, walk down to recover.',
   exercises: [],
 })
 
 function baseBuildingDay(week: number, day: number): SessionPlan {
   if (week <= 5) {
+    // Mon SE(3) · Tue E · Wed E · Thu SE(2) · Fri Recovery · Sat long E · Sun Rest
     switch (day) {
-      case 0:
-      case 2:
-      case 4:
-        return bbRun(week)
-      case 1:
-      case 3:
-        return bbSe(week)
-      case 5:
-        return bbOptional()
-      default:
+      case 0: // Mon — SE, 3 rounds (1 round on wk4's 50-rep jump)
+        return bbSe(week, week === 4 ? 1 : 3)
+      case 1: // Tue — easy run
+      case 2: // Wed — easy run
+        return bbRun(BB_E_WEEKDAY[week] ?? '30–40 min')
+      case 3: // Thu — SE, 2 rounds (1 on wk4)
+        return bbSe(week, week === 4 ? 1 : 2)
+      case 4: // Fri — recovery
+        return bbRecovery()
+      case 5: // Sat — the long easy run
+        return bbRun(BB_E_LONG[week] ?? '45–60 min', true)
+      default: // Sun — rest
         return rest()
     }
   }
-  // weeks 6–8
+  // weeks 6–8 (the bridge)
   switch (day) {
-    case 0:
-    case 2:
-    case 4:
-      return bbRun(week)
-    case 1:
+    case 0: // Mon — strength
+      return bbStrengthIntro()
+    case 1: // Tue — HIC #1–10
+    case 4: // Fri — HIC #1–10
+      return bbHic()
+    case 2: // Wed — recovery
+      return bbRecovery()
+    case 3: // Thu — strength (wk8 = Test Day)
       return week === 8 ? bbTestDay() : bbStrengthIntro()
-    case 3:
-      return week >= 7 ? bbHic() : bbRun(week)
-    case 5:
-      return bbOptional()
-    default:
+    case 5: // Sat — easy run
+      return bbRun('30–60 min')
+    default: // Sun — rest
       return rest()
   }
 }
