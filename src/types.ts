@@ -77,4 +77,6 @@ export interface Settings {
   onboarded?: boolean
   /** which 6-week Operator block since the last retest (1-based); first run = 12 wks before retest */
   operatorBlock?: number
+  /** true once the first 12-week Operator run has been retested — after which retest every 6 wks (TB1 p.108) */
+  operatorFirstRunDone?: boolean
 }

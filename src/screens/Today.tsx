@@ -67,7 +67,7 @@ export default function Today() {
   if (pos.status === 'complete') {
     if (phase.id === 'base-building') {
       async function startOperator() {
-        await saveSettings({ currentPhaseId: 'operator', phaseStartDate: nextMonday(), operatorBlock: 1 })
+        await saveSettings({ currentPhaseId: 'operator', phaseStartDate: nextMonday(), operatorBlock: 1, operatorFirstRunDone: false })
       }
       return (
         <Card className="p-6 text-center space-y-3">
@@ -92,9 +92,10 @@ export default function Today() {
     const items = suggestBlockProgression(OPERATOR_LIFTS, mm)
     const hasMaxes = items.some((i) => i.hasMax)
     const opBlock = settings.operatorBlock ?? 1
-    // TB new-lifter ladder: your first Operator run is 12 weeks (two 6-wk blocks on the
-    // same numbers) BEFORE the first retest. Forced progression is a later fallback.
-    const firstRun = opBlock < 2
+    // TB new-lifter ladder (p.108): the FIRST Operator run is 12 weeks (two 6-wk blocks on
+    // the same numbers) before the first retest; retest every 6 wks THEREAFTER. Once the
+    // first run has been retested, every later block recommends a retest (not another hold).
+    const firstRun = !(settings.operatorFirstRunDone ?? false) && opBlock < 2
     const thisMonday = isoDate(addDays(now, -mondayIndex(now)))
     const blockEndIso = isoDate(addDays(parseISO(settings.phaseStartDate), phase.lengthWeeks * 7 - 1))
     const blockCount = sessions.filter(
