@@ -426,7 +426,7 @@ export default function Today() {
                   href="https://www.strava.com/"
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-xl px-4 py-3 font-semibold bg-orange-100 text-orange-700 flex items-center gap-1"
+                  className="rounded-xl px-4 py-3 font-semibold bg-orange-500/15 text-orange-500 flex items-center gap-1"
                 >
                   Strava <ExternalLink size={16} />
                 </a>

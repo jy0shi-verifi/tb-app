@@ -72,7 +72,7 @@ export const SESSION_META: Record<
   lift: { label: 'Lift', icon: Dumbbell, color: 'text-brand', bg: 'bg-brand/10' },
   se: { label: 'Circuit', icon: Repeat, color: 'text-load', bg: 'bg-load-soft' },
   run: { label: 'Run', icon: Footprints, color: 'text-accent', bg: 'bg-accent/10' },
-  hic: { label: 'Conditioning', icon: Mountain, color: 'text-orange-600', bg: 'bg-orange-100' },
+  hic: { label: 'Conditioning', icon: Mountain, color: 'text-orange-500', bg: 'bg-orange-500/15' },
   rest: { label: 'Rest', icon: Moon, color: 'text-muted', bg: 'bg-line/40' },
 }
 
@@ -88,7 +88,10 @@ export function SessionIcon({ type, size = 22 }: { type: SessionType; size?: num
 
 export function EmptyState({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="text-center py-10 px-6">
+    <div className="text-center py-12 px-6">
+      <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-brand/10 text-brand mb-3">
+        <Dumbbell size={26} />
+      </div>
       <p className="font-semibold text-ink">{title}</p>
       {sub && <p className="text-sm text-muted mt-1">{sub}</p>}
     </div>

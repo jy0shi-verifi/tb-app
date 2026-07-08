@@ -17,10 +17,14 @@ import { deleteSession } from '../db'
 import { Card, EmptyState, SessionIcon, SESSION_META } from '../components/ui'
 import { parseISO } from '../lib/date'
 
-const LIFT_COLORS: Record<string, string> = {
-  Bench: '#2c5578',
-  Squat: '#2e7d5b',
-  Row: '#c2831f',
+const LIFT_COLORS_LIGHT: Record<string, string> = { Bench: '#2c5578', Squat: '#2e7d5b', Row: '#c2831f' }
+const LIFT_COLORS_DARK: Record<string, string> = { Bench: '#6fa3cf', Squat: '#4cc38a', Row: '#e0b24a' }
+
+function isDarkNow(): boolean {
+  const el = document.documentElement
+  if (el.classList.contains('dark')) return true
+  if (el.classList.contains('light')) return false
+  return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches
 }
 
 async function confirmDelete(id?: number) {
@@ -72,6 +76,13 @@ export default function History() {
   const earned = badges(sessions)
   const runs = runStats(sessions)
   const records = liftRecords(sessions, OPERATOR_LIFTS)
+  const dark = isDarkNow()
+  const axisColor = dark ? '#8b97a4' : '#6b7784'
+  const lineColors = dark ? LIFT_COLORS_DARK : LIFT_COLORS_LIGHT
+  const cutWeeks = Math.round(
+    sessions.filter((s) => s.phaseId === 'operator' && s.type === 'lift' && s.done).length / 3,
+  )
+  const nextMs = [10, 25, 50, 100, 200, 365].find((m) => done < m)
 
   return (
     <div className="space-y-4">
@@ -113,8 +124,8 @@ export default function History() {
         </div>
       </Card>
 
-      {/* badges */}
-      {earned.length > 0 && (
+      {/* badges + next milestone */}
+      {(earned.length > 0 || nextMs) && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           {earned.map((b) => (
             <div
@@ -125,6 +136,12 @@ export default function History() {
               <span className="font-medium text-ink">{b.label}</span>
             </div>
           ))}
+          {nextMs && (
+            <div className="shrink-0 rounded-full border border-dashed border-line px-3 py-1.5 flex items-center gap-1.5 text-sm">
+              <span>🎯</span>
+              <span className="font-medium text-muted">{nextMs - done} to {nextMs} sessions</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -136,15 +153,23 @@ export default function History() {
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={chartData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,138,150,0.2)" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#6b7784' }} />
-              <YAxis tick={{ fontSize: 11, fill: '#6b7784' }} width={40} />
-              <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: axisColor }} />
+              <YAxis tick={{ fontSize: 11, fill: axisColor }} width={40} />
+              <Tooltip
+                contentStyle={{
+                  fontSize: 12,
+                  borderRadius: 8,
+                  background: dark ? '#161d26' : '#fff',
+                  border: `1px solid ${dark ? '#2b3745' : '#e5e7eb'}`,
+                  color: dark ? '#e7edf3' : '#1a2733',
+                }}
+              />
               {OPERATOR_LIFTS.map((l) => (
                 <Line
                   key={l.short}
                   type="monotone"
                   dataKey={l.short}
-                  stroke={LIFT_COLORS[l.short]}
+                  stroke={lineColors[l.short]}
                   strokeWidth={2.5}
                   dot={{ r: 3 }}
                   connectNulls
@@ -155,13 +180,15 @@ export default function History() {
           <div className="flex justify-center gap-4 mt-2">
             {OPERATOR_LIFTS.map((l) => (
               <span key={l.short} className="flex items-center gap-1 text-xs text-muted">
-                <span className="inline-block w-3 h-1.5 rounded-full" style={{ background: LIFT_COLORS[l.short] }} />
+                <span className="inline-block w-3 h-1.5 rounded-full" style={{ background: lineColors[l.short] }} />
                 {l.short}
               </span>
             ))}
           </div>
           <p className="text-xs text-muted mt-3 text-center">
-            On a cut, holding your lifts is a win — any climb is a bonus.
+            {cutWeeks >= 2
+              ? `You've held your lifts across ~${cutWeeks} weeks of cutting — that's the win. Any climb is a bonus.`
+              : 'On a cut, holding your lifts is a win — any climb is a bonus.'}
           </p>
         </Card>
       )}

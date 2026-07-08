@@ -126,7 +126,7 @@ export default function Settings() {
             type="date"
             value={s.phaseStartDate}
             onChange={(e) => saveSettings({ phaseStartDate: e.target.value })}
-            className="rounded-lg border border-line bg-white px-3 py-2 font-semibold"
+            className="rounded-lg border border-line bg-surface text-ink px-3 py-2 font-semibold"
           />
         </Row>
       </Card>

@@ -174,7 +174,7 @@ export default function Program() {
                           key={day}
                           onClick={() => nav(`/session/${iso}`)}
                           className={`relative rounded-lg ${meta.bg} py-1.5 flex flex-col items-center gap-0.5 ${
-                            isToday ? 'ring-2 ring-brand' : ''
+                            isToday ? 'ring-2 ring-brand' : doneDates.has(iso) ? 'ring-1 ring-load/60' : ''
                           }`}
                         >
                           <span className={`text-[11px] font-semibold ${isToday ? 'text-brand' : 'text-ink/70'} tnum`}>

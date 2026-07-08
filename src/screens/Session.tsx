@@ -411,26 +411,32 @@ export default function Session() {
       {/* rest timer */}
       {restEnd != null && (
         <div className="fixed bottom-20 inset-x-0 px-4 z-20">
-          <div className="max-w-xl mx-auto rounded-2xl bg-brand text-white shadow-lg px-4 py-3 flex items-center gap-3">
-            <Timer size={22} />
-            <div className="flex-1">
-              <p className="text-xs text-white/70">Rest</p>
-              <p className="text-2xl font-bold tnum leading-none">
-                {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
-              </p>
+          <div className="max-w-xl mx-auto rounded-2xl bg-brand text-white shadow-lg overflow-hidden">
+            <div className="px-4 py-3 flex items-center gap-3">
+              <Timer size={22} />
+              <div className="flex-1">
+                <p className="text-xs text-white/70">Rest</p>
+                <p className="text-2xl font-bold tnum leading-none">
+                  {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
+                </p>
+              </div>
+              <button
+                onClick={() => setRestEnd(Date.now() + (restEnd - Date.now()) + 30_000)}
+                className="rounded-lg bg-white/15 px-2 py-2 text-sm font-semibold flex items-center gap-1"
+              >
+                <Plus size={14} />
+                30s
+              </button>
+              <button onClick={() => setRestEnd(null)} className="rounded-lg bg-white/15 p-2" aria-label="Skip rest">
+                <X size={18} />
+              </button>
             </div>
-            <button
-              onClick={() => {
-                setRestEnd(Date.now() + (restEnd - Date.now()) + 30_000)
-              }}
-              className="rounded-lg bg-white/15 px-2 py-2 text-sm font-semibold flex items-center gap-1"
-            >
-              <Plus size={14} />
-              30s
-            </button>
-            <button onClick={() => setRestEnd(null)} className="rounded-lg bg-white/15 p-2" aria-label="Skip rest">
-              <X size={18} />
-            </button>
+            <div className="h-1 bg-white/20">
+              <div
+                className="h-full bg-white/80 transition-all duration-200"
+                style={{ width: `${restSec ? (remaining / restSec) * 100 : 0}%` }}
+              />
+            </div>
           </div>
         </div>
       )}
