@@ -1,0 +1,56 @@
+@import 'tailwindcss';
+
+/* ---- design tokens (match the printed guide) ---- */
+@theme {
+  --color-ink: #1a2733;
+  --color-brand: #2c5578;
+  --color-brand-dark: #223f5c;
+  --color-accent: #4c7ba6;
+  --color-load: #2e7d5b;
+  --color-load-soft: #e5f1e6;
+  --color-muted: #6b7784;
+  --color-line: #d5dee7;
+  --color-surface: #ffffff;
+  --color-canvas: #f4f7fa;
+  --color-warm: #fbf1df;
+  --color-warm-edge: #e4b857;
+
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  overscroll-behavior-y: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* respect the phone's safe areas (notch / gesture bar) */
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* number inputs: no spinners */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* tabular numbers for loads/reps */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
