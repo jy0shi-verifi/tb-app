@@ -98,14 +98,17 @@ export default function Settings() {
             onChange={(v) => saveSettings({ dbIncrement: v })}
           />
         </Row>
-        <Row label="Load basis" hint="Operator loads compute off 90% Training Max (TB standard) or your true 1RM.">
+        <Row label="Load basis" hint="Advanced — weights compute off 90% Training Max (the TB standard) or your true 1RM.">
           <Segmented<LoadBasis>
             value={s.loadBasis}
             options={[
               { label: '90% TM', value: 'tm' },
               { label: 'True 1RM', value: '1rm' },
             ]}
-            onChange={(v) => saveSettings({ loadBasis: v })}
+            onChange={(v) => {
+              if (v !== s.loadBasis && window.confirm('Change how every weight is worked out? This rescales all your loads.'))
+                saveSettings({ loadBasis: v })
+            }}
           />
         </Row>
         <Row label="Current phase" hint="Advanced — the app normally moves you between phases at the right time.">

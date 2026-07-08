@@ -28,6 +28,8 @@ export default function Program() {
   const doneDates = new Set(sessions.filter((s) => s.done).map((s) => s.date))
   const loggedDates = new Set(sessions.map((s) => s.date))
   const wavePct = (w: number) => (phase.wave ? phase.wave[(w - 1) % phase.wave.length].pct : null)
+  const feelWord = (pct: number | null) =>
+    pct == null ? '' : pct >= 90 ? 'heavy' : pct >= 80 ? 'building' : 'lighter'
 
   function loadsLine(plan: ReturnType<typeof sessionFor>): string | null {
     const parts = plan.exercises
@@ -72,7 +74,9 @@ export default function Program() {
                 {phase.name} · Week {week}
               </p>
               {wavePct(week) != null && (
-                <p className="text-xs font-semibold text-load">{wavePct(week)}% week</p>
+                <p className="text-xs font-semibold text-load">
+                  {feelWord(wavePct(week))} · {wavePct(week)}%
+                </p>
               )}
             </div>
             <button

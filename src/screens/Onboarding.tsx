@@ -45,10 +45,10 @@ export default function Onboarding() {
               <Card className="p-4 flex items-start gap-3">
                 <Dumbbell className="text-brand mt-0.5" />
                 <div>
-                  <p className="font-semibold text-ink">Then: lifting</p>
+                  <p className="font-semibold text-ink">Then: lifting (called "Operator")</p>
                   <p className="text-sm text-muted">
-                    At the end you'll do a Test Day, pop in your numbers, and the app takes over the
-                    weights.
+                    At the end you'll do a Test Day, pop in your numbers, and the app works out every
+                    weight for you — no thinking required.
                   </p>
                 </div>
               </Card>

@@ -17,6 +17,7 @@ export default function Maxes() {
   // raw query (undefined until IndexedDB has loaded) so we init from real data
   const maxes = useLiveQuery(() => db.maxes.toArray(), [])
   const [fields, setFields] = useState<Record<string, Field> | null>(null)
+  const [advanced, setAdvanced] = useState(false)
 
   useEffect(() => {
     if (fields !== null || maxes === undefined) return
@@ -78,8 +79,13 @@ export default function Maxes() {
           </Pill>
         </div>
         <p className="text-xs text-muted mt-1">
-          Enter your Test Day result — the weight per dumbbell and the reps you got (about 5, leaving
-          1–2 in the tank). Loads round to your {settings.dbIncrement} kg increment.
+          Enter your Test Day result — the weight on <b>one dumbbell</b> (not both) and the reps you
+          got (about 5, leaving 1–2 in the tank). Loads round to your {settings.dbIncrement} kg
+          increment.
+        </p>
+        <p className="text-[11px] text-muted mt-1">
+          <b>TM (Training Max)</b> = the number your weights are based on — a safe 90% of your best,
+          so you always keep gas in the tank.
         </p>
 
         <div className="mt-3 space-y-3">
@@ -107,7 +113,7 @@ export default function Maxes() {
                       placeholder="kg"
                       value={f.w}
                       onChange={(e) => setField(l.id, { w: e.target.value })}
-                      className="w-20 text-center rounded-lg border border-line bg-white py-2 font-semibold tnum"
+                      className="w-20 text-center rounded-lg border border-line bg-surface py-2 font-semibold tnum"
                     />
                     <span className="text-xs text-muted">kg/DB</span>
                   </label>
@@ -118,38 +124,51 @@ export default function Maxes() {
                       placeholder="reps"
                       value={f.r}
                       onChange={(e) => setField(l.id, { r: e.target.value })}
-                      className="w-16 text-center rounded-lg border border-line bg-white py-2 font-semibold tnum"
+                      className="w-16 text-center rounded-lg border border-line bg-surface py-2 font-semibold tnum"
                     />
                     <span className="text-xs text-muted">reps</span>
                   </label>
                 </div>
-                {oneRM > 0 && (
+                {oneRM > 0 && (bump > 0 || advanced) && (
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-line/60">
                     <span className="text-xs text-muted">
                       {bump > 0 ? `Progressed +${bump} kg on 1RM` : 'No progression yet'}
                     </span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        onClick={() => bumpBy(l.id, -(l.progressStep ?? 2.5))}
-                        className="w-8 h-8 rounded-lg bg-white border border-line text-brand font-bold"
-                        aria-label="Reduce progression"
-                      >
-                        −
-                      </button>
-                      <button
-                        onClick={() => bumpBy(l.id, l.progressStep ?? 2.5)}
-                        className="w-8 h-8 rounded-lg bg-brand text-white font-bold"
-                        aria-label="Add progression"
-                      >
-                        +
-                      </button>
-                    </div>
+                    {advanced && (
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => bumpBy(l.id, -(l.progressStep ?? 2.5))}
+                          className="w-8 h-8 rounded-lg bg-surface border border-line text-brand font-bold"
+                          aria-label="Reduce progression"
+                        >
+                          −
+                        </button>
+                        <button
+                          onClick={() => bumpBy(l.id, l.progressStep ?? 2.5)}
+                          className="w-8 h-8 rounded-lg bg-brand text-white font-bold"
+                          aria-label="Add progression"
+                        >
+                          +
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
             )
           })}
         </div>
+        <button
+          onClick={() => setAdvanced((a) => !a)}
+          className="text-xs text-accent font-medium mt-3"
+        >
+          {advanced ? 'Hide manual adjust' : 'Advanced: adjust manually'}
+        </button>
+        {advanced && (
+          <p className="text-[11px] text-muted mt-1">
+            The app bumps these for you after each block — only use ± if you're manually correcting.
+          </p>
+        )}
       </Card>
 
       {/* wave table */}

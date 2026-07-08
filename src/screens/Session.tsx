@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Check, Pencil, Timer, X, Plus } from 'lucide-react'
+import { Check, Timer, X, Plus, Minus } from 'lucide-react'
 import { maxesMap, resolvePosition, sessionFor, type SessionPlan } from '../program'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
 import { db, DEFAULT_SETTINGS } from '../db'
@@ -29,7 +29,7 @@ interface MetaState {
 }
 
 function restSeconds(plan: SessionPlan, week: number): number {
-  if (plan.type === 'se') return 60
+  if (plan.type === 'se') return 120 // between rounds
   if (plan.type === 'lift' && plan.title.startsWith('Operator')) {
     return week === 3 || week === 6 ? 240 : 150
   }
@@ -43,6 +43,9 @@ function buzz(pattern: number | number[]) {
     /* not supported */
   }
 }
+
+const STEP =
+  'w-8 h-8 rounded-lg bg-surface border border-line text-brand flex items-center justify-center shrink-0 active:scale-95'
 
 export default function Session() {
   const nav = useNavigate()
@@ -60,7 +63,6 @@ export default function Session() {
 
   const [ex, setEx] = useState<ExState[] | null>(null)
   const [meta, setMeta] = useState<MetaState>({ done: false, duration: '', feel: '', notes: '' })
-  const [editing, setEditing] = useState<Set<string>>(new Set())
   const [restEnd, setRestEnd] = useState<number | null>(null)
   const [remaining, setRemaining] = useState(0)
   const touched = useRef(false)
@@ -181,6 +183,7 @@ export default function Session() {
   const isRest = plan.type === 'rest'
   const isSE = plan.type === 'se'
   const restSec = restSeconds(plan, pos.week)
+  const inc = settings.dbIncrement
 
   const setSet = (ei: number, si: number, patch: Partial<SetState>) => {
     touched.current = true
@@ -190,15 +193,18 @@ export default function Session() {
       ),
     )
   }
-
+  const startRest = () => {
+    setRestEnd(Date.now() + restSec * 1000)
+    setRemaining(restSec)
+  }
   const toggleDone = (ei: number, si: number) => {
     const cur = ex[ei].sets[si].done
     setSet(ei, si, { done: !cur })
-    if (!cur) {
-      buzz(30)
-      setRestEnd(Date.now() + restSec * 1000)
-      setRemaining(restSec)
-    }
+    if (cur) return
+    buzz(30)
+    // circuits rest between ROUNDS only (when the round's last move is ticked)
+    const roundComplete = ex.every((e, i) => i === ei || e.sets[si].done)
+    if (!isSE || roundComplete) startRest()
   }
 
   const setMetaTouched = (patch: Partial<MetaState>) => {
@@ -206,89 +212,70 @@ export default function Session() {
     setMeta((m) => ({ ...m, ...patch }))
   }
 
-  const editKey = (ei: number, si: number) => `${ei}-${si}`
-  const toggleEdit = (ei: number, si: number) => {
-    setEditing((prev) => {
-      const next = new Set(prev)
-      const k = editKey(ei, si)
-      next.has(k) ? next.delete(k) : next.add(k)
-      return next
-    })
-  }
-
   const totalSets = ex.reduce((n, e) => n + e.sets.length, 0)
   const doneSets = ex.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0)
   const allDone = totalSets > 0 && doneSets === totalSets
-  const prs = allDone
-    ? ex
-        .filter((e) => e.loaded)
-        .map((e) => {
-          const cur = Math.max(
-            0,
-            ...e.sets
-              .filter((s) => s.weight !== '' && Number(s.reps) > 0)
-              .map((s) => estimate1RM(Number(s.weight), Number(s.reps))),
-          )
-          const prev = bestEst1RM(allSessions, e.name, iso)
-          return cur > 0 && prev > 0 && cur > prev ? e.name : null
-        })
-        .filter((x): x is string => x != null)
-    : []
+  // PRs from any DONE set that beats the previous best — not gated on finishing everything
+  const prs = ex
+    .filter((e) => e.loaded)
+    .map((e) => {
+      const cur = Math.max(
+        0,
+        ...e.sets
+          .filter((s) => s.done && s.weight !== '' && Number(s.reps) > 0)
+          .map((s) => estimate1RM(Number(s.weight), Number(s.reps))),
+      )
+      const prev = bestEst1RM(allSessions, e.name, iso)
+      return cur > 0 && prev > 0 && cur > prev ? { name: e.name, prev, cur } : null
+    })
+    .filter((x): x is { name: string; prev: number; cur: number } => x != null)
 
   function SetRow({ ei, si }: { ei: number; si: number }) {
     const s = ex![ei].sets[si]
     const loaded = ex![ei].loaded
-    const isEditing = editing.has(editKey(ei, si))
+    const w = Number(s.weight) || 0
+    const r = Number(s.reps) || 0
+    const bumpW = (d: number) =>
+      setSet(ei, si, { weight: String(Math.max(0, Math.round((w + d) * 10) / 10)) })
+    const bumpR = (d: number) => setSet(ei, si, { reps: String(Math.max(0, r + d)) })
     return (
-      <div
-        className={`flex items-center gap-2 rounded-xl p-2 transition ${s.done ? 'bg-load-soft' : 'bg-canvas'}`}
-      >
-        <span className="w-5 text-center text-sm font-semibold text-muted">{si + 1}</span>
-        {isEditing ? (
-          <>
-            {loaded && (
-              <label className="flex items-center gap-1">
-                <input
-                  inputMode="decimal"
-                  value={s.weight}
-                  onChange={(e) => setSet(ei, si, { weight: e.target.value })}
-                  className="w-16 text-center rounded-lg border border-line bg-white py-2 font-semibold tnum"
-                />
-                <span className="text-xs text-muted">kg</span>
-              </label>
-            )}
-            <label className="flex items-center gap-1">
-              <input
-                inputMode="numeric"
-                value={s.reps}
-                onChange={(e) => setSet(ei, si, { reps: e.target.value })}
-                className="w-14 text-center rounded-lg border border-line bg-white py-2 font-semibold tnum"
-              />
-              <span className="text-xs text-muted">reps</span>
-            </label>
-            <button onClick={() => toggleEdit(ei, si)} className="ml-auto text-muted p-2" aria-label="Done editing">
-              <Check size={18} />
+      <div className={`flex items-center gap-1.5 rounded-xl p-2 transition ${s.done ? 'bg-load-soft' : 'bg-canvas'}`}>
+        <span className="w-4 text-center text-xs font-semibold text-muted shrink-0">{si + 1}</span>
+        {loaded && (
+          <div className="flex items-center gap-1">
+            <button onClick={() => bumpW(-inc)} className={STEP} aria-label="Less weight">
+              <Minus size={14} />
             </button>
-          </>
-        ) : (
-          <>
-            <span className="font-semibold text-ink tnum">
-              {loaded && s.weight !== '' ? `${s.weight} kg × ${s.reps}` : `${s.reps} reps`}
-            </span>
-            <button onClick={() => toggleEdit(ei, si)} className="text-muted/60 p-1" aria-label="Edit set">
-              <Pencil size={14} />
+            <div className="w-11 text-center">
+              <span className="font-bold text-ink tnum text-[15px] leading-none">{s.weight || 0}</span>
+              <span className="text-[9px] text-muted block leading-none">kg/DB</span>
+            </div>
+            <button onClick={() => bumpW(inc)} className={STEP} aria-label="More weight">
+              <Plus size={14} />
             </button>
-            <button
-              onClick={() => toggleDone(ei, si)}
-              className={`ml-auto w-12 h-12 rounded-xl flex items-center justify-center transition active:scale-95 ${
-                s.done ? 'bg-load text-white' : 'bg-white border border-line text-line'
-              }`}
-              aria-label="Mark set done"
-            >
-              <Check size={22} />
-            </button>
-          </>
+          </div>
         )}
+        <div className="flex items-center gap-1">
+          <button onClick={() => bumpR(-1)} className={STEP} aria-label="Fewer reps">
+            <Minus size={14} />
+          </button>
+          <div className="w-8 text-center">
+            <span className="font-bold text-ink tnum text-[15px] leading-none">{s.reps}</span>
+            <span className="text-[9px] text-muted block leading-none">reps</span>
+          </div>
+          <button onClick={() => bumpR(1)} className={STEP} aria-label="More reps">
+            <Plus size={14} />
+          </button>
+        </div>
+        <button
+          onClick={() => toggleDone(ei, si)}
+          className={`ml-auto w-11 h-11 rounded-xl flex items-center justify-center transition active:scale-95 shrink-0 ${
+            s.done ? 'bg-load text-white' : 'bg-surface border border-line text-line'
+          }`}
+          aria-label="Mark set done"
+        >
+          <Check size={20} />
+        </button>
       </div>
     )
   }
@@ -318,16 +305,22 @@ export default function Session() {
         {isLifting && plan.detail && <p className="text-xs text-muted mt-2">{plan.detail}</p>}
       </div>
 
-      {/* completion moment */}
-      {allDone && (
+      {/* completion / PR moment — PRs show as soon as a top set beats your best */}
+      {(allDone || prs.length > 0) && (
         <Card className="pop p-4 text-center bg-load-soft border-load/40">
-          <p className="text-3xl">✅</p>
-          <p className="font-bold text-load mt-1">
-            Session complete — {doneSets}/{totalSets} sets
-          </p>
-          {prs.length > 0 && (
-            <p className="text-sm text-ink mt-1">🏆 New best on {prs.join(', ')}!</p>
+          {allDone && (
+            <>
+              <p className="text-3xl">✅</p>
+              <p className="font-bold text-load mt-1">
+                Session complete — {doneSets}/{totalSets} sets
+              </p>
+            </>
           )}
+          {prs.map((pr) => (
+            <p key={pr.name} className="text-sm text-ink mt-1">
+              🏆 {pr.name} best: {pr.prev.toFixed(0)} → <b>{pr.cur.toFixed(0)} kg</b>
+            </p>
+          ))}
         </Card>
       )}
 
@@ -349,7 +342,7 @@ export default function Session() {
                   <button
                     onClick={() => toggleDone(ei, round)}
                     className={`w-12 h-12 rounded-xl flex items-center justify-center transition active:scale-95 ${
-                      e.sets[round].done ? 'bg-load text-white' : 'bg-white border border-line text-line'
+                      e.sets[round].done ? 'bg-load text-white' : 'bg-surface border border-line text-line'
                     }`}
                     aria-label="Mark done"
                   >
