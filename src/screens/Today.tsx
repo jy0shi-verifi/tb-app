@@ -18,7 +18,9 @@ export default function Today() {
   const now = today()
   const iso = isoDate(now)
   const logged = useSessionByDate(iso)
-  const [dismissedMissed, setDismissedMissed] = useState(false)
+  const [dismissedDate, setDismissedDate] = useState<string | null>(() =>
+    localStorage.getItem('tb-dismiss-missed'),
+  )
 
   const pos = resolvePosition(settings, now)
   const phase = PHASES[pos.phaseId]
@@ -107,6 +109,12 @@ export default function Today() {
       await saveSettings({ phaseStartDate: thisMonday })
     }
     async function retest() {
+      if (
+        !window.confirm(
+          'Retest resets your progressed maxes back to your test numbers — you’ll re-enter fresh. Continue?',
+        )
+      )
+        return
       await clearProgression()
       nav('/maxes')
     }
@@ -185,10 +193,15 @@ export default function Today() {
   const streak = computeStreak(sessions)
   const weekCount = sessionsThisWeek(sessions)
 
-  // missed-session catch-up: most recent unlogged lift/SE day in the last 2 days
+  // intensity / feel of the current week
+  const wavePct = phase.wave ? phase.wave[(pos.week - 1) % phase.wave.length].pct : null
+  const weekFeel =
+    wavePct == null ? null : wavePct >= 90 ? 'heavy — earn it' : wavePct >= 80 ? 'building' : 'lighter — move it well'
+
+  // missed-session catch-up: most recent unlogged lift/SE day in the last week
   const loggedDates = new Set(sessions.map((s) => s.date))
   let missed: { date: string; title: string } | null = null
-  for (let back = 1; back <= 2 && !missed; back++) {
+  for (let back = 1; back <= 7 && !missed; back++) {
     const d = addDays(now, -back)
     const p = resolvePosition(settings, d)
     if (p.status !== 'active') continue
@@ -197,6 +210,22 @@ export default function Today() {
       missed = { date: isoDate(d), title: pl.title }
     }
   }
+
+  // lapse: been away a while → don't silently advance into heavier weeks
+  const lastDoneSession = sessions.find((s) => s.done)
+  const lapsedDays = lastDoneSession ? diffDays(now, parseISO(lastDoneSession.date)) : 0
+  const lapsed = lastDoneSession != null && lapsedDays > 10
+  async function realign() {
+    const lastWk = lastDoneSession?.week ?? 1
+    const thisMon = addDays(now, -mondayIndex(now))
+    await saveSettings({ phaseStartDate: isoDate(addDays(thisMon, -(lastWk - 1) * 7)) })
+  }
+
+  // tomorrow's session (for rest-day peek)
+  const tmr = addDays(now, 1)
+  const tmrPos = resolvePosition(settings, tmr)
+  const tmrPlan =
+    tmrPos.status === 'active' ? sessionFor(tmrPos.phaseId, tmrPos.week, tmrPos.day, mm, settings) : null
 
   async function markDone() {
     if (logged?.id && logged.done) {
@@ -237,16 +266,42 @@ export default function Today() {
         </Card>
       </div>
 
-      {/* context strip */}
-      <div className="flex items-center justify-between px-1">
-        <span className="text-sm text-muted">{prettyDate(now)}</span>
-        <Pill tone="brand">
-          {phase.name} · Wk {pos.week}/{phase.lengthWeeks}
-        </Pill>
+      {/* context strip + block progress */}
+      <div className="px-1">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-muted">{prettyDate(now)}</span>
+          <Pill tone="brand">
+            {phase.name} · Wk {pos.week}/{phase.lengthWeeks}
+          </Pill>
+        </div>
+        <div className="h-1.5 rounded-full bg-line/50 overflow-hidden mt-2">
+          <div
+            className="h-full bg-brand transition-all"
+            style={{ width: `${(pos.week / phase.lengthWeeks) * 100}%` }}
+          />
+        </div>
+        <p className="text-[11px] text-muted mt-1">
+          {phase.lengthWeeks - pos.week > 0
+            ? `${phase.lengthWeeks - pos.week} week${phase.lengthWeeks - pos.week === 1 ? '' : 's'} to ${pos.phaseId === 'operator' ? 'the next bump' : 'Test Day'}`
+            : pos.phaseId === 'operator'
+              ? 'Final week — earn the bump'
+              : 'Final week — Test Day'}
+        </p>
       </div>
 
-      {/* missed-session nudge */}
-      {missed && !dismissedMissed && (
+      {/* lapse (welcome back) takes priority over a single missed nudge */}
+      {lapsed ? (
+        <Card className="p-3 border-warm-edge/40 bg-warm">
+          <p className="font-semibold text-ink text-sm">Welcome back 👋</p>
+          <p className="text-xs text-muted mt-0.5">
+            It's been {lapsedDays} days — don't jump ahead into heavier weeks. Pick up where you left
+            off and ease back in.
+          </p>
+          <button onClick={realign} className="text-brand font-semibold text-sm mt-1">
+            Resume from week {lastDoneSession?.week} →
+          </button>
+        </Card>
+      ) : missed && dismissedDate !== missed.date ? (
         <Card className="p-3 flex items-center gap-3 border-warm-edge/40 bg-warm">
           <AlertTriangle size={20} className="text-warm-edge shrink-0" />
           <div className="flex-1 text-sm">
@@ -255,11 +310,18 @@ export default function Today() {
               Log it now →
             </button>
           </div>
-          <button onClick={() => setDismissedMissed(true)} aria-label="Dismiss" className="text-muted p-1">
+          <button
+            onClick={() => {
+              localStorage.setItem('tb-dismiss-missed', missed!.date)
+              setDismissedDate(missed!.date)
+            }}
+            aria-label="Dismiss"
+            className="text-muted p-1"
+          >
             <X size={16} />
           </button>
         </Card>
-      )}
+      ) : null}
 
       {/* main session card */}
       <Card className="overflow-hidden">
@@ -269,6 +331,11 @@ export default function Today() {
             <div className="flex-1">
               <h2 className="text-xl font-bold text-ink">{plan.title}</h2>
               {plan.scheme && <p className={`text-sm font-semibold ${meta.color}`}>{plan.scheme}</p>}
+              {wavePct != null && (
+                <p className="text-xs text-muted">
+                  Week {pos.week} · {wavePct}% · {weekFeel}
+                </p>
+              )}
             </div>
             {logged?.done && <CheckCircle2 className="text-load" />}
           </div>
@@ -326,11 +393,25 @@ export default function Today() {
               Enter your maxes first <ChevronRight className="inline -mt-0.5" size={18} />
             </Button>
           ) : isLoggable ? (
-            <Button className="w-full text-lg py-4" onClick={() => nav(`/session/${iso}`)}>
-              {logged?.exercises?.length ? 'Continue session' : 'Start session'}
-            </Button>
+            <>
+              <Button className="w-full text-lg py-4" onClick={() => nav(`/session/${iso}`)}>
+                {logged?.exercises?.length ? 'Continue session' : 'Start session'}
+              </Button>
+              {!logged?.done && (
+                <p className="text-center text-[11px] text-muted mt-2">
+                  Can't face it? Just do the first set — showing up beats skipping.
+                </p>
+              )}
+            </>
           ) : plan.type === 'rest' ? (
-            <p className="text-center text-sm text-muted">Nothing scheduled — enjoy the recovery.</p>
+            <div className="text-center">
+              <p className="text-sm text-muted">Rest day — recovery is training too.</p>
+              {tmrPlan && (
+                <p className="text-xs text-muted mt-1">
+                  Tomorrow: <span className="font-semibold text-ink">{tmrPlan.title}</span>
+                </p>
+              )}
+            </div>
           ) : (
             <div className="flex gap-2">
               <Button

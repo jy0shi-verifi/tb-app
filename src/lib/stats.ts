@@ -1,25 +1,22 @@
 import type { SessionLog } from '../types'
-import { addDays, isoDate, mondayIndex, today } from './date'
+import { addDays, diffDays, isoDate, mondayIndex, parseISO, today } from './date'
 import { estimate1RM } from './calc'
 
-const doneDates = (sessions: SessionLog[]) =>
-  new Set(sessions.filter((s) => s.done).map((s) => s.date))
-
-/** Consecutive done-days ending today, tolerating up to 2 gap days (rest/weekend). */
+/**
+ * Consecutive completed sessions, counted from the log — NOT calendar days.
+ * A gap of up to 3 days between sessions is allowed (covers rest days / weekends),
+ * so following the plan never breaks your streak. Resets only if you actually stop
+ * (no session in the last few days).
+ */
 export function computeStreak(sessions: SessionLog[]): number {
-  const set = doneDates(sessions)
-  let streak = 0
-  let misses = 0
-  let d = today()
-  for (let i = 0; i < 365; i++) {
-    if (set.has(isoDate(d))) {
-      streak++
-      misses = 0
-    } else {
-      misses++
-      if (misses > 2) break
-    }
-    d = addDays(d, -1)
+  const dates = [...new Set(sessions.filter((s) => s.done).map((s) => s.date))].sort()
+  if (!dates.length) return 0
+  const latest = parseISO(dates[dates.length - 1])
+  if (diffDays(today(), latest) > 3) return 0 // streak has lapsed
+  let streak = 1
+  for (let i = dates.length - 1; i > 0; i--) {
+    if (diffDays(parseISO(dates[i]), parseISO(dates[i - 1])) <= 3) streak++
+    else break
   }
   return streak
 }
