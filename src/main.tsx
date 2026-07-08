@@ -4,10 +4,12 @@ import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
 import { applyTheme, db, ensureSeeded } from './db'
+import { autoCompleteRestDays } from './lib/autocomplete'
 
 ensureSeeded().then(async () => {
   const s = await db.settings.get('app')
   applyTheme(s?.theme ?? 'system')
+  await autoCompleteRestDays()
 })
 
 // dev-only: window.tbSeed() populates fake history, window.tbClear() resets

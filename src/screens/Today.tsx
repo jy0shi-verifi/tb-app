@@ -212,7 +212,8 @@ export default function Today() {
   }
 
   // lapse: been away a while → don't silently advance into heavier weeks
-  const lastDoneSession = sessions.find((s) => s.done)
+  // (ignore auto-completed rest days so they can't mask a real training lapse)
+  const lastDoneSession = sessions.find((s) => s.done && s.type !== 'rest')
   const lapsedDays = lastDoneSession ? diffDays(now, parseISO(lastDoneSession.date)) : 0
   const lapsed = lastDoneSession != null && lapsedDays > 10
   async function realign() {

@@ -71,7 +71,7 @@ export const SESSION_META: Record<
 > = {
   lift: { label: 'Lift', icon: Dumbbell, color: 'text-brand', bg: 'bg-brand/10' },
   se: { label: 'Circuit', icon: Repeat, color: 'text-load', bg: 'bg-load-soft' },
-  run: { label: 'Run', icon: Footprints, color: 'text-accent', bg: 'bg-accent/10' },
+  run: { label: 'Run', icon: Footprints, color: 'text-violet-500', bg: 'bg-violet-500/15' },
   hic: { label: 'Conditioning', icon: Mountain, color: 'text-orange-500', bg: 'bg-orange-500/15' },
   rest: { label: 'Rest', icon: Moon, color: 'text-muted', bg: 'bg-line/40' },
 }
