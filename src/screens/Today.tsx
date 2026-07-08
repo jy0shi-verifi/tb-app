@@ -225,7 +225,7 @@ export default function Today() {
           <Flame size={22} className={streak > 0 ? 'text-orange-500' : 'text-muted'} />
           <div>
             <p className="text-xl font-extrabold text-ink tnum leading-none">{streak}</p>
-            <p className="text-[11px] text-muted">day streak</p>
+            <p className="text-[11px] text-muted">session streak</p>
           </div>
         </Card>
         <Card className="flex-1 p-3 flex items-center gap-2">

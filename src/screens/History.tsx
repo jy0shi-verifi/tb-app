@@ -80,7 +80,7 @@ export default function History() {
             <Flame size={18} className={streak > 0 ? 'text-orange-500' : 'text-muted'} />
             <p className="text-2xl font-extrabold text-ink tnum">{streak}</p>
           </div>
-          <p className="text-[11px] text-muted">day streak</p>
+          <p className="text-[11px] text-muted">streak</p>
         </Card>
         <Card className="p-4 text-center">
           <p className="text-2xl font-extrabold text-load tnum">{week}</p>
