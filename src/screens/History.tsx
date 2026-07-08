@@ -114,7 +114,7 @@ export default function History() {
           <p className="text-xs text-muted mb-3">best estimated 1RM to date · kg per dumbbell</p>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={chartData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" />
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,138,150,0.2)" />
               <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#6b7784' }} />
               <YAxis tick={{ fontSize: 11, fill: '#6b7784' }} width={40} />
               <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />

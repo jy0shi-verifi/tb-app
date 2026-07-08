@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react'
 import { Download, Upload } from 'lucide-react'
 import { useSettings } from '../hooks'
-import { exportBackup, importBackup, saveSettings } from '../db'
+import { applyTheme, exportBackup, importBackup, saveSettings } from '../db'
 import { PHASES } from '../program'
 import { Button, Card } from '../components/ui'
-import type { DbIncrement, LoadBasis } from '../types'
+import type { DbIncrement, LoadBasis, ThemeMode } from '../types'
 
 function Segmented<T extends string | number>({
   value,
@@ -74,6 +74,20 @@ export default function Settings() {
   return (
     <div className="space-y-4">
       <Card className="px-4 divide-y divide-line/60">
+        <Row label="Appearance" hint="Dark follows your phone at 6am.">
+          <Segmented<ThemeMode>
+            value={s.theme ?? 'system'}
+            options={[
+              { label: 'System', value: 'system' },
+              { label: 'Light', value: 'light' },
+              { label: 'Dark', value: 'dark' },
+            ]}
+            onChange={(v) => {
+              applyTheme(v)
+              saveSettings({ theme: v })
+            }}
+          />
+        </Row>
         <Row label="Dumbbell increment" hint="Smallest jump your adjustable DBs allow. Loads floor-round to this.">
           <Segmented<DbIncrement>
             value={s.dbIncrement}

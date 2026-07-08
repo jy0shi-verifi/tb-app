@@ -62,10 +62,13 @@ export interface SessionLog {
   createdAt: number
 }
 
+export type ThemeMode = 'system' | 'light' | 'dark'
+
 export interface Settings {
   id: 'app'
   dbIncrement: DbIncrement
   loadBasis: LoadBasis
   currentPhaseId: string
   phaseStartDate: string // ISO yyyy-mm-dd (Monday of week 1)
+  theme?: ThemeMode
 }

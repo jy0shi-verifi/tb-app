@@ -14,8 +14,61 @@
   --color-canvas: #f4f7fa;
   --color-warm: #fbf1df;
   --color-warm-edge: #e4b857;
+  --color-header: #2c5578;
 
   --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ---- dark theme (override the tokens; utilities read them via var()) ---- */
+.dark {
+  --color-ink: #e7edf3;
+  --color-brand: #5f93c0;
+  --color-brand-dark: #4a789f;
+  --color-accent: #6fa3cf;
+  --color-load: #4cc38a;
+  --color-load-soft: #123027;
+  --color-muted: #8b97a4;
+  --color-line: #2b3745;
+  --color-surface: #161d26;
+  --color-canvas: #0e141b;
+  --color-warm: #2c2617;
+  --color-warm-edge: #dca545;
+  --color-header: #0d1219;
+}
+@media (prefers-color-scheme: dark) {
+  html:not(.light) {
+    --color-ink: #e7edf3;
+    --color-brand: #5f93c0;
+    --color-brand-dark: #4a789f;
+    --color-accent: #6fa3cf;
+    --color-load: #4cc38a;
+    --color-load-soft: #123027;
+    --color-muted: #8b97a4;
+    --color-line: #2b3745;
+    --color-surface: #161d26;
+    --color-canvas: #0e141b;
+    --color-warm: #2c2617;
+    --color-warm-edge: #dca545;
+    --color-header: #0d1219;
+  }
+}
+
+/* ---- motion ---- */
+@keyframes pop {
+  0% {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.03);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.pop {
+  animation: pop 0.28s ease-out;
 }
 
 html {

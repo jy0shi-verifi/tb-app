@@ -3,9 +3,12 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
-import { ensureSeeded } from './db'
+import { applyTheme, db, ensureSeeded } from './db'
 
-ensureSeeded()
+ensureSeeded().then(async () => {
+  const s = await db.settings.get('app')
+  applyTheme(s?.theme ?? 'system')
+})
 
 // dev-only: window.tbSeed() populates fake history, window.tbClear() resets
 if (import.meta.env.DEV) {

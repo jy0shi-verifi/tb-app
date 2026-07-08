@@ -44,7 +44,7 @@ export function Button({
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`rounded-xl px-5 py-3 font-semibold text-base transition disabled:opacity-40 ${styles[variant]} ${className}`}
+      className={`rounded-xl px-5 py-3 font-semibold text-base transition active:scale-[0.98] disabled:opacity-40 ${styles[variant]} ${className}`}
     >
       {children}
     </button>

@@ -1,5 +1,8 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Home, CalendarDays, History, Calculator, Settings } from 'lucide-react'
+import { useSettings } from '../hooks'
+import { PHASES, resolvePosition } from '../program'
+import { today } from '../lib/date'
 
 const NAV = [
   { to: '/', label: 'Today', icon: Home, end: true },
@@ -19,14 +22,19 @@ const TITLES: Record<string, string> = {
 
 export default function Layout() {
   const { pathname } = useLocation()
+  const settings = useSettings()
   const title = TITLES[pathname] ?? 'Tactical Barbell'
+  const pos = resolvePosition(settings, today())
+  const phase = PHASES[settings.currentPhaseId]
+  const context =
+    pos.status === 'active' ? `${phase.name} · Wk ${pos.week}` : phase?.name ?? 'Tactical Barbell'
   return (
     <div className="min-h-[100dvh] flex flex-col">
       {/* header */}
-      <header className="safe-top bg-brand text-white sticky top-0 z-10">
+      <header className="safe-top bg-header text-white sticky top-0 z-10">
         <div className="max-w-xl mx-auto px-4 h-14 flex items-center justify-between">
           <span className="font-bold tracking-tight">{title}</span>
-          <span className="text-xs font-semibold text-white/70">TACTICAL BARBELL</span>
+          <span className="text-xs font-semibold text-white/60">{context}</span>
         </div>
       </header>
 

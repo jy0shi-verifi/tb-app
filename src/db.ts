@@ -24,7 +24,17 @@ export const DEFAULT_SETTINGS: Settings = {
   dbIncrement: 2,
   loadBasis: 'tm',
   currentPhaseId: 'base-building',
-  phaseStartDate: '2026-07-13', // Monday of Base Building week 1
+  phaseStartDate: '2026-07-13', // Monday of Base Building week 1 (overridden to next Monday at first launch)
+  theme: 'system',
+}
+
+/** Apply the colour theme by toggling classes on <html>. */
+export function applyTheme(mode: Settings['theme']): void {
+  const el = document.documentElement
+  el.classList.remove('dark', 'light')
+  if (mode === 'dark') el.classList.add('dark')
+  else if (mode === 'light') el.classList.add('light')
+  // 'system' / undefined → no class, CSS media query decides
 }
 
 export async function ensureSeeded(): Promise<void> {

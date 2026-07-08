@@ -316,7 +316,7 @@ export default function Session() {
 
       {/* completion moment */}
       {allDone && (
-        <Card className="p-4 text-center bg-load-soft border-load/40">
+        <Card className="pop p-4 text-center bg-load-soft border-load/40">
           <p className="text-3xl">✅</p>
           <p className="font-bold text-load mt-1">
             Session complete — {doneSets}/{totalSets} sets
