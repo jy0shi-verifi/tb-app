@@ -70,9 +70,9 @@ export const SESSION_META: Record<
   { label: string; icon: typeof Dumbbell; color: string; bg: string }
 > = {
   lift: { label: 'Lift', icon: Dumbbell, color: 'text-brand', bg: 'bg-brand/10' },
-  se: { label: 'SE Circuit', icon: Repeat, color: 'text-load', bg: 'bg-load-soft' },
+  se: { label: 'Circuit', icon: Repeat, color: 'text-load', bg: 'bg-load-soft' },
   run: { label: 'Run', icon: Footprints, color: 'text-accent', bg: 'bg-accent/10' },
-  hic: { label: 'HIC', icon: Mountain, color: 'text-orange-600', bg: 'bg-orange-100' },
+  hic: { label: 'Conditioning', icon: Mountain, color: 'text-orange-600', bg: 'bg-orange-100' },
   rest: { label: 'Rest', icon: Moon, color: 'text-muted', bg: 'bg-line/40' },
 }
 

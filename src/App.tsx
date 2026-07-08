@@ -1,5 +1,8 @@
 import { Routes, Route } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from './db'
 import Layout from './components/Layout'
+import Onboarding from './screens/Onboarding'
 import Today from './screens/Today'
 import Session from './screens/Session'
 import Program from './screens/Program'
@@ -8,6 +11,10 @@ import Maxes from './screens/Maxes'
 import Settings from './screens/Settings'
 
 export default function App() {
+  const settings = useLiveQuery(async () => (await db.settings.get('app')) ?? null, [])
+  if (settings === undefined || settings === null) return null // loading / seeding
+  if (settings.onboarded === false) return <Onboarding />
+
   return (
     <Routes>
       <Route element={<Layout />}>

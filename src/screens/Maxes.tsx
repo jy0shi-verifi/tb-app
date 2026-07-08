@@ -62,6 +62,14 @@ export default function Maxes() {
 
   return (
     <div className="space-y-4">
+      {settings.currentPhaseId === 'base-building' && (
+        <Card className="p-4 bg-warm border-warm-edge/30">
+          <p className="text-sm text-ink">
+            <b>Nothing to do here yet.</b> You'll test these on <b>Test Day</b> at the end of Base
+            Building, then enter them here — and Operator works out every weight for you.
+          </p>
+        </Card>
+      )}
       <Card className="p-4">
         <div className="flex items-center justify-between">
           <h2 className="font-bold text-ink">Operator maxes</h2>

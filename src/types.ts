@@ -71,4 +71,5 @@ export interface Settings {
   currentPhaseId: string
   phaseStartDate: string // ISO yyyy-mm-dd (Monday of week 1)
   theme?: ThemeMode
+  onboarded?: boolean
 }

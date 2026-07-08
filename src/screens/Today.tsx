@@ -27,6 +27,7 @@ export default function Today() {
   // ---- before the phase starts ----
   if (pos.status === 'before') {
     const days = diffDays(parseISO(settings.phaseStartDate), now)
+    const isBB = phase.id === 'base-building'
     return (
       <div className="space-y-4">
         <Card className="p-6 text-center">
@@ -35,7 +36,26 @@ export default function Today() {
           <p className="text-sm text-muted">
             day{days === 1 ? '' : 's'} — {prettyDate(parseISO(settings.phaseStartDate))}
           </p>
-          <p className="mt-4 text-sm text-ink">Lay your kit out the night before. The only job is to show up.</p>
+        </Card>
+
+        {isBB && (
+          <Card className="p-4">
+            <p className="font-semibold text-ink mb-2">Your first week</p>
+            <ul className="text-sm text-muted space-y-1.5">
+              <li>🏃 3 easy runs (Mon · Wed · Fri) — jog/walk ~30 min, flat</li>
+              <li>🔁 2 light circuits (Tue · Thu)</li>
+              <li>😴 Rest Sunday</li>
+            </ul>
+          </Card>
+        )}
+
+        <Card className="p-4">
+          <p className="font-semibold text-ink mb-2">Before you start</p>
+          <ul className="text-sm text-muted space-y-1.5">
+            <li>• Sort your dumbbells &amp; bench</li>
+            <li>• Pick your flat run route</li>
+            <li>• Lay your kit out the night before</li>
+          </ul>
         </Card>
       </div>
     )

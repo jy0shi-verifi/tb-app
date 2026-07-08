@@ -39,8 +39,8 @@ export function applyTheme(mode: Settings['theme']): void {
 
 export async function ensureSeeded(): Promise<void> {
   const s = await db.settings.get('app')
-  // first launch: default the start to the upcoming Monday (never a hardcoded past date)
-  if (!s) await db.settings.put({ ...DEFAULT_SETTINGS, phaseStartDate: nextMonday() })
+  // first launch: start = upcoming Monday (never a hardcoded past date), and show onboarding
+  if (!s) await db.settings.put({ ...DEFAULT_SETTINGS, phaseStartDate: nextMonday(), onboarded: false })
 }
 
 export async function saveSettings(patch: Partial<Settings>): Promise<void> {

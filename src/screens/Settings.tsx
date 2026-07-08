@@ -108,11 +108,14 @@ export default function Settings() {
             onChange={(v) => saveSettings({ loadBasis: v })}
           />
         </Row>
-        <Row label="Current phase">
+        <Row label="Current phase" hint="Advanced — the app normally moves you between phases at the right time.">
           <Segmented<string>
             value={s.currentPhaseId}
             options={Object.values(PHASES).map((p) => ({ label: p.name, value: p.id }))}
-            onChange={(v) => saveSettings({ currentPhaseId: v })}
+            onChange={(v) => {
+              if (v !== s.currentPhaseId && window.confirm('Switch phase? This changes your plan and where you are in it.'))
+                saveSettings({ currentPhaseId: v })
+            }}
           />
         </Row>
         <Row label="Phase start date" hint="The Monday your current phase's week 1 began.">
