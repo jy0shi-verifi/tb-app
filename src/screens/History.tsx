@@ -8,23 +8,24 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts'
-import { Trash2 } from 'lucide-react'
+import { Flame, Footprints, Trash2 } from 'lucide-react'
 import { useSessions } from '../hooks'
 import { OPERATOR_LIFTS } from '../program'
 import { estimate1RM } from '../lib/calc'
+import { badges, computeStreak, runStats, sessionsThisWeek } from '../lib/stats'
 import { deleteSession } from '../db'
 import { Card, EmptyState, SessionIcon, SESSION_META } from '../components/ui'
 import { parseISO } from '../lib/date'
-
-async function confirmDelete(id?: number) {
-  if (id == null) return
-  if (window.confirm('Delete this logged session?')) await deleteSession(id)
-}
 
 const LIFT_COLORS: Record<string, string> = {
   Bench: '#2c5578',
   Squat: '#2e7d5b',
   Row: '#c2831f',
+}
+
+async function confirmDelete(id?: number) {
+  if (id == null) return
+  if (window.confirm('Delete this logged session?')) await deleteSession(id)
 }
 
 export default function History() {
@@ -36,7 +37,6 @@ export default function History() {
       .filter((s) => s.type === 'lift')
       .slice()
       .sort((a, b) => (a.date < b.date ? -1 : 1))
-    // running "best estimate to date" per lift — climbs only, so light weeks don't drag it down
     const best: Record<string, number> = {}
     for (const s of lifts) {
       const row: Record<string, number | string> = {
@@ -48,9 +48,7 @@ export default function History() {
         if (ex) {
           const b = Math.max(
             0,
-            ...ex.sets
-              .filter((x) => x.weight && x.reps > 0)
-              .map((x) => estimate1RM(x.weight!, x.reps)),
+            ...ex.sets.filter((x) => x.weight && x.reps > 0).map((x) => estimate1RM(x.weight!, x.reps)),
           )
           if (b > (best[l.short] ?? 0)) best[l.short] = b
         }
@@ -64,26 +62,52 @@ export default function History() {
     return rows
   }, [sessions])
 
-  const doneCount = sessions.filter((s) => s.done).length
-
   if (!sessions.length)
     return <EmptyState title="No sessions logged yet" sub="Finish a workout and it'll show up here." />
 
+  const streak = computeStreak(sessions)
+  const week = sessionsThisWeek(sessions)
+  const done = sessions.filter((s) => s.done).length
+  const earned = badges(sessions)
+  const runs = runStats(sessions)
+
   return (
     <div className="space-y-4">
-      {/* summary */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* headline stats */}
+      <div className="grid grid-cols-3 gap-3">
         <Card className="p-4 text-center">
-          <p className="text-3xl font-bold text-brand tnum">{sessions.length}</p>
-          <p className="text-xs text-muted">sessions logged</p>
+          <div className="flex items-center justify-center gap-1">
+            <Flame size={18} className={streak > 0 ? 'text-orange-500' : 'text-muted'} />
+            <p className="text-2xl font-extrabold text-ink tnum">{streak}</p>
+          </div>
+          <p className="text-[11px] text-muted">day streak</p>
         </Card>
         <Card className="p-4 text-center">
-          <p className="text-3xl font-bold text-load tnum">{doneCount}</p>
-          <p className="text-xs text-muted">completed</p>
+          <p className="text-2xl font-extrabold text-load tnum">{week}</p>
+          <p className="text-[11px] text-muted">this week</p>
+        </Card>
+        <Card className="p-4 text-center">
+          <p className="text-2xl font-extrabold text-brand tnum">{done}</p>
+          <p className="text-[11px] text-muted">total done</p>
         </Card>
       </div>
 
-      {/* lift progress chart */}
+      {/* badges */}
+      {earned.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {earned.map((b) => (
+            <div
+              key={b.key}
+              className="shrink-0 rounded-full bg-surface border border-line px-3 py-1.5 flex items-center gap-1.5 text-sm"
+            >
+              <span>{b.emoji}</span>
+              <span className="font-medium text-ink">{b.label}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* strength chart */}
       {chartData.length >= 2 && (
         <Card className="p-4">
           <p className="font-bold text-ink mb-1">Strength trend</p>
@@ -110,13 +134,37 @@ export default function History() {
           <div className="flex justify-center gap-4 mt-2">
             {OPERATOR_LIFTS.map((l) => (
               <span key={l.short} className="flex items-center gap-1 text-xs text-muted">
-                <span
-                  className="inline-block w-3 h-1.5 rounded-full"
-                  style={{ background: LIFT_COLORS[l.short] }}
-                />
+                <span className="inline-block w-3 h-1.5 rounded-full" style={{ background: LIFT_COLORS[l.short] }} />
                 {l.short}
               </span>
             ))}
+          </div>
+          <p className="text-xs text-muted mt-3 text-center">
+            On a cut, holding your lifts is a win — any climb is a bonus.
+          </p>
+        </Card>
+      )}
+
+      {/* running */}
+      {runs.count > 0 && (
+        <Card className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Footprints size={18} className="text-accent" />
+            <p className="font-bold text-ink">Running &amp; conditioning</p>
+          </div>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div>
+              <p className="text-2xl font-extrabold text-accent tnum">{runs.count}</p>
+              <p className="text-[11px] text-muted">sessions</p>
+            </div>
+            <div>
+              <p className="text-2xl font-extrabold text-accent tnum">{runs.totalMin}</p>
+              <p className="text-[11px] text-muted">total min</p>
+            </div>
+            <div>
+              <p className="text-2xl font-extrabold text-accent tnum">{runs.longest}</p>
+              <p className="text-[11px] text-muted">longest (min)</p>
+            </div>
           </div>
         </Card>
       )}
@@ -144,10 +192,10 @@ export default function History() {
               {s.done && <span className="text-load text-sm font-semibold">✓</span>}
               <button
                 onClick={() => confirmDelete(s.id)}
-                className="p-2 -mr-1 text-muted active:text-red-600"
+                className="p-2 -mr-1 text-muted/50 active:text-red-600"
                 aria-label="Delete session"
               >
-                <Trash2 size={16} />
+                <Trash2 size={15} />
               </button>
             </Card>
           )

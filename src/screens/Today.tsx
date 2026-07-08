@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, ChevronRight, ExternalLink, TrendingUp, AlertTriangle, X } from 'lucide-react'
+import { CheckCircle2, ChevronRight, ExternalLink, TrendingUp, AlertTriangle, X, Flame } from 'lucide-react'
 import { useMaxes, useSettings, useSessions, useSessionByDate } from '../hooks'
 import { maxesMap, OPERATOR_LIFTS, PHASES, resolvePosition, sessionFor } from '../program'
 import { isoDate, today, prettyDate, parseISO, diffDays, addDays, mondayIndex, nextMonday } from '../lib/date'
 import { db, saveSettings, clearProgression } from '../db'
 import { suggestBlockProgression, bumpedEntry, blockCompleted } from '../lib/progression'
+import { computeStreak, sessionsThisWeek } from '../lib/stats'
 import { Button, Card, Pill, SessionIcon, SESSION_META } from '../components/ui'
 import type { SessionLog } from '../types'
 
@@ -69,6 +70,10 @@ export default function Today() {
     const items = suggestBlockProgression(OPERATOR_LIFTS, mm)
     const hasMaxes = items.some((i) => i.hasMax)
     const thisMonday = isoDate(addDays(now, -mondayIndex(now)))
+    const blockEndIso = isoDate(addDays(parseISO(settings.phaseStartDate), phase.lengthWeeks * 7 - 1))
+    const blockCount = sessions.filter(
+      (s) => s.done && s.date >= settings.phaseStartDate && s.date <= blockEndIso,
+    ).length
 
     async function startNextBlock() {
       for (const it of items) {
@@ -93,6 +98,10 @@ export default function Today() {
             <TrendingUp className="text-load" />
             <p className="text-lg font-bold text-brand">Operator block done</p>
           </div>
+          <p className="text-sm text-ink">
+            {completed ? '🎉 ' : ''}
+            {phase.lengthWeeks} weeks · <b className="text-load tnum">{blockCount}</b> sessions logged.
+          </p>
 
           {!hasMaxes ? (
             <>
@@ -153,6 +162,8 @@ export default function Today() {
   const needsMaxes = plan.type === 'lift' && pos.phaseId === 'operator' && maxes.length === 0
   const anyCeiling = plan.exercises.some((e) => e.sets[0]?.overCeiling)
   const anyFloor = plan.exercises.some((e) => e.sets[0]?.underFloor)
+  const streak = computeStreak(sessions)
+  const weekCount = sessionsThisWeek(sessions)
 
   // missed-session catch-up: most recent unlogged lift/SE day in the last 2 days
   const loggedDates = new Set(sessions.map((s) => s.date))
@@ -188,6 +199,24 @@ export default function Today() {
 
   return (
     <div className="space-y-4">
+      {/* streak strip */}
+      <div className="flex items-center gap-3">
+        <Card className="flex-1 p-3 flex items-center gap-2">
+          <Flame size={22} className={streak > 0 ? 'text-orange-500' : 'text-muted'} />
+          <div>
+            <p className="text-xl font-extrabold text-ink tnum leading-none">{streak}</p>
+            <p className="text-[11px] text-muted">day streak</p>
+          </div>
+        </Card>
+        <Card className="flex-1 p-3 flex items-center gap-2">
+          <CheckCircle2 size={22} className="text-load" />
+          <div>
+            <p className="text-xl font-extrabold text-ink tnum leading-none">{weekCount}</p>
+            <p className="text-[11px] text-muted">done this week</p>
+          </div>
+        </Card>
+      </div>
+
       {/* context strip */}
       <div className="flex items-center justify-between px-1">
         <span className="text-sm text-muted">{prettyDate(now)}</span>

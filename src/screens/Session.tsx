@@ -5,6 +5,8 @@ import { Check, Pencil, Timer, X, Plus } from 'lucide-react'
 import { maxesMap, resolvePosition, sessionFor, type SessionPlan } from '../program'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
 import { db, DEFAULT_SETTINGS } from '../db'
+import { estimate1RM } from '../lib/calc'
+import { bestEst1RM } from '../lib/stats'
 import { Button, Card, SessionIcon } from '../components/ui'
 import type { LoggedExercise, SessionLog } from '../types'
 
@@ -54,6 +56,7 @@ export default function Session() {
     async () => (await db.sessions.where('date').equals(iso).first()) ?? null,
     [iso],
   )
+  const allSessions = useLiveQuery(() => db.sessions.toArray(), [], [])
 
   const [ex, setEx] = useState<ExState[] | null>(null)
   const [meta, setMeta] = useState<MetaState>({ done: false, duration: '', feel: '', notes: '' })
@@ -212,6 +215,21 @@ export default function Session() {
   const totalSets = ex.reduce((n, e) => n + e.sets.length, 0)
   const doneSets = ex.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0)
   const allDone = totalSets > 0 && doneSets === totalSets
+  const prs = allDone
+    ? ex
+        .filter((e) => e.loaded)
+        .map((e) => {
+          const cur = Math.max(
+            0,
+            ...e.sets
+              .filter((s) => s.weight !== '' && Number(s.reps) > 0)
+              .map((s) => estimate1RM(Number(s.weight), Number(s.reps))),
+          )
+          const prev = bestEst1RM(allSessions, e.name, iso)
+          return cur > 0 && prev > 0 && cur > prev ? e.name : null
+        })
+        .filter((x): x is string => x != null)
+    : []
 
   function SetRow({ ei, si }: { ei: number; si: number }) {
     const s = ex![ei].sets[si]
@@ -295,6 +313,19 @@ export default function Session() {
         {plan.detail && !isLifting && <p className="text-sm text-muted mt-2">{plan.detail}</p>}
         {isLifting && plan.detail && <p className="text-xs text-muted mt-2">{plan.detail}</p>}
       </div>
+
+      {/* completion moment */}
+      {allDone && (
+        <Card className="p-4 text-center bg-load-soft border-load/40">
+          <p className="text-3xl">✅</p>
+          <p className="font-bold text-load mt-1">
+            Session complete — {doneSets}/{totalSets} sets
+          </p>
+          {prs.length > 0 && (
+            <p className="text-sm text-ink mt-1">🏆 New best on {prs.join(', ')}!</p>
+          )}
+        </Card>
+      )}
 
       {/* SE = round-by-round; other lifts = per-exercise */}
       {isSE ? (
