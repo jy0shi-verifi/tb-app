@@ -37,9 +37,9 @@ export interface PhaseMeta {
 // Operator (Phase 2)
 // ---------------------------------------------------------------------------
 export const OPERATOR_LIFTS: Lift[] = [
-  { id: 'op_bench', name: 'DB Bench Press', short: 'Bench' },
-  { id: 'op_squat', name: 'Two-DB Front-rack Squat', short: 'Squat' },
-  { id: 'op_row', name: '1-Arm DB Row', short: 'Row' },
+  { id: 'op_bench', name: 'DB Bench Press', short: 'Bench', progressStep: 2.5 },
+  { id: 'op_squat', name: 'Two-DB Front-rack Squat', short: 'Squat', progressStep: 5 },
+  { id: 'op_row', name: '1-Arm DB Row', short: 'Row', progressStep: 2.5 },
 ]
 
 export const OPERATOR_WAVE: WaveWeek[] = [

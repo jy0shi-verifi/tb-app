@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, ChevronRight, ExternalLink } from 'lucide-react'
+import { CheckCircle2, ChevronRight, ExternalLink, TrendingUp } from 'lucide-react'
 import { useMaxes, useSettings, useSessionByDate } from '../hooks'
-import { maxesMap, PHASES, resolvePosition, sessionFor } from '../program'
-import { isoDate, today, prettyDate, parseISO, diffDays } from '../lib/date'
-import { db } from '../db'
+import { maxesMap, OPERATOR_LIFTS, PHASES, resolvePosition, sessionFor } from '../program'
+import { isoDate, today, prettyDate, parseISO, diffDays, addDays, mondayIndex } from '../lib/date'
+import { db, saveSettings } from '../db'
+import { suggestBlockProgression, bumpedEntry } from '../lib/progression'
 import { Button, Card, Pill, SessionIcon, SESSION_META } from '../components/ui'
 import type { SessionLog } from '../types'
 
@@ -33,16 +34,83 @@ export default function Today() {
   }
 
   if (pos.status === 'complete') {
+    if (phase.id === 'base-building') {
+      return (
+        <Card className="p-6 text-center space-y-2">
+          <p className="text-lg font-bold text-brand">Base Building complete 🎉</p>
+          <p className="text-sm text-muted">
+            Time for Test Day — head to Maxes to enter your tested lifts, then switch to Operator in
+            Settings.
+          </p>
+          <Button onClick={() => nav('/maxes')} className="mt-2">
+            Go to Maxes
+          </Button>
+        </Card>
+      )
+    }
+
+    // Operator block complete → forced-progression suggestion
+    const items = suggestBlockProgression(OPERATOR_LIFTS, maxesMap(maxes))
+    const hasMaxes = items.some((i) => i.hasMax)
+
+    async function startNextBlock() {
+      for (const it of items) {
+        if (!it.hasMax) continue
+        const entry = maxes.find((m) => m.liftId === it.liftId)
+        if (entry) await db.maxes.put(bumpedEntry(entry, it.step))
+      }
+      const monday = addDays(now, -mondayIndex(now))
+      await saveSettings({ phaseStartDate: isoDate(monday) })
+    }
+
     return (
-      <Card className="p-6 text-center space-y-2">
-        <p className="text-lg font-bold text-brand">{phase.name} complete 🎉</p>
-        <p className="text-sm text-muted">
-          {phase.id === 'base-building'
-            ? 'Time for Test Day — head to Maxes to enter your tested lifts, then switch to Operator in Settings.'
-            : 'Block done — retest your lifts and start the next block.'}
-        </p>
-        <Button onClick={() => nav('/maxes')} className="mt-2">Go to Maxes</Button>
-      </Card>
+      <div className="space-y-4">
+        <Card className="p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="text-load" />
+            <p className="text-lg font-bold text-brand">Operator block done</p>
+          </div>
+          {hasMaxes ? (
+            <>
+              <p className="text-sm text-muted">
+                Nice work. Forced progression — bump each lift and start a fresh 6-week block:
+              </p>
+              <div className="divide-y divide-line/60">
+                {items.map((it) => (
+                  <div key={it.liftId} className="flex items-center justify-between py-2">
+                    <span className="font-medium text-ink text-[15px]">{it.name}</span>
+                    {it.hasMax ? (
+                      <span className="text-sm tnum">
+                        <span className="text-muted">TM {it.currentTM.toFixed(1)}</span>
+                        <span className="text-load font-bold"> → {it.nextTM.toFixed(1)} kg</span>
+                        <span className="text-muted"> (+{it.step})</span>
+                      </span>
+                    ) : (
+                      <span className="text-xs text-muted">no max set</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <Button className="w-full" onClick={startNextBlock}>
+                Confirm &amp; start next block
+              </Button>
+              <button
+                onClick={() => nav('/maxes')}
+                className="w-full text-sm text-muted font-medium py-1"
+              >
+                Retest instead →
+              </button>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted">Enter your maxes to progress into the next block.</p>
+              <Button className="w-full" onClick={() => nav('/maxes')}>
+                Go to Maxes
+              </Button>
+            </>
+          )}
+        </Card>
+      </div>
     )
   }
 
@@ -128,7 +196,7 @@ export default function Today() {
               Enter your maxes first <ChevronRight className="inline -mt-0.5" size={18} />
             </Button>
           ) : isLoggable ? (
-            <Button className="w-full text-lg py-4" onClick={() => nav('/session')}>
+            <Button className="w-full text-lg py-4" onClick={() => nav(`/session/${iso}`)}>
               {logged?.exercises?.length ? 'Continue session' : 'Start session'}
             </Button>
           ) : plan.type === 'rest' ? (

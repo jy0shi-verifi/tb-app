@@ -13,6 +13,7 @@ export default function App() {
       <Route element={<Layout />}>
         <Route path="/" element={<Today />} />
         <Route path="/session" element={<Session />} />
+        <Route path="/session/:date" element={<Session />} />
         <Route path="/program" element={<Program />} />
         <Route path="/history" element={<History />} />
         <Route path="/maxes" element={<Maxes />} />

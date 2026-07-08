@@ -48,7 +48,12 @@ export function workingLoad(
   return { kg, raw, overCeiling, underFloor }
 }
 
+/** Effective 1RM per DB = tested estimate + any forced-progression bump. */
+export function effective1RM(entry: MaxEntry): number {
+  return estimate1RM(entry.testWeight, entry.testReps) + (entry.bumpKg ?? 0)
+}
+
 /** Convenience: from a tested max entry to the phase basis max (per DB). */
 export function maxToBasis(entry: MaxEntry, basis: LoadBasis): number {
-  return basisMax(estimate1RM(entry.testWeight, entry.testReps), basis)
+  return basisMax(effective1RM(entry), basis)
 }

@@ -9,6 +9,8 @@ export interface Lift {
   id: string
   name: string
   short: string
+  /** forced-progression step added to the 1RM on a stall/block (kg): upper ~2.5, lower ~5 */
+  progressStep?: number
 }
 
 /** Per-week prescription for a wave-based lifting phase (e.g. Operator). */
@@ -25,6 +27,8 @@ export interface MaxEntry {
   liftId: string
   testWeight: number // kg per dumbbell
   testReps: number
+  /** cumulative forced-progression added to the est. 1RM (kg per DB), default 0 */
+  bumpKg?: number
 }
 
 /** One logged set the user actually performed. */

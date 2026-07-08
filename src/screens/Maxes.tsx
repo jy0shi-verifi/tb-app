@@ -37,11 +37,19 @@ export default function Maxes() {
     const w = Number(next.w)
     const r = Number(next.r)
     if (w > 0 && r > 0) {
-      const entry: MaxEntry = { liftId, testWeight: w, testReps: r }
+      const bumpKg = maxes?.find((m) => m.liftId === liftId)?.bumpKg ?? 0
+      const entry: MaxEntry = { liftId, testWeight: w, testReps: r, bumpKg }
       await db.maxes.put(entry)
     } else {
       await db.maxes.delete(liftId)
     }
+  }
+
+  const bumpBy = async (liftId: string, delta: number) => {
+    const entry = maxes?.find((m) => m.liftId === liftId)
+    if (!entry) return
+    const bumpKg = Math.max(0, (entry.bumpKg ?? 0) + delta)
+    await db.maxes.put({ ...entry, bumpKg })
   }
 
   const anyMax = OPERATOR_LIFTS.some((l) => {
@@ -68,7 +76,8 @@ export default function Maxes() {
             const f = fields[l.id]
             const w = Number(f.w)
             const r = Number(f.r)
-            const oneRM = w > 0 && r > 0 ? estimate1RM(w, r) : 0
+            const bump = maxes?.find((m) => m.liftId === l.id)?.bumpKg ?? 0
+            const oneRM = w > 0 && r > 0 ? estimate1RM(w, r) + bump : 0
             const tm = trainingMax(oneRM)
             return (
               <div key={l.id} className="rounded-xl bg-canvas p-3">
@@ -103,6 +112,29 @@ export default function Maxes() {
                     <span className="text-xs text-muted">reps</span>
                   </label>
                 </div>
+                {oneRM > 0 && (
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-line/60">
+                    <span className="text-xs text-muted">
+                      {bump > 0 ? `Progressed +${bump} kg on 1RM` : 'No progression yet'}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => bumpBy(l.id, -(l.progressStep ?? 2.5))}
+                        className="w-8 h-8 rounded-lg bg-white border border-line text-brand font-bold"
+                        aria-label="Reduce progression"
+                      >
+                        −
+                      </button>
+                      <button
+                        onClick={() => bumpBy(l.id, l.progressStep ?? 2.5)}
+                        className="w-8 h-8 rounded-lg bg-brand text-white font-bold"
+                        aria-label="Add progression"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}
