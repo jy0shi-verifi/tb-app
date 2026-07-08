@@ -37,7 +37,10 @@ export default function Maxes() {
     const w = Number(next.w)
     const r = Number(next.r)
     if (w > 0 && r > 0) {
-      const bumpKg = maxes?.find((m) => m.liftId === liftId)?.bumpKg ?? 0
+      // a fresh test supersedes accumulated forced-progression — reset the bump when the numbers change
+      const existing = maxes?.find((m) => m.liftId === liftId)
+      const changed = !existing || existing.testWeight !== w || existing.testReps !== r
+      const bumpKg = changed ? 0 : (existing?.bumpKg ?? 0)
       const entry: MaxEntry = { liftId, testWeight: w, testReps: r, bumpKg }
       await db.maxes.put(entry)
     } else {

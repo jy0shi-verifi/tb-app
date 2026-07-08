@@ -33,6 +33,12 @@ export function diffDays(a: Date, b: Date): number {
 
 export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
+/** The nearest upcoming Monday (today if today is Monday), as an ISO date. */
+export function nextMonday(from: Date = today()): string {
+  const mi = mondayIndex(from)
+  return isoDate(addDays(from, (7 - mi) % 7))
+}
+
 export function prettyDate(d: Date): string {
   return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })
 }

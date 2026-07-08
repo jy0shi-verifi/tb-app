@@ -10,6 +10,7 @@ export interface PlannedSet {
   weight?: number // kg per dumbbell
   perDumbbell?: boolean
   overCeiling?: boolean
+  underFloor?: boolean
 }
 export interface PlannedExercise {
   name: string
@@ -64,11 +65,13 @@ function operatorLift(
     const entry = maxes[l.id]
     let weight: number | undefined
     let over = false
+    let under = false
     if (entry) {
       const bm = maxToBasis(entry, settings.loadBasis)
       const lr = workingLoad(bm, w.pct, settings.dbIncrement)
       weight = lr.kg
       over = lr.overCeiling
+      under = lr.underFloor
     }
     return {
       name: l.name,
@@ -78,6 +81,7 @@ function operatorLift(
         weight,
         perDumbbell: true,
         overCeiling: over,
+        underFloor: under,
       })),
     }
   })
@@ -199,6 +203,19 @@ const bbStrengthIntro = (): SessionPlan => ({
     { name: 'Pull-up progression', loaded: false, note: 'beam negatives / inverted rows', sets: mk(3, 8, false) },
   ],
 })
+const bbTestDay = (): SessionPlan => ({
+  type: 'lift',
+  title: 'Test Day',
+  scheme: 'find your ~5-rep max',
+  detail:
+    'The big day. For each lift: warm up, then work up to a weight you can do about 5 clean reps on, leaving 1–2 in the tank — stop before form breaks. Note the weight per dumbbell × reps, then enter them in Maxes to unlock Operator.',
+  exercises: OPERATOR_LIFTS.map((l) => ({
+    name: l.name,
+    loaded: true,
+    note: 'work up to ~5 hard reps',
+    sets: [{ reps: 5, perDumbbell: true }],
+  })),
+})
 const bbHic = (): SessionPlan => ({
   type: 'hic',
   title: 'HIC — Easy Hills',
@@ -235,7 +252,7 @@ function baseBuildingDay(week: number, day: number): SessionPlan {
     case 4:
       return bbRun(week)
     case 1:
-      return bbStrengthIntro()
+      return week === 8 ? bbTestDay() : bbStrengthIntro()
     case 3:
       return week >= 7 ? bbHic() : bbRun(week)
     case 5:

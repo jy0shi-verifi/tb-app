@@ -2,7 +2,7 @@
 // Reuses the real program/load logic so seeded sessions match what the app would produce.
 import { db } from '../db'
 import { sessionFor } from '../program'
-import { addDays, diffDays, isoDate, parseISO, today } from '../lib/date'
+import { addDays, diffDays, isoDate, nextMonday, parseISO, today } from '../lib/date'
 import type { MaxEntry, SessionLog, Settings } from '../types'
 
 const rand = () => Math.random()
@@ -139,7 +139,7 @@ export async function clearAll(): Promise<string> {
   await db.transaction('rw', db.settings, db.maxes, db.sessions, async () => {
     await db.sessions.clear()
     await db.maxes.clear()
-    await db.settings.put(baseSettings('base-building', '2026-07-13'))
+    await db.settings.put(baseSettings('base-building', nextMonday()))
   })
   return 'cleared'
 }

@@ -36,20 +36,30 @@ export default function History() {
       .filter((s) => s.type === 'lift')
       .slice()
       .sort((a, b) => (a.date < b.date ? -1 : 1))
+    // running "best estimate to date" per lift — climbs only, so light weeks don't drag it down
+    const best: Record<string, number> = {}
     for (const s of lifts) {
       const row: Record<string, number | string> = {
         date: parseISO(s.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
       }
+      let any = false
       for (const l of OPERATOR_LIFTS) {
         const ex = s.exercises.find((e) => e.name === l.name)
-        if (!ex) continue
-        const best = Math.max(
-          0,
-          ...ex.sets.filter((x) => x.weight && x.reps > 0).map((x) => estimate1RM(x.weight!, x.reps)),
-        )
-        if (best > 0) row[l.short] = Math.round(best * 10) / 10
+        if (ex) {
+          const b = Math.max(
+            0,
+            ...ex.sets
+              .filter((x) => x.weight && x.reps > 0)
+              .map((x) => estimate1RM(x.weight!, x.reps)),
+          )
+          if (b > (best[l.short] ?? 0)) best[l.short] = b
+        }
+        if (best[l.short]) {
+          row[l.short] = Math.round(best[l.short] * 10) / 10
+          any = true
+        }
       }
-      if (Object.keys(row).length > 1) rows.push(row)
+      if (any) rows.push(row)
     }
     return rows
   }, [sessions])
@@ -76,8 +86,8 @@ export default function History() {
       {/* lift progress chart */}
       {chartData.length >= 2 && (
         <Card className="p-4">
-          <p className="font-bold text-ink mb-1">Estimated 1RM trend</p>
-          <p className="text-xs text-muted mb-3">kg per dumbbell, from your logged top sets</p>
+          <p className="font-bold text-ink mb-1">Strength trend</p>
+          <p className="text-xs text-muted mb-3">best estimated 1RM to date · kg per dumbbell</p>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={chartData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eef2f6" />

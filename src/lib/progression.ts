@@ -1,5 +1,28 @@
-import type { Lift, MaxEntry } from '../types'
+import type { Lift, MaxEntry, SessionLog } from '../types'
 import { effective1RM, trainingMax } from './calc'
+import { addDays, isoDate, parseISO } from './date'
+
+/**
+ * Did the athlete actually complete the block? TB only progresses if the block
+ * was finished — we check the final week had its lift sessions logged & done.
+ */
+export function blockCompleted(
+  sessions: SessionLog[],
+  phaseStartDate: string,
+  lengthWeeks: number,
+): boolean {
+  const start = parseISO(phaseStartDate)
+  const finalWeekStart = isoDate(addDays(start, (lengthWeeks - 1) * 7))
+  const finalWeekEnd = isoDate(addDays(start, lengthWeeks * 7 - 1))
+  const doneLifts = sessions.filter(
+    (s) =>
+      s.type === 'lift' &&
+      s.done &&
+      s.date >= finalWeekStart &&
+      s.date <= finalWeekEnd,
+  )
+  return doneLifts.length >= 2
+}
 
 export interface ProgressionItem {
   liftId: string

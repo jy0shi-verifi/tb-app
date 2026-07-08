@@ -1,5 +1,6 @@
 import Dexie, { type Table } from 'dexie'
 import type { MaxEntry, SessionLog, Settings } from './types'
+import { nextMonday } from './lib/date'
 
 export class TBDatabase extends Dexie {
   settings!: Table<Settings, string>
@@ -28,7 +29,8 @@ export const DEFAULT_SETTINGS: Settings = {
 
 export async function ensureSeeded(): Promise<void> {
   const s = await db.settings.get('app')
-  if (!s) await db.settings.put(DEFAULT_SETTINGS)
+  // first launch: default the start to the upcoming Monday (never a hardcoded past date)
+  if (!s) await db.settings.put({ ...DEFAULT_SETTINGS, phaseStartDate: nextMonday() })
 }
 
 export async function saveSettings(patch: Partial<Settings>): Promise<void> {
@@ -38,6 +40,12 @@ export async function saveSettings(patch: Partial<Settings>): Promise<void> {
 
 export async function deleteSession(id: number): Promise<void> {
   await db.sessions.delete(id)
+}
+
+/** Zero all accumulated forced-progression bumps (used when retesting fresh). */
+export async function clearProgression(): Promise<void> {
+  const all = await db.maxes.toArray()
+  await db.maxes.bulkPut(all.map((m) => ({ ...m, bumpKg: 0 })))
 }
 
 // ---- backup ----
