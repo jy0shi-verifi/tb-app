@@ -8,11 +8,18 @@ import {
   Tooltip,
   CartesianGrid,
 } from 'recharts'
+import { Trash2 } from 'lucide-react'
 import { useSessions } from '../hooks'
 import { OPERATOR_LIFTS } from '../program'
 import { estimate1RM } from '../lib/calc'
+import { deleteSession } from '../db'
 import { Card, EmptyState, SessionIcon, SESSION_META } from '../components/ui'
 import { parseISO } from '../lib/date'
+
+async function confirmDelete(id?: number) {
+  if (id == null) return
+  if (window.confirm('Delete this logged session?')) await deleteSession(id)
+}
 
 const LIFT_COLORS: Record<string, string> = {
   Bench: '#2c5578',
@@ -125,6 +132,13 @@ export default function History() {
                 </p>
               </div>
               {s.done && <span className="text-load text-sm font-semibold">✓</span>}
+              <button
+                onClick={() => confirmDelete(s.id)}
+                className="p-2 -mr-1 text-muted active:text-red-600"
+                aria-label="Delete session"
+              >
+                <Trash2 size={16} />
+              </button>
             </Card>
           )
         })}

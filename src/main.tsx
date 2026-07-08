@@ -7,6 +7,16 @@ import { ensureSeeded } from './db'
 
 ensureSeeded()
 
+// dev-only: window.tbSeed() populates fake history, window.tbClear() resets
+if (import.meta.env.DEV) {
+  import('./dev/seed').then((m) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).tbSeed = m.seedFakeData
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(window as any).tbClear = m.clearAll
+  })
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>

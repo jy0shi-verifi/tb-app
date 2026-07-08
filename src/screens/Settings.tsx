@@ -128,6 +128,38 @@ export default function Settings() {
         {msg && <p className="text-xs text-load mt-2 font-medium">{msg}</p>}
       </Card>
 
+      {import.meta.env.DEV && (
+        <Card className="p-4">
+          <p className="font-semibold text-ink">Sample data (dev)</p>
+          <p className="text-xs text-muted mb-3">
+            Populate ~4 months of fake history to review the UI, or wipe back to a clean start.
+          </p>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={async () => {
+                const m = await import('../dev/seed')
+                setMsg(await m.seedFakeData())
+              }}
+            >
+              Load sample history
+            </Button>
+            <Button
+              variant="danger"
+              className="flex-1"
+              onClick={async () => {
+                if (!window.confirm('Wipe all data back to a clean start?')) return
+                const m = await import('../dev/seed')
+                setMsg(await m.clearAll())
+              }}
+            >
+              Clear all data
+            </Button>
+          </div>
+        </Card>
+      )}
+
       <p className="text-center text-xs text-muted">Tactical Barbell · v1 · on-device</p>
     </div>
   )

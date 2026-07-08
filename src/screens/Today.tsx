@@ -120,6 +120,11 @@ export default function Today() {
   const needsMaxes = plan.type === 'lift' && pos.phaseId === 'operator' && maxes.length === 0
 
   async function markDone() {
+    // toggle: if already marked done, tapping again undoes it
+    if (logged?.id && logged.done) {
+      await db.sessions.delete(logged.id)
+      return
+    }
     const rec: SessionLog = {
       date: iso,
       phaseId: pos.phaseId,

@@ -36,6 +36,10 @@ export async function saveSettings(patch: Partial<Settings>): Promise<void> {
   await db.settings.put({ ...cur, ...patch, id: 'app' })
 }
 
+export async function deleteSession(id: number): Promise<void> {
+  await db.sessions.delete(id)
+}
+
 // ---- backup ----
 export interface Backup {
   app: 'tb-app'

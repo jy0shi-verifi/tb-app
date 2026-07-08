@@ -123,6 +123,14 @@ export default function Session() {
     nav(-1)
   }
 
+  async function removeLog() {
+    if (!logged?.id) return
+    if (!window.confirm('Delete this logged session? This can’t be undone.')) return
+    await db.sessions.delete(logged.id)
+    setEx(null)
+    setMeta({ done: false, duration: '', feel: '', notes: '' })
+  }
+
   return (
     <div className="space-y-4">
       <div className="px-1">
@@ -264,6 +272,12 @@ export default function Session() {
           Save session
         </Button>
       </div>
+
+      {logged?.id && (
+        <button onClick={removeLog} className="w-full text-sm text-red-600 font-medium py-2">
+          Delete this log
+        </button>
+      )}
     </div>
   )
 }
