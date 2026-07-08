@@ -35,6 +35,7 @@ export interface RunStats {
   count: number
   totalMin: number
   longest: number
+  totalKm: number
 }
 export function runStats(sessions: SessionLog[]): RunStats {
   const runs = sessions.filter((s) => (s.type === 'run' || s.type === 'hic') && s.done)
@@ -42,6 +43,7 @@ export function runStats(sessions: SessionLog[]): RunStats {
     count: runs.length,
     totalMin: runs.reduce((n, s) => n + (s.durationMin ?? 0), 0),
     longest: runs.reduce((m, s) => Math.max(m, s.durationMin ?? 0), 0),
+    totalKm: Math.round(runs.reduce((n, s) => n + (s.distanceKm ?? 0), 0) * 10) / 10,
   }
 }
 
@@ -57,6 +59,72 @@ export function bestEst1RM(sessions: SessionLog[], liftName: string, excludeDate
     }
   }
   return best
+}
+
+/** Volume load for one lift session = Σ weight × reps over done sets (kg, relative trend metric). */
+export function sessionVolume(s: SessionLog): number {
+  if (s.type !== 'lift') return 0
+  let v = 0
+  for (const e of s.exercises)
+    for (const set of e.sets) if (set.done && set.weight) v += set.weight * set.reps
+  return Math.round(v)
+}
+
+export interface WeekSummary {
+  lifts: number
+  runs: number
+  volume: number
+}
+export function weekSummary(sessions: SessionLog[]): WeekSummary {
+  const monday = addDays(today(), -mondayIndex(today()))
+  const from = isoDate(monday)
+  const to = isoDate(addDays(monday, 6))
+  const wk = sessions.filter((s) => s.done && s.date >= from && s.date <= to)
+  return {
+    lifts: wk.filter((s) => s.type === 'lift' || s.type === 'se').length,
+    runs: wk.filter((s) => s.type === 'run' || s.type === 'hic').length,
+    volume: wk.reduce((n, s) => n + sessionVolume(s), 0),
+  }
+}
+
+export interface LiftRecord {
+  short: string
+  name: string
+  bestE1RM: number
+  heaviest: number
+  startWeight: number
+  latestWeight: number
+}
+export function liftRecords(
+  sessions: SessionLog[],
+  lifts: { name: string; short: string }[],
+): LiftRecord[] {
+  const lift = sessions
+    .filter((s) => s.type === 'lift')
+    .slice()
+    .sort((a, b) => (a.date < b.date ? -1 : 1))
+  return lifts.map((l) => {
+    let bestE1RM = 0
+    let heaviest = 0
+    let startWeight = 0
+    let latestWeight = 0
+    for (const s of lift) {
+      const ex = s.exercises.find((e) => e.name === l.name)
+      if (!ex) continue
+      let topW = 0
+      for (const set of ex.sets) {
+        if (!set.weight || set.reps <= 0) continue
+        bestE1RM = Math.max(bestE1RM, estimate1RM(set.weight, set.reps))
+        heaviest = Math.max(heaviest, set.weight)
+        topW = Math.max(topW, set.weight)
+      }
+      if (topW > 0) {
+        if (startWeight === 0) startWeight = topW
+        latestWeight = topW
+      }
+    }
+    return { short: l.short, name: l.name, bestE1RM, heaviest, startWeight, latestWeight }
+  })
 }
 
 export interface Badge {

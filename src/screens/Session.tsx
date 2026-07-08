@@ -162,9 +162,13 @@ export default function Session() {
       title: plan.title,
       exercises,
       done: isLift ? total > 0 && done === total : meta.done,
-      durationMin: meta.duration === '' ? undefined : Number(meta.duration),
-      feel: meta.feel === '' ? undefined : meta.feel,
-      notes: meta.notes || undefined,
+      // preserve any Strava-populated conditioning data
+      durationMin: meta.duration === '' ? logged?.durationMin : Number(meta.duration),
+      distanceKm: logged?.distanceKm,
+      avgHr: logged?.avgHr,
+      stravaId: logged?.stravaId,
+      feel: meta.feel === '' ? logged?.feel : meta.feel,
+      notes: meta.notes || logged?.notes,
       createdAt: logged?.createdAt ?? Date.now(),
     }
     db.sessions.put(logged?.id ? { ...rec, id: logged.id } : rec)
@@ -371,68 +375,43 @@ export default function Session() {
           </Card>
         ))
       ) : (
-        // cardio / rest
-        <Card className="p-4 space-y-4">
+        // cardio / rest — mark complete only; Strava owns run data
+        <Card className="p-4 space-y-3">
           <button
             onClick={() => setMetaTouched({ done: !meta.done })}
             className={`w-full rounded-xl py-4 font-bold text-lg flex items-center justify-center gap-2 transition active:scale-[0.98] ${
               meta.done ? 'bg-load text-white' : 'bg-canvas text-ink border border-line'
             }`}
           >
-            <Check size={22} /> {meta.done ? 'Done' : isRest ? 'Mark rest taken' : 'Mark done'}
+            <Check size={22} /> {meta.done ? 'Completed' : isRest ? 'Mark rest taken' : 'Mark complete'}
           </button>
-          {!isRest && (
-            <>
-              <div>
-                <p className="text-sm font-semibold text-ink mb-1">Duration</p>
-                <div className="flex items-center gap-2">
-                  <input
-                    inputMode="numeric"
-                    value={meta.duration}
-                    onChange={(e) => setMetaTouched({ duration: e.target.value })}
-                    placeholder="30"
-                    className="w-20 text-center rounded-lg border border-line bg-white py-2 font-semibold tnum"
-                  />
-                  <span className="text-sm text-muted">min</span>
-                  {[20, 30, 40].map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setMetaTouched({ duration: String(d) })}
-                      className="rounded-lg bg-canvas border border-line px-3 py-2 text-sm font-semibold text-muted"
-                    >
-                      {d}
-                    </button>
-                  ))}
-                </div>
+          {!isRest &&
+            (logged && (logged.durationMin != null || logged.distanceKm != null) ? (
+              <div className="flex justify-around text-center pt-1">
+                {logged.distanceKm != null && (
+                  <div>
+                    <p className="text-xl font-extrabold text-accent tnum">{logged.distanceKm}</p>
+                    <p className="text-[11px] text-muted">km</p>
+                  </div>
+                )}
+                {logged.durationMin != null && (
+                  <div>
+                    <p className="text-xl font-extrabold text-accent tnum">{logged.durationMin}</p>
+                    <p className="text-[11px] text-muted">min</p>
+                  </div>
+                )}
+                {logged.avgHr != null && (
+                  <div>
+                    <p className="text-xl font-extrabold text-accent tnum">{logged.avgHr}</p>
+                    <p className="text-[11px] text-muted">avg bpm</p>
+                  </div>
+                )}
               </div>
-              <div>
-                <p className="text-sm font-semibold text-ink mb-1">How did it feel?</p>
-                <div className="flex rounded-xl bg-canvas p-1 gap-1">
-                  {(['easy', 'ok', 'hard'] as const).map((f) => (
-                    <button
-                      key={f}
-                      onClick={() => setMetaTouched({ feel: meta.feel === f ? '' : f })}
-                      className={`flex-1 rounded-lg py-2 text-sm font-semibold capitalize transition ${
-                        meta.feel === f ? 'bg-brand text-white' : 'text-muted'
-                      }`}
-                    >
-                      {f}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          )}
-          <div>
-            <p className="text-sm font-semibold text-ink mb-1">Notes</p>
-            <textarea
-              value={meta.notes}
-              onChange={(e) => setMetaTouched({ notes: e.target.value })}
-              rows={2}
-              placeholder="Optional…"
-              className="w-full rounded-lg border border-line bg-white p-2 text-sm"
-            />
-          </div>
+            ) : (
+              <p className="text-xs text-muted text-center">
+                Distance, pace &amp; heart rate populate from Strava once your run syncs.
+              </p>
+            ))}
         </Card>
       )}
 

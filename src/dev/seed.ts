@@ -33,12 +33,18 @@ function makeLog(
     }),
   }))
   let durationMin: number | undefined
+  let distanceKm: number | undefined
+  let avgHr: number | undefined
   let feel: SessionLog['feel']
   if (plan.type === 'run') {
     durationMin = 28 + Math.floor(rand() * 10)
+    distanceKm = Math.round((durationMin / 7) * 10) / 10 // ~7 min/km easy
+    avgHr = 132 + Math.floor(rand() * 16)
     feel = 'easy'
   } else if (plan.type === 'hic') {
     durationMin = 20 + Math.floor(rand() * 10)
+    distanceKm = Math.round((durationMin / 6) * 10) / 10
+    avgHr = 158 + Math.floor(rand() * 20)
     feel = rand() < 0.6 ? 'hard' : 'ok'
   } else if (plan.type === 'se') {
     durationMin = 30 + Math.floor(rand() * 12)
@@ -53,6 +59,8 @@ function makeLog(
     exercises,
     done: true,
     durationMin,
+    distanceKm,
+    avgHr,
     feel,
     createdAt: date.getTime(),
   }

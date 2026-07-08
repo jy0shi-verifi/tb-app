@@ -12,7 +12,7 @@ import { Flame, Footprints, Trash2 } from 'lucide-react'
 import { useSessions } from '../hooks'
 import { OPERATOR_LIFTS } from '../program'
 import { estimate1RM } from '../lib/calc'
-import { badges, computeStreak, runStats, sessionsThisWeek } from '../lib/stats'
+import { badges, computeStreak, liftRecords, runStats, weekSummary } from '../lib/stats'
 import { deleteSession } from '../db'
 import { Card, EmptyState, SessionIcon, SESSION_META } from '../components/ui'
 import { parseISO } from '../lib/date'
@@ -66,10 +66,12 @@ export default function History() {
     return <EmptyState title="No sessions logged yet" sub="Finish a workout and it'll show up here." />
 
   const streak = computeStreak(sessions)
-  const week = sessionsThisWeek(sessions)
+  const summary = weekSummary(sessions)
+  const week = summary.lifts + summary.runs
   const done = sessions.filter((s) => s.done).length
   const earned = badges(sessions)
   const runs = runStats(sessions)
+  const records = liftRecords(sessions, OPERATOR_LIFTS)
 
   return (
     <div className="space-y-4">
@@ -91,6 +93,25 @@ export default function History() {
           <p className="text-[11px] text-muted">total done</p>
         </Card>
       </div>
+
+      {/* this week */}
+      <Card className="p-4">
+        <p className="font-bold text-ink mb-2">This week</p>
+        <div className="grid grid-cols-3 gap-3 text-center">
+          <div>
+            <p className="text-2xl font-extrabold text-brand tnum">{summary.lifts}</p>
+            <p className="text-[11px] text-muted">lifts</p>
+          </div>
+          <div>
+            <p className="text-2xl font-extrabold text-accent tnum">{summary.runs}</p>
+            <p className="text-[11px] text-muted">runs</p>
+          </div>
+          <div>
+            <p className="text-2xl font-extrabold text-load tnum">{summary.volume.toLocaleString()}</p>
+            <p className="text-[11px] text-muted">kg volume</p>
+          </div>
+        </div>
+      </Card>
 
       {/* badges */}
       {earned.length > 0 && (
@@ -145,6 +166,30 @@ export default function History() {
         </Card>
       )}
 
+      {/* records */}
+      {records.some((r) => r.heaviest > 0) && (
+        <Card className="p-4">
+          <p className="font-bold text-ink mb-3">Personal records</p>
+          <div className="space-y-2.5">
+            {records
+              .filter((r) => r.heaviest > 0)
+              .map((r) => {
+                const delta = Math.round((r.latestWeight - r.startWeight) * 10) / 10
+                return (
+                  <div key={r.short} className="flex items-center justify-between">
+                    <span className="font-medium text-ink text-[15px]">{r.name}</span>
+                    <span className="text-sm tnum text-right">
+                      <b className="text-load">{r.heaviest} kg</b>
+                      <span className="text-muted"> · ~{r.bestE1RM.toFixed(0)} 1RM</span>
+                      {delta > 0 && <span className="text-load font-semibold"> · +{delta} since start</span>}
+                    </span>
+                  </div>
+                )
+              })}
+          </div>
+        </Card>
+      )}
+
       {/* running */}
       {runs.count > 0 && (
         <Card className="p-4">
@@ -158,14 +203,15 @@ export default function History() {
               <p className="text-[11px] text-muted">sessions</p>
             </div>
             <div>
+              <p className="text-2xl font-extrabold text-accent tnum">{runs.totalKm}</p>
+              <p className="text-[11px] text-muted">total km</p>
+            </div>
+            <div>
               <p className="text-2xl font-extrabold text-accent tnum">{runs.totalMin}</p>
               <p className="text-[11px] text-muted">total min</p>
             </div>
-            <div>
-              <p className="text-2xl font-extrabold text-accent tnum">{runs.longest}</p>
-              <p className="text-[11px] text-muted">longest (min)</p>
-            </div>
           </div>
+          <p className="text-[11px] text-muted text-center mt-2">From Strava once connected.</p>
         </Card>
       )}
 

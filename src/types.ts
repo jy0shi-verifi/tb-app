@@ -54,9 +54,12 @@ export interface SessionLog {
   type: SessionType
   title: string
   exercises: LoggedExercise[]
-  // for run/hic completion:
+  // completion + conditioning data (run/HIC metrics are populated from Strava)
   done: boolean
   durationMin?: number
+  distanceKm?: number
+  avgHr?: number
+  stravaId?: number
   feel?: 'easy' | 'ok' | 'hard'
   notes?: string
   createdAt: number
