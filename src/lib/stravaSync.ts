@@ -20,7 +20,10 @@ export async function syncStrava(): Promise<number> {
   if (!token) return 0
 
   const start = parseISO(settings.phaseStartDate)
-  const afterEpoch = Math.floor(start.getTime() / 1000) - 86400
+  const nowEpoch = Math.floor(Date.now() / 1000)
+  // Fetch since the phase start, but never ask Strava for a FUTURE `after`
+  // (the plan may not have started yet) — Strava rejects future dates.
+  const afterEpoch = Math.min(Math.floor(start.getTime() / 1000) - 86400, nowEpoch - 86400)
   const activities = await fetchStravaActivities(token, afterEpoch)
 
   const maxes = maxesMap(await db.maxes.toArray())
