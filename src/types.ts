@@ -87,6 +87,8 @@ export interface Settings {
   stravaSyncError?: string
   /** true when a Strava call failed auth (revoked/expired) — prompt a reconnect */
   stravaNeedsReconnect?: boolean
+  /** rest-timer seconds override; undefined/0 = Auto (book values by session/week) */
+  restSec?: number
   /** Strava OAuth tokens (on-device only); set after "Connect Strava". */
   strava?: {
     accessToken: string

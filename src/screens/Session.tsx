@@ -28,7 +28,8 @@ interface MetaState {
   notes: string
 }
 
-function restSeconds(plan: SessionPlan, week: number): number {
+function restSeconds(plan: SessionPlan, week: number, override?: number): number {
+  if (override && override > 0) return override // user-set rest (Settings)
   if (plan.type === 'se') return 120 // between rounds
   if (plan.type === 'lift' && plan.title.startsWith('Operator')) {
     return week === 3 || week === 6 ? 240 : 150
@@ -80,6 +81,9 @@ function beep() {
 // Steppers sized for cold, one-handed, low-light taps (44px hit area).
 const STEP =
   'w-10 h-10 rounded-lg bg-surface border border-line text-brand flex items-center justify-center shrink-0 active:scale-95'
+
+// Rest timer end-time is persisted so a refresh mid-rest resumes it.
+const REST_KEY = 'tb-rest-end'
 
 export default function Session() {
   const nav = useNavigate()
@@ -161,6 +165,17 @@ export default function Session() {
     }
   }, [])
 
+  // resume a rest timer that was running before a refresh
+  useEffect(() => {
+    const saved = Number(localStorage.getItem(REST_KEY))
+    if (saved && saved > Date.now()) {
+      setRestEnd(saved)
+      setRemaining(Math.max(0, Math.round((saved - Date.now()) / 1000)))
+    } else if (saved) {
+      localStorage.removeItem(REST_KEY)
+    }
+  }, [])
+
   // rest-timer ticker
   useEffect(() => {
     if (restEnd == null) return
@@ -170,6 +185,7 @@ export default function Session() {
       if (left <= 0) {
         buzz([120, 60, 120])
         beep()
+        localStorage.removeItem(REST_KEY)
         setRestEnd(null)
       }
     }, 250)
@@ -225,7 +241,7 @@ export default function Session() {
   const isLifting = plan.exercises.length > 0
   const isRest = plan.type === 'rest'
   const isSE = plan.type === 'se'
-  const restSec = restSeconds(plan, pos.week)
+  const restSec = restSeconds(plan, pos.week, settings.restSec)
   const inc = settings.dbIncrement
 
   const setSet = (ei: number, si: number, patch: Partial<SetState>) => {
@@ -238,8 +254,19 @@ export default function Session() {
   }
   const startRest = () => {
     primeAudio() // unlock audio within this tap so the end-beep can sound
-    setRestEnd(Date.now() + restSec * 1000)
+    const end = Date.now() + restSec * 1000
+    setRestEnd(end)
     setRemaining(restSec)
+    localStorage.setItem(REST_KEY, String(end))
+  }
+  const bumpRest = (ms: number) => {
+    const end = (restEnd ?? Date.now()) + ms
+    setRestEnd(end)
+    localStorage.setItem(REST_KEY, String(end))
+  }
+  const clearRest = () => {
+    localStorage.removeItem(REST_KEY)
+    setRestEnd(null)
   }
   const toggleDone = (ei: number, si: number) => {
     const cur = ex[ei].sets[si].done
@@ -492,13 +519,13 @@ export default function Session() {
                 </p>
               </div>
               <button
-                onClick={() => setRestEnd(Date.now() + (restEnd - Date.now()) + 30_000)}
+                onClick={() => bumpRest(30_000)}
                 className="rounded-lg bg-white/15 px-2 py-2 text-sm font-semibold flex items-center gap-1"
               >
                 <Plus size={14} />
                 30s
               </button>
-              <button onClick={() => setRestEnd(null)} className="rounded-lg bg-white/15 p-2" aria-label="Skip rest">
+              <button onClick={clearRest} className="rounded-lg bg-white/15 p-2" aria-label="Skip rest">
                 <X size={18} />
               </button>
             </div>

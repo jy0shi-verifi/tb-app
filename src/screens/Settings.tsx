@@ -103,6 +103,24 @@ export default function Settings() {
             onChange={(v) => saveSettings({ dbIncrement: v })}
           />
         </Row>
+        <Row
+          label="Rest timer"
+          hint="Time the between-set timer counts down. Auto uses the book's rests (longer on the heavy weeks) — recommended on a cut. 10 sec is for testing the beep."
+        >
+          <select
+            value={s.restSec ?? 0}
+            onChange={(e) => saveSettings({ restSec: Number(e.target.value) || undefined })}
+            className="rounded-lg border border-line bg-surface text-ink px-3 py-2 font-semibold"
+          >
+            <option value={0}>Auto (book)</option>
+            <option value={180}>3 min</option>
+            <option value={150}>2½ min</option>
+            <option value={120}>2 min</option>
+            <option value={90}>90 sec</option>
+            <option value={60}>60 sec</option>
+            <option value={10}>10 sec (test)</option>
+          </select>
+        </Row>
         <Row label="Load basis" hint="Advanced — weights compute off 90% Training Max (the TB standard) or your true 1RM.">
           <Segmented<LoadBasis>
             value={s.loadBasis}
