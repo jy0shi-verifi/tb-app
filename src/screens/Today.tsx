@@ -7,7 +7,7 @@ import { isoDate, today, prettyDate, parseISO, diffDays, addDays, mondayIndex, n
 import { db, saveSettings, clearProgression } from '../db'
 import { beginStravaAuth } from '../lib/strava'
 import { shouldNudgeBackup, downloadBackup } from '../lib/backup'
-import { suggestBlockProgression, bumpedEntry, blockCompleted, retestStalling } from '../lib/progression'
+import { suggestBlockProgression, bumpedEntry, blockCompleted, stalledLiftsSinceRetest } from '../lib/progression'
 import { computeStreak, longestStreak, sessionsThisWeek } from '../lib/stats'
 import { Button, Card, Pill, SessionIcon, SESSION_META } from '../components/ui'
 import type { SessionLog } from '../types'
@@ -129,14 +129,11 @@ export default function Today() {
     // first run has been retested, every later block recommends a retest (not another hold).
     const firstRun = !(settings.operatorFirstRunDone ?? false) && opBlock < 2
     const thisMonday = isoDate(addDays(now, -mondayIndex(now)))
-    // Ladder safety net: once past the first run, watch whether the last retest
-    // still beat a forced-progression bump. If not, it's time to change rungs —
-    // which is beyond the app's auto-setup, so flag it and send Josh to Claude.
-    const currentE1rm = items.reduce((n, it) => n + it.currentOneRM, 0)
-    const stalling = !firstRun && retestStalling(currentE1rm, settings.maxHistory, OPERATOR_LIFTS)
-    const lastGain = settings.maxHistory?.length
-      ? Math.round(currentE1rm - settings.maxHistory[settings.maxHistory.length - 1].e1rm)
-      : 0
+    // Ladder safety net: once past the first run, watch whether any lift's last
+    // retest still beat a forced-progression bump. If one stalls, it's time to
+    // change rungs — beyond the app's auto-setup — so flag it and send to Claude.
+    const stalled = firstRun ? [] : stalledLiftsSinceRetest(items, settings.maxHistory)
+    const stalling = stalled.length > 0
     const blockEndIso = isoDate(addDays(parseISO(settings.phaseStartDate), phase.lengthWeeks * 7 - 1))
     const blockCount = sessions.filter(
       (s) => s.done && s.date >= settings.phaseStartDate && s.date <= blockEndIso,
@@ -164,9 +161,10 @@ export default function Today() {
         )
       )
         return
-      // Snapshot the max we're about to replace, so next block-end can measure
-      // how much this retest actually gained (the ladder-rung signal).
-      const history = [...(settings.maxHistory ?? []), { date: isoDate(now), e1rm: currentE1rm }].slice(-8)
+      // Snapshot each lift's max we're about to replace, so next block-end can
+      // measure how much this retest gained per lift (the ladder-rung signal).
+      const lifts = Object.fromEntries(items.map((it) => [it.liftId, it.currentOneRM]))
+      const history = [...(settings.maxHistory ?? []), { date: isoDate(now), lifts }].slice(-8)
       await clearProgression()
       // Mark the first 12-week run done: after a retest the ladder is retest-every-
       // 6-weeks, so don't re-arm the "first run — hold the weights" hold (TB1 p.108).
@@ -178,12 +176,12 @@ export default function Today() {
       <div className="space-y-4">
         {stalling && (
           <Card className="p-4 border-warm-edge/60 bg-warm space-y-2">
-            <p className="font-bold text-ink">⚠️ Your retests are slowing down</p>
+            <p className="font-bold text-ink">⚠️ A lift's retests are slowing down</p>
             <p className="text-sm text-muted">
-              Your last retest added only ~{lastGain} kg across your lifts — about what a static
-              forced-progression bump would give. In Tactical Barbell's ladder (TB1 p109) that's the
-              cue to change rungs: retest every 12 weeks, then eventually forced progression. Setting
-              that up is beyond what the app does on its own.
+              {stalled.map((s) => `${s.name} (+${Math.round(s.gain)}kg)`).join(', ')} gained no more
+              than a forced-progression bump this time. In Tactical Barbell's ladder (TB1 p109) that's
+              the cue to change rungs — retest every 12 weeks, then eventually forced progression —
+              which is beyond what the app sets up on its own.
             </p>
             <p className="text-sm font-semibold text-ink">
               Don't just retest again — export your data (Settings → Backup) and check in with Claude

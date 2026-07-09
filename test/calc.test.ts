@@ -1,12 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { estimate1RM, trainingMax, workingLoad, maxToBasis, effective1RM } from '../src/lib/calc'
-import {
-  bumpedEntry,
-  lastRetestGain,
-  forcedProgressionTotal,
-  retestStalling,
-} from '../src/lib/progression'
-import { OPERATOR_WAVE, OPERATOR_LIFTS } from '../src/program'
+import { bumpedEntry, suggestBlockProgression, stalledLiftsSinceRetest } from '../src/lib/progression'
+import { OPERATOR_WAVE, OPERATOR_LIFTS, maxesMap } from '../src/program'
 import type { MaxEntry } from '../src/types'
 
 // These assert the app matches Tactical Barbell (K. Black) 3rd-ed maths exactly.
@@ -112,24 +107,36 @@ describe('forced progression adds the increment to the 1RM (TB1 p107)', () => {
   })
 })
 
-describe('retest-ladder stall detection (TB1 p109 safety net)', () => {
-  it('forcedProgressionTotal sums the lift steps (~10kg)', () => {
-    expect(forcedProgressionTotal(OPERATOR_LIFTS)).toBe(10) // 2.5 + 5 + 2.5
+describe('retest-ladder stall detection — PER-LIFT (TB1 p109 safety net)', () => {
+  // current est-1RM (Brzycki): bench 24.75, squat 31.5, row 20.25; steps 2.5/5/2.5
+  const items = suggestBlockProgression(
+    OPERATOR_LIFTS,
+    maxesMap([
+      { liftId: 'op_bench', testWeight: 22, testReps: 5, bumpKg: 0 },
+      { liftId: 'op_squat', testWeight: 28, testReps: 5, bumpKg: 0 },
+      { liftId: 'op_row', testWeight: 18, testReps: 5, bumpKg: 0 },
+    ]),
+  )
+
+  it('returns nothing before there is a prior retest', () => {
+    expect(stalledLiftsSinceRetest(items, undefined)).toEqual([])
+    expect(stalledLiftsSinceRetest(items, [])).toEqual([])
   })
-  it('lastRetestGain is null with no prior retest', () => {
-    expect(lastRetestGain(200, [])).toBeNull()
-    expect(lastRetestGain(200, undefined)).toBeNull()
+  it('flags a lift whose retest gain ≤ its own bump', () => {
+    // bench +2.0 ≤ 2.5 → stall; squat +6 > 5, row +3 > 2.5 → fine
+    const hist = [{ date: 'x', lifts: { op_bench: 22.75, op_squat: 25.5, op_row: 17.25 } }]
+    expect(stalledLiftsSinceRetest(items, hist).map((s) => s.liftId)).toEqual(['op_bench'])
   })
-  it('computes the gain since the last retest', () => {
-    expect(lastRetestGain(215, [{ e1rm: 200 }])).toBe(15)
+  it('flags nothing when every lift out-gains its bump', () => {
+    const hist = [{ date: 'x', lifts: { op_bench: 20, op_squat: 24, op_row: 16 } }]
+    expect(stalledLiftsSinceRetest(items, hist)).toEqual([])
   })
-  it('does NOT flag a healthy retest (gain beats a forced bump)', () => {
-    expect(retestStalling(215, [{ e1rm: 200 }], OPERATOR_LIFTS)).toBe(false) // +15 > 10
-  })
-  it('flags a stalled retest (gain ≤ a forced bump)', () => {
-    expect(retestStalling(208, [{ e1rm: 200 }], OPERATOR_LIFTS)).toBe(true) // +8 ≤ 10
-  })
-  it('never flags before there is a prior retest to compare', () => {
-    expect(retestStalling(500, undefined, OPERATOR_LIFTS)).toBe(false)
+  it('can flag multiple stalled lifts', () => {
+    // bench +2 ≤ 2.5 stall; squat +4.5 ≤ 5 stall; row +3 > 2.5 fine
+    const hist = [{ date: 'x', lifts: { op_bench: 22.75, op_squat: 27, op_row: 17.25 } }]
+    expect(stalledLiftsSinceRetest(items, hist).map((s) => s.liftId).sort()).toEqual([
+      'op_bench',
+      'op_squat',
+    ])
   })
 })

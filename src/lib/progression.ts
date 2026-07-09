@@ -75,35 +75,34 @@ export function bumpedEntry(entry: MaxEntry, step: number): MaxEntry {
   return { ...entry, bumpKg: (entry.bumpKg ?? 0) + step }
 }
 
-/**
- * Total est-1RM gain since the last retest (kg across all lifts), or null if
- * there's no prior retest to compare against.
- */
-export function lastRetestGain(
-  currentTotalE1rm: number,
-  history?: { e1rm: number }[],
-): number | null {
-  if (!history?.length) return null
-  return currentTotalE1rm - history[history.length - 1].e1rm
-}
-
-/** Sum of the lifts' forced-progression steps — the threshold at which a retest
- *  no longer beats simply forcing the weight on (TB1's cue to change rungs). */
-export function forcedProgressionTotal(lifts: Lift[]): number {
-  return lifts.reduce((n, l) => n + (l.progressStep ?? 2.5), 0)
+export interface StalledLift {
+  liftId: string
+  name: string
+  gain: number
+  step: number
 }
 
 /**
- * TB1 p109 ladder: retest every 6 wks while newbie gains flow; when they slow,
- * step down to 12-wk retests then eventually forced progression. Returns true
- * once the most recent retest added no more than a forced-progression bump would
- * — the signal the app has taken you as far as its auto-setup goes.
+ * TB1 p109 ladder: retest every 6 wks while newbie gains flow; when a lift's
+ * retest stops out-gaining what a forced-progression bump would give, that lift
+ * has hit the next rung (retest→12wk→forced progression) — which is beyond the
+ * app's auto-setup. Compares each lift's est-1RM now vs the last retest snapshot;
+ * returns the lifts whose gain was ≤ their own forced-progression step. Empty
+ * until there's a prior retest to compare against.
  */
-export function retestStalling(
-  currentTotalE1rm: number,
-  history: { e1rm: number }[] | undefined,
-  lifts: Lift[],
-): boolean {
-  const gain = lastRetestGain(currentTotalE1rm, history)
-  return gain != null && gain <= forcedProgressionTotal(lifts)
+export function stalledLiftsSinceRetest(
+  items: ProgressionItem[],
+  history: { lifts: Record<string, number> }[] | undefined,
+): StalledLift[] {
+  if (!history?.length) return []
+  const prev = history[history.length - 1].lifts
+  const out: StalledLift[] = []
+  for (const it of items) {
+    if (!it.hasMax) continue
+    const before = prev[it.liftId]
+    if (before == null) continue
+    const gain = it.currentOneRM - before
+    if (gain <= it.step) out.push({ liftId: it.liftId, name: it.name, gain, step: it.step })
+  }
+  return out
 }

@@ -89,9 +89,9 @@ export interface Settings {
   stravaNeedsReconnect?: boolean
   /** rest-timer seconds override; undefined/0 = Auto (book values by session/week) */
   restSec?: number
-  /** total est-1RM (sum of lifts) snapshotted at each retest — powers the
-   *  "your retests are stalling, move to the next progression rung" warning */
-  maxHistory?: { date: string; e1rm: number }[]
+  /** per-lift est-1RM (liftId → kg) snapshotted at each retest — powers the
+   *  "a lift's retests are stalling, move to the next rung" warning */
+  maxHistory?: { date: string; lifts: Record<string, number> }[]
   /** Strava OAuth tokens (on-device only); set after "Connect Strava". */
   strava?: {
     accessToken: string
