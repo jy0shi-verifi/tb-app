@@ -36,18 +36,26 @@ function makeLog(
   let distanceKm: number | undefined
   let avgHr: number | undefined
   let feel: SessionLog['feel']
+  let notes: string | undefined
+  const pick = (xs: string[]) => xs[Math.floor(rand() * xs.length)]
   if (plan.type === 'run') {
     durationMin = 28 + Math.floor(rand() * 10)
     distanceKm = Math.round((durationMin / 7) * 10) / 10 // ~7 min/km easy
     avgHr = 132 + Math.floor(rand() * 16)
     feel = 'easy'
+    if (rand() < 0.3) notes = pick(['Legs felt fresh', 'Kept it easy, nose-breathing', 'Cold one, good pace'])
   } else if (plan.type === 'hic') {
     durationMin = 20 + Math.floor(rand() * 10)
     distanceKm = Math.round((durationMin / 6) * 10) / 10
     avgHr = 158 + Math.floor(rand() * 20)
     feel = rand() < 0.6 ? 'hard' : 'ok'
+    if (rand() < 0.35) notes = pick(['Hill sprints — brutal', '600m resets, hung on', 'Fast-5 tempo, redlined'])
   } else if (plan.type === 'se') {
     durationMin = 30 + Math.floor(rand() * 12)
+    feel = rand() < 0.5 ? 'ok' : 'hard'
+  } else if (plan.type === 'lift') {
+    feel = rand() < 0.65 ? 'ok' : rand() < 0.5 ? 'easy' : 'hard'
+    if (rand() < 0.3) notes = pick(['Bench moving well', 'Grip gave out last set', 'Strong session', 'Legs heavy but got it', 'New rep PR feel'])
   }
   return {
     date: isoDate(date),
@@ -62,6 +70,7 @@ function makeLog(
     distanceKm,
     avgHr,
     feel,
+    notes,
     createdAt: date.getTime(),
   }
 }
@@ -137,7 +146,13 @@ export async function seedFakeData(): Promise<string> {
     await db.maxes.clear()
     await db.sessions.bulkAdd(sessions)
     await db.maxes.bulkPut(Object.values(block2Maxes))
-    await db.settings.put({ ...baseSettings('operator', block2Start), operatorBlock: 2 })
+    await db.settings.put({
+      ...baseSettings('operator', block2Start),
+      operatorBlock: 2,
+      operatorFirstRunDone: true,
+      onboarded: true, // skip the welcome flow for a clean demo
+      lastBackupAt: now.getTime(), // suppress the "back up your data" nudge
+    })
   })
 
   return `seeded ${sessions.length} sessions (BB done → Op block 1 done → mid Op block 2)`
