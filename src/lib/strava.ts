@@ -86,12 +86,15 @@ export interface StravaActivity {
 }
 
 export async function fetchStravaActivities(accessToken: string, afterEpoch: number): Promise<StravaActivity[]> {
-  const url = new URL('https://www.strava.com/api/v3/athlete/activities')
-  url.searchParams.set('after', String(afterEpoch))
-  url.searchParams.set('per_page', '100')
-  const r = await fetch(url.toString(), { headers: { Authorization: `Bearer ${accessToken}` } })
-  if (!r.ok) throw new Error('Strava activities fetch failed')
-  return (await r.json()) as StravaActivity[]
+  // Routed through our Pages Function (Strava's API has no CORS for browsers).
+  const r = await fetch('/api/strava/activities', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ accessToken, after: afterEpoch }),
+  })
+  const data = await r.json()
+  if (!r.ok || !Array.isArray(data)) throw new Error('Strava activities fetch failed')
+  return data as StravaActivity[]
 }
 
 export async function disconnectStrava(): Promise<void> {
