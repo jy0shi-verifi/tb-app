@@ -256,9 +256,11 @@ export default function History() {
       <div className="space-y-2">
         {sessions.map((s) => {
           const setCount = s.exercises.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0)
-          const hasDetail = !!(s.stravaId || s.distanceKm != null || s.avgHr != null)
+          const hasCardio = s.distanceKm != null || s.avgHr != null
+          const hasDetail = !!(s.stravaId || hasCardio || s.feel || s.notes)
           const open = openId === s.id
           const pace = paceLabel(s.durationMin, s.distanceKm)
+          const feelLabel = s.feel === 'easy' ? '😌 Easy' : s.feel === 'ok' ? '💪 Solid' : s.feel === 'hard' ? '🥵 Hard' : null
           return (
             <Card key={s.id} className="p-3">
               <div className="flex items-center gap-3">
@@ -293,21 +295,29 @@ export default function History() {
               </div>
 
               {open && hasDetail && (
-                <div className="mt-3 pt-3 border-t border-line/60">
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div>
-                      <p className="text-lg font-extrabold text-accent tnum">{s.distanceKm ?? '—'}</p>
-                      <p className="text-[11px] text-muted">km</p>
+                <div className="mt-3 pt-3 border-t border-line/60 space-y-3">
+                  {hasCardio && (
+                    <div className="grid grid-cols-3 gap-2 text-center">
+                      <div>
+                        <p className="text-lg font-extrabold text-accent tnum">{s.distanceKm ?? '—'}</p>
+                        <p className="text-[11px] text-muted">km</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-extrabold text-accent tnum">{pace ?? '—'}</p>
+                        <p className="text-[11px] text-muted">avg pace</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-extrabold text-accent tnum">{s.avgHr ?? '—'}</p>
+                        <p className="text-[11px] text-muted">avg bpm</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-lg font-extrabold text-accent tnum">{pace ?? '—'}</p>
-                      <p className="text-[11px] text-muted">avg pace</p>
+                  )}
+                  {(feelLabel || s.notes) && (
+                    <div className="text-sm">
+                      {feelLabel && <span className="font-semibold text-ink">{feelLabel}</span>}
+                      {s.notes && <p className="text-muted mt-0.5 whitespace-pre-wrap">{s.notes}</p>}
                     </div>
-                    <div>
-                      <p className="text-lg font-extrabold text-accent tnum">{s.avgHr ?? '—'}</p>
-                      <p className="text-[11px] text-muted">avg bpm</p>
-                    </div>
-                  </div>
+                  )}
                   {s.stravaId && (
                     <a
                       href={`https://www.strava.com/activities/${s.stravaId}`}

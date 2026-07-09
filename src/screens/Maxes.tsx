@@ -210,7 +210,15 @@ export default function Maxes() {
                             —
                           </td>
                         )
-                      const basis = maxToBasis({ liftId: l.id, testWeight: w, testReps: r }, settings.loadBasis)
+                      // use the STORED entry so forced-progression bumps (bumpKg)
+                      // are included — matches the per-lift header and Operator loads
+                      const entry: MaxEntry = maxes?.find((m) => m.liftId === l.id) ?? {
+                        liftId: l.id,
+                        testWeight: w,
+                        testReps: r,
+                        bumpKg: 0,
+                      }
+                      const basis = maxToBasis(entry, settings.loadBasis)
                       const lr = workingLoad(basis, wk.pct, settings.dbIncrement)
                       return (
                         <td key={l.id} className="py-2 pr-1 text-right font-bold text-load tnum">

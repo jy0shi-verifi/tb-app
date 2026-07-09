@@ -28,6 +28,19 @@ export default function Today() {
   const phase = PHASES[pos.phaseId]
   const mm = maxesMap(maxes)
 
+  // lapse detection (hoisted so it can guard the phase-complete branch too):
+  // been away a while → don't silently advance into heavier weeks, and never
+  // roll a mid-phase lay-off past the finish line onto a "you're done" screen.
+  // (ignore auto-completed rest days so they can't mask a real training lapse)
+  const lastDoneSession = sessions.find((s) => s.done && s.type !== 'rest')
+  const lapsedDays = lastDoneSession ? diffDays(now, parseISO(lastDoneSession.date)) : 0
+  const lapsed = lastDoneSession != null && lapsedDays > 10
+  async function realign() {
+    const lastWk = lastDoneSession?.week ?? 1
+    const thisMon = addDays(now, -mondayIndex(now))
+    await saveSettings({ phaseStartDate: isoDate(addDays(thisMon, -(lastWk - 1) * 7)) })
+  }
+
   // ---- before the phase starts ----
   if (pos.status === 'before') {
     const days = diffDays(parseISO(settings.phaseStartDate), now)
@@ -67,6 +80,23 @@ export default function Today() {
 
   // ---- phase / block complete ----
   if (pos.status === 'complete') {
+    // If the "complete" is really a lay-off that rolled the calendar past the
+    // final week (not a finished phase), catch it here rather than pushing an
+    // unearned Test Day / block review.
+    if (lapsed && (lastDoneSession?.week ?? 0) < phase.lengthWeeks) {
+      return (
+        <Card className="p-5 space-y-2 border-warm-edge/40 bg-warm">
+          <p className="font-semibold text-ink">Welcome back 👋</p>
+          <p className="text-sm text-muted">
+            It's been {lapsedDays} days and the calendar ran on without you — you were on week{' '}
+            {lastDoneSession?.week}. Pick up there rather than jumping to the finish line.
+          </p>
+          <button onClick={realign} className="text-brand font-semibold text-sm">
+            Resume from week {lastDoneSession?.week} →
+          </button>
+        </Card>
+      )
+    }
     if (phase.id === 'base-building') {
       async function startOperator() {
         await saveSettings({ currentPhaseId: 'operator', phaseStartDate: nextMonday(), operatorBlock: 1, operatorFirstRunDone: false })
@@ -110,7 +140,11 @@ export default function Today() {
         const entry = maxes.find((m) => m.liftId === it.liftId)
         if (entry) await db.maxes.put(bumpedEntry(entry, it.step))
       }
-      await saveSettings({ phaseStartDate: thisMonday, operatorBlock: opBlock + 1 })
+      await saveSettings({
+        phaseStartDate: thisMonday,
+        operatorBlock: opBlock + 1,
+        operatorFirstRunDone: true,
+      })
     }
     async function repeatBlock() {
       await saveSettings({ phaseStartDate: thisMonday, operatorBlock: opBlock + 1 })
@@ -123,7 +157,9 @@ export default function Today() {
       )
         return
       await clearProgression()
-      await saveSettings({ operatorBlock: 1 })
+      // Mark the first 12-week run done: after a retest the ladder is retest-every-
+      // 6-weeks, so don't re-arm the "first run — hold the weights" hold (TB1 p.108).
+      await saveSettings({ operatorBlock: 1, operatorFirstRunDone: true })
       nav('/maxes')
     }
 
@@ -229,17 +265,6 @@ export default function Today() {
     if ((pl.type === 'lift' || pl.type === 'se') && !loggedDates.has(isoDate(d))) {
       missed = { date: isoDate(d), title: pl.title }
     }
-  }
-
-  // lapse: been away a while → don't silently advance into heavier weeks
-  // (ignore auto-completed rest days so they can't mask a real training lapse)
-  const lastDoneSession = sessions.find((s) => s.done && s.type !== 'rest')
-  const lapsedDays = lastDoneSession ? diffDays(now, parseISO(lastDoneSession.date)) : 0
-  const lapsed = lastDoneSession != null && lapsedDays > 10
-  async function realign() {
-    const lastWk = lastDoneSession?.week ?? 1
-    const thisMon = addDays(now, -mondayIndex(now))
-    await saveSettings({ phaseStartDate: isoDate(addDays(thisMon, -(lastWk - 1) * 7)) })
   }
 
   // tomorrow's session (for rest-day peek)

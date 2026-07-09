@@ -144,36 +144,44 @@ export default function Session() {
   // autosave after the first interaction
   useEffect(() => {
     if (!touched.current || !ready || !plan || !pos || !ex) return
-    const exercises: LoggedExercise[] = ex.map((e) => ({
-      name: e.name,
-      sets: e.sets.map((s) => ({
-        weight: s.weight === '' ? undefined : Number(s.weight),
-        reps: Number(s.reps) || 0,
-        done: s.done,
-      })),
-    }))
-    const total = ex.reduce((n, e) => n + e.sets.length, 0)
-    const done = ex.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0)
-    const isLift = ex.length > 0
-    const rec: SessionLog = {
-      date: iso,
-      phaseId: pos.phaseId,
-      week: pos.week,
-      day: pos.day,
-      type: plan.type,
-      title: plan.title,
-      exercises,
-      done: isLift ? total > 0 && done === total : meta.done,
-      // preserve any Strava-populated conditioning data
-      durationMin: meta.duration === '' ? logged?.durationMin : Number(meta.duration),
-      distanceKm: logged?.distanceKm,
-      avgHr: logged?.avgHr,
-      stravaId: logged?.stravaId,
-      feel: meta.feel === '' ? logged?.feel : meta.feel,
-      notes: meta.notes || logged?.notes,
-      createdAt: logged?.createdAt ?? Date.now(),
+    const save = async () => {
+      // Re-read the freshest row at write time — an auto-sync may have merged
+      // Strava HR/duration into it since this component rendered; using a stale
+      // `logged` closure here would silently clobber that enrichment.
+      const existing = await db.sessions.where('date').equals(iso).first()
+      const exercises: LoggedExercise[] = ex.map((e) => ({
+        name: e.name,
+        sets: e.sets.map((s) => ({
+          weight: s.weight === '' ? undefined : Number(s.weight),
+          reps: Number(s.reps) || 0,
+          done: s.done,
+        })),
+      }))
+      const total = ex.reduce((n, e) => n + e.sets.length, 0)
+      const done = ex.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0)
+      const isLift = ex.length > 0
+      const rec: SessionLog = {
+        ...(existing?.id ? { id: existing.id } : {}),
+        date: iso,
+        phaseId: pos.phaseId,
+        week: pos.week,
+        day: pos.day,
+        type: plan.type,
+        title: existing?.stravaId ? (existing.title ?? plan.title) : plan.title,
+        exercises,
+        done: isLift ? total > 0 && done === total : meta.done,
+        // preserve Strava-populated conditioning data from the freshest row
+        durationMin: meta.duration === '' ? existing?.durationMin : Number(meta.duration),
+        distanceKm: existing?.distanceKm,
+        avgHr: existing?.avgHr,
+        stravaId: existing?.stravaId,
+        feel: meta.feel === '' ? existing?.feel : meta.feel,
+        notes: meta.notes || existing?.notes,
+        createdAt: existing?.createdAt ?? Date.now(),
+      }
+      await db.sessions.put(rec)
     }
-    db.sessions.put(logged?.id ? { ...rec, id: logged.id } : rec)
+    save()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ex, meta])
 
@@ -439,6 +447,40 @@ export default function Session() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* how it felt + notes (journaling) */}
+      {!isRest && (
+        <Card className="p-4 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-ink mb-2">How did it feel?</p>
+            <div className="flex gap-2">
+              {(
+                [
+                  ['easy', '😌 Easy'],
+                  ['ok', '💪 Solid'],
+                  ['hard', '🥵 Hard'],
+                ] as const
+              ).map(([f, label]) => (
+                <button
+                  key={f}
+                  onClick={() => setMetaTouched({ feel: meta.feel === f ? '' : f })}
+                  className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition ${
+                    meta.feel === f ? 'bg-brand text-white shadow-sm' : 'bg-canvas text-muted border border-line'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <input
+            value={meta.notes}
+            onChange={(e) => setMetaTouched({ notes: e.target.value })}
+            placeholder="Notes (optional) — how it went, tweaks, niggles…"
+            className="w-full rounded-lg border border-line bg-surface text-ink px-3 py-2.5 text-sm placeholder:text-muted/60"
+          />
+        </Card>
       )}
 
       <div className="flex gap-2 pt-1">
