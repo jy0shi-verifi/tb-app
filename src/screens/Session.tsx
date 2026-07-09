@@ -44,8 +44,42 @@ function buzz(pattern: number | number[]) {
   }
 }
 
+// A short audible beep for the rest-timer end — vibrate alone doesn't survive a
+// pocketed/locked phone. Unlocked on a user gesture (startRest) so it can fire.
+let audioCtx: AudioContext | null = null
+function primeAudio() {
+  try {
+    audioCtx = audioCtx ?? new AudioContext()
+    if (audioCtx.state === 'suspended') void audioCtx.resume()
+  } catch {
+    /* no audio */
+  }
+}
+function beep() {
+  try {
+    if (!audioCtx) return
+    if (audioCtx.state === 'suspended') void audioCtx.resume()
+    const t = audioCtx.currentTime
+    for (const at of [0, 0.28]) {
+      const o = audioCtx.createOscillator()
+      const g = audioCtx.createGain()
+      o.connect(g)
+      g.connect(audioCtx.destination)
+      o.frequency.value = 880
+      g.gain.setValueAtTime(0.0001, t + at)
+      g.gain.exponentialRampToValueAtTime(0.35, t + at + 0.02)
+      g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.22)
+      o.start(t + at)
+      o.stop(t + at + 0.24)
+    }
+  } catch {
+    /* no audio */
+  }
+}
+
+// Steppers sized for cold, one-handed, low-light taps (44px hit area).
 const STEP =
-  'w-8 h-8 rounded-lg bg-surface border border-line text-brand flex items-center justify-center shrink-0 active:scale-95'
+  'w-10 h-10 rounded-lg bg-surface border border-line text-brand flex items-center justify-center shrink-0 active:scale-95'
 
 export default function Session() {
   const nav = useNavigate()
@@ -135,6 +169,7 @@ export default function Session() {
       setRemaining(left)
       if (left <= 0) {
         buzz([120, 60, 120])
+        beep()
         setRestEnd(null)
       }
     }, 250)
@@ -202,6 +237,7 @@ export default function Session() {
     )
   }
   const startRest = () => {
+    primeAudio() // unlock audio within this tap so the end-beep can sound
     setRestEnd(Date.now() + restSec * 1000)
     setRemaining(restSec)
   }
@@ -252,27 +288,44 @@ export default function Session() {
         {loaded && (
           <div className="flex items-center gap-1">
             <button onClick={() => bumpW(-inc)} className={STEP} aria-label="Less weight">
-              <Minus size={14} />
+              <Minus size={15} />
             </button>
             <div className="w-11 text-center">
-              <span className="font-bold text-ink tnum text-[15px] leading-none">{s.weight || 0}</span>
-              <span className="text-[9px] text-muted block leading-none">kg/DB</span>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={s.weight}
+                onChange={(e) => setSet(ei, si, { weight: e.target.value.replace(/[^0-9.]/g, '') })}
+                onFocus={(e) => e.currentTarget.select()}
+                placeholder="0"
+                aria-label="Weight per dumbbell"
+                className="w-full text-center font-bold text-ink tnum text-[15px] leading-none bg-transparent outline-none focus:text-brand"
+              />
+              <span className="text-[10px] text-muted block leading-none">kg/DB</span>
             </div>
             <button onClick={() => bumpW(inc)} className={STEP} aria-label="More weight">
-              <Plus size={14} />
+              <Plus size={15} />
             </button>
           </div>
         )}
         <div className="flex items-center gap-1">
           <button onClick={() => bumpR(-1)} className={STEP} aria-label="Fewer reps">
-            <Minus size={14} />
+            <Minus size={15} />
           </button>
-          <div className="w-8 text-center">
-            <span className="font-bold text-ink tnum text-[15px] leading-none">{s.reps}</span>
-            <span className="text-[9px] text-muted block leading-none">reps</span>
+          <div className="w-9 text-center">
+            <input
+              type="text"
+              inputMode="numeric"
+              value={s.reps}
+              onChange={(e) => setSet(ei, si, { reps: e.target.value.replace(/[^0-9]/g, '') })}
+              onFocus={(e) => e.currentTarget.select()}
+              aria-label="Reps"
+              className="w-full text-center font-bold text-ink tnum text-[15px] leading-none bg-transparent outline-none focus:text-brand"
+            />
+            <span className="text-[10px] text-muted block leading-none">reps</span>
           </div>
           <button onClick={() => bumpR(1)} className={STEP} aria-label="More reps">
-            <Plus size={14} />
+            <Plus size={15} />
           </button>
         </div>
         <button

@@ -14,7 +14,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
     VitePWA({
-      registerType: 'autoUpdate',
+      // 'prompt' (not autoUpdate): a new build waits until the user taps "reload"
+      // so it can't hot-swap chunks under a live 6am session (see UpdatePrompt).
+      registerType: 'prompt',
       includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
       manifest: {
         name: 'Tactical Barbell',

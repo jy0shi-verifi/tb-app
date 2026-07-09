@@ -5,6 +5,7 @@ import { db, saveSettings } from './db'
 import { handleStravaRedirect } from './lib/strava'
 import { syncStrava } from './lib/stravaSync'
 import Layout from './components/Layout'
+import UpdatePrompt from './components/UpdatePrompt'
 import Onboarding from './screens/Onboarding'
 import Today from './screens/Today'
 import Session from './screens/Session'
@@ -52,16 +53,19 @@ export default function App() {
   if (settings.onboarded === false) return <Onboarding />
 
   return (
-    <Routes>
-      <Route element={<Layout />}>
-        <Route path="/" element={<Today />} />
-        <Route path="/session" element={<Session />} />
-        <Route path="/session/:date" element={<Session />} />
-        <Route path="/program" element={<Program />} />
-        <Route path="/history" element={<History />} />
-        <Route path="/maxes" element={<Maxes />} />
-        <Route path="/settings" element={<Settings />} />
-      </Route>
-    </Routes>
+    <>
+      <Routes>
+        <Route element={<Layout />}>
+          <Route path="/" element={<Today />} />
+          <Route path="/session" element={<Session />} />
+          <Route path="/session/:date" element={<Session />} />
+          <Route path="/program" element={<Program />} />
+          <Route path="/history" element={<History />} />
+          <Route path="/maxes" element={<Maxes />} />
+          <Route path="/settings" element={<Settings />} />
+        </Route>
+      </Routes>
+      <UpdatePrompt />
+    </>
   )
 }
