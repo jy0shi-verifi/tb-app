@@ -3,7 +3,7 @@ import type { Settings } from '../types'
 
 // Public Strava app Client ID (safe to ship in the client bundle). Fill after
 // creating the Strava API app; keep it identical to functions/api/strava/token.ts.
-export const STRAVA_CLIENT_ID = '__STRAVA_CLIENT_ID__'
+export const STRAVA_CLIENT_ID: string = '263946'
 const SCOPE = 'activity:read_all'
 const TOKEN_ENDPOINT = '/api/strava/token'
 

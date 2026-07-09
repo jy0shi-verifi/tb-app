@@ -7,7 +7,7 @@
 //   STRAVA_CLIENT_ID     — public Strava app Client ID (filled in below)
 //   STRAVA_CLIENT_SECRET — Pages secret: `wrangler pages secret put STRAVA_CLIENT_SECRET`
 
-const STRAVA_CLIENT_ID = '__STRAVA_CLIENT_ID__' // ← fill with the Strava app Client ID
+const STRAVA_CLIENT_ID = '263946' // Strava app Client ID (public)
 
 interface Env {
   STRAVA_CLIENT_SECRET: string
