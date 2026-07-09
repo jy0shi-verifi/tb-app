@@ -79,6 +79,8 @@ export interface Settings {
   operatorBlock?: number
   /** true once the first 12-week Operator run has been retested — after which retest every 6 wks (TB1 p.108) */
   operatorFirstRunDone?: boolean
+  /** epoch ms of the last successful Strava sync — throttles auto-sync on app open */
+  lastStravaSyncAt?: number
   /** Strava OAuth tokens (on-device only); set after "Connect Strava". */
   strava?: {
     accessToken: string

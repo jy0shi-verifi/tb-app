@@ -1,4 +1,4 @@
-import { db } from '../db'
+import { db, saveSettings } from '../db'
 import { maxesMap, programSessionName, resolvePosition, sessionFor } from '../program'
 import {
   fetchStravaActivities,
@@ -102,8 +102,10 @@ export async function syncStrava(): Promise<number> {
         synced++
       }
 
-      if (canWrite) {
-        const name = programSessionName(logged.phaseId, logged.week, logged.day, logged.type, settings)
+      // Push name + description back — but skip if this activity is already
+      // linked and named (so auto-sync on every app open doesn't re-hit Strava).
+      const name = programSessionName(logged.phaseId, logged.week, logged.day, logged.type, settings)
+      if (canWrite && !(logged.stravaId === a.id && a.name === name)) {
         const desc = liftDescription(logged, maxes, settings)
         try {
           await updateStravaActivityName(token, a.id, name, desc)
@@ -158,6 +160,7 @@ export async function syncStrava(): Promise<number> {
       }
     }
   }
+  await saveSettings({ lastStravaSyncAt: Date.now() })
   return synced
 }
 

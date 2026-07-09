@@ -189,15 +189,17 @@ export default function Settings() {
                 Reconnect to let the app name your runs on Strava →
               </button>
             )}
-            <button
-              onClick={async () => {
-                setMsg('Tagging latest run…')
-                setMsg(await devTagLatestAsOperatorRun())
-              }}
-              className="w-full text-xs text-brand py-1"
-            >
-              Test: tag my latest run as an Operator run day →
-            </button>
+            {import.meta.env.DEV && (
+              <button
+                onClick={async () => {
+                  setMsg('Tagging latest run…')
+                  setMsg(await devTagLatestAsOperatorRun())
+                }}
+                className="w-full text-xs text-brand py-1"
+              >
+                Test: tag my latest run as an Operator run day →
+              </button>
+            )}
           </div>
         ) : (
           <Button className="w-full" onClick={beginStravaAuth}>
