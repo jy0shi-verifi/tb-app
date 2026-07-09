@@ -3,10 +3,16 @@ import type { DbIncrement, LoadBasis, MaxEntry } from '../types'
 export const DB_MIN = 4
 export const DB_MAX = 60
 
-/** Epley estimated 1RM from a submaximal set (per dumbbell). */
+/**
+ * Brzycki estimated 1RM from a submaximal set (per dumbbell). TB1 (3rd ed, p103)
+ * says test a 3–5RM and plug it into a calculator; KB's own worked examples —
+ * squat 375×5→422, bench 230×3→244 — are produced by Brzycki, NOT Epley, so we
+ * match the book. Formula: 1RM = weight × 36 / (37 − reps) (guard reps < 37).
+ */
 export function estimate1RM(weight: number, reps: number): number {
   if (weight <= 0 || reps <= 0) return 0
-  return weight * (1 + reps / 30)
+  if (reps >= 37) return weight
+  return (weight * 36) / (37 - reps)
 }
 
 /** Training Max = 90% of true 1RM (TB standard). */
