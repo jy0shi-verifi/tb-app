@@ -54,3 +54,32 @@ test('an unfinished block (missing heavy weeks) recommends repeating it', async 
   })
   await expect(page.getByText(/Repeat this block/i)).toBeVisible()
 })
+
+test('warns to change progression rungs when retest gains stall', async ({ page }) => {
+  await seedState(page, {
+    settings: {
+      currentPhaseId: 'operator',
+      phaseStartDate: isoOffset(-42),
+      operatorBlock: 2,
+      operatorFirstRunDone: true,
+      maxHistory: [{ date: isoOffset(-42), e1rm: 70 }], // current ~76.5 → +6.5 ≤ 10 → stalling
+    },
+    maxes: OP_MAXES,
+  })
+  await expect(page.getByText(/retests are slowing down/i)).toBeVisible()
+  await expect(page.getByText(/check in with Claude/i)).toBeVisible()
+})
+
+test('no stall warning when the last retest gained well', async ({ page }) => {
+  await seedState(page, {
+    settings: {
+      currentPhaseId: 'operator',
+      phaseStartDate: isoOffset(-42),
+      operatorBlock: 2,
+      operatorFirstRunDone: true,
+      maxHistory: [{ date: isoOffset(-42), e1rm: 50 }], // current ~76.5 → +26.5 > 10 → healthy
+    },
+    maxes: OP_MAXES,
+  })
+  await expect(page.getByText(/retests are slowing down/i)).toHaveCount(0)
+})

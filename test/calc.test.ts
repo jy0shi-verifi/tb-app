@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { estimate1RM, trainingMax, workingLoad, maxToBasis, effective1RM } from '../src/lib/calc'
-import { bumpedEntry } from '../src/lib/progression'
-import { OPERATOR_WAVE } from '../src/program'
+import {
+  bumpedEntry,
+  lastRetestGain,
+  forcedProgressionTotal,
+  retestStalling,
+} from '../src/lib/progression'
+import { OPERATOR_WAVE, OPERATOR_LIFTS } from '../src/program'
 import type { MaxEntry } from '../src/types'
 
 // These assert the app matches Tactical Barbell (K. Black) 3rd-ed maths exactly.
@@ -104,5 +109,27 @@ describe('forced progression adds the increment to the 1RM (TB1 p107)', () => {
     e = bumpedEntry(e, 5)
     expect(e.bumpKg).toBe(10)
     expect(effective1RM(e)).toBeCloseTo(55, 2) // 45 + 10
+  })
+})
+
+describe('retest-ladder stall detection (TB1 p109 safety net)', () => {
+  it('forcedProgressionTotal sums the lift steps (~10kg)', () => {
+    expect(forcedProgressionTotal(OPERATOR_LIFTS)).toBe(10) // 2.5 + 5 + 2.5
+  })
+  it('lastRetestGain is null with no prior retest', () => {
+    expect(lastRetestGain(200, [])).toBeNull()
+    expect(lastRetestGain(200, undefined)).toBeNull()
+  })
+  it('computes the gain since the last retest', () => {
+    expect(lastRetestGain(215, [{ e1rm: 200 }])).toBe(15)
+  })
+  it('does NOT flag a healthy retest (gain beats a forced bump)', () => {
+    expect(retestStalling(215, [{ e1rm: 200 }], OPERATOR_LIFTS)).toBe(false) // +15 > 10
+  })
+  it('flags a stalled retest (gain ≤ a forced bump)', () => {
+    expect(retestStalling(208, [{ e1rm: 200 }], OPERATOR_LIFTS)).toBe(true) // +8 ≤ 10
+  })
+  it('never flags before there is a prior retest to compare', () => {
+    expect(retestStalling(500, undefined, OPERATOR_LIFTS)).toBe(false)
   })
 })

@@ -74,3 +74,36 @@ export function suggestBlockProgression(
 export function bumpedEntry(entry: MaxEntry, step: number): MaxEntry {
   return { ...entry, bumpKg: (entry.bumpKg ?? 0) + step }
 }
+
+/**
+ * Total est-1RM gain since the last retest (kg across all lifts), or null if
+ * there's no prior retest to compare against.
+ */
+export function lastRetestGain(
+  currentTotalE1rm: number,
+  history?: { e1rm: number }[],
+): number | null {
+  if (!history?.length) return null
+  return currentTotalE1rm - history[history.length - 1].e1rm
+}
+
+/** Sum of the lifts' forced-progression steps — the threshold at which a retest
+ *  no longer beats simply forcing the weight on (TB1's cue to change rungs). */
+export function forcedProgressionTotal(lifts: Lift[]): number {
+  return lifts.reduce((n, l) => n + (l.progressStep ?? 2.5), 0)
+}
+
+/**
+ * TB1 p109 ladder: retest every 6 wks while newbie gains flow; when they slow,
+ * step down to 12-wk retests then eventually forced progression. Returns true
+ * once the most recent retest added no more than a forced-progression bump would
+ * — the signal the app has taken you as far as its auto-setup goes.
+ */
+export function retestStalling(
+  currentTotalE1rm: number,
+  history: { e1rm: number }[] | undefined,
+  lifts: Lift[],
+): boolean {
+  const gain = lastRetestGain(currentTotalE1rm, history)
+  return gain != null && gain <= forcedProgressionTotal(lifts)
+}
