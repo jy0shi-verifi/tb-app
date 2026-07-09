@@ -1,5 +1,10 @@
 # TB App — Weight-Math Fidelity Audit
 
+> **RESOLUTION (2026-07-09, after community + K. Black forum cross-check).**
+> Two of this audit's calls were revisited:
+> - **1RM formula (Epley → Brzycki): CONFIRMED & FIXED.** Real bug; the app now matches KB's book numbers. ✅
+> - **Default basis: the audit said flip `tm → 1rm`. OVERRIDDEN — keep the 90% TM default.** The book's *letter* (template text + Kane example) uses the true 1RM, but K. Black's own forum guidance (t=145, t=29, Sep 2016, post-3rd-ed) recommends a **90% Training Max for high-frequency templates like Operator** — the "greasing the groove" effect gives breathing room so every session is hittable even on a bad day. Community + third-party tools concur, and flag *"using true 1RM as your TM"* as the #1 stall-causing mistake for first-timers. The TM trigger is **template frequency, NOT conditioning volume** (this audit's "TM because you run Black" reasoning was wrong on the *why*, right on the *what*). So Operator stays on TM by default; true 1RM is the advanced opt-in. Section 3 below (the "#2 default → 1rm" fix) is superseded by this note.
+
 ## 1. Verdict
 
 **Divergent (default config).** Verified firsthand against TB1 3rd ed (`updated 3rd volume.pdf`) and TB2, and against the app source. The app's Operator wave (%s, reps, sets), block length, retest ladder, forced-progression mechanic, and Base-Building "no weight math" are all faithful. But two settings compound into **wrong loads every session**:

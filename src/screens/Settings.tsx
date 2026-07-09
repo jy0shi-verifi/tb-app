@@ -121,7 +121,10 @@ export default function Settings() {
             <option value={10}>10 sec (test)</option>
           </select>
         </Row>
-        <Row label="Load basis" hint="Advanced — weights compute off 90% Training Max (the TB standard) or your true 1RM.">
+        <Row
+          label="Load basis"
+          hint="How every weight is worked out. K. Black recommends the 90% Training Max for high-frequency templates like Operator — you grease the groove and can hit every session, even on a bad day. True 1RM is heavier, for advanced lifters who find the TM too light."
+        >
           <Segmented<LoadBasis>
             value={s.loadBasis}
             options={[

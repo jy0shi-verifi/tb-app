@@ -62,12 +62,19 @@ describe('Operator working weights off the TRUE 1RM — book §4B, floor-round 2
   })
 })
 
-describe('90% Training-Max basis is exactly 0.9× the 1RM-basis loads (before rounding)', () => {
-  it('Bench 30×5 on TM basis lands ~10% lighter', () => {
-    // 1RM 33.75 → TM 30.375; wk1 70% = 21.26 → floor 20; wk6 95% = 28.86 → floor 28
-    const tm = weekLoads(30, 5, 'tm')
-    expect(tm[0]).toBe(20)
-    expect(tm[5]).toBe(28)
+describe('90% Training-Max basis — the DEFAULT for Operator (K. Black, forum t=145)', () => {
+  // KB ties the TM to high-frequency templates like Operator: the "greasing the
+  // groove" effect gives breathing room on load so every session is hittable,
+  // even on a bad day. This is the app's default (settings.loadBasis='tm'); true
+  // 1RM is the advanced opt-in. Verified vs TB forum + community + book audit.
+  it('Bench 30×5 on TM basis → the weekly loads Josh actually sees', () => {
+    // 1RM 33.75 → TM 30.375; ×[70,80,90,75,85,95]%, floor 2kg
+    expect(weekLoads(30, 5, 'tm')).toEqual([20, 24, 26, 22, 24, 28])
+  })
+  it('is ~10% below the true-1RM basis, as intended', () => {
+    const tm = weekLoads(40, 5, 'tm')
+    const oneRm = weekLoads(40, 5, '1rm')
+    expect(tm.every((w, i) => w <= oneRm[i])).toBe(true)
   })
 })
 
