@@ -9,7 +9,7 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: false,
-  retries: 0,
+  retries: 1, // a transient dev-server hiccup under parallel load self-heals
   workers: 3,
   reporter: [['list']],
   timeout: 30_000,

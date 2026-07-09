@@ -1,11 +1,23 @@
 # TB App — E2E Coverage Backlog
 
-## ✅ Implemented so far (27 tests, all green — `npm run test:e2e`)
-Originals: rest-timer survives refresh + skip-clears; onboarding shows; every screen renders; direct weight entry + feel/notes → History; rest-timer & theme persist; backup export downloads; malformed import rejected.
-Round-2 (this pass): phase-boundary trio (before / day-0 active / day-41 active / day-42 complete); lapse-guard Welcome-back (not an unearned Test Day); missed-session nudge + dismissal persists across reload; backup nudge; in-progress lift logging survives reload; partial "you showed up" (done=false); autosave does NOT clobber Strava enrichment (asserts the Dexie row); SE circuit rests only on a full round; onboarding completes → Today & never returns + legacy-row skip; block-complete branches (first-run hold / post-first-run retest / unfinished repeat); Maxes BB "nothing to do" + Operator wave table.
+## ✅ Implemented (41 tests, all green — `npm run test:e2e`)
+- **Core/originals:** rest-timer survives refresh + skip-clears; onboarding shows; every screen renders (no crash/blank/ErrorBoundary, zero console errors); direct weight entry + feel/notes → History; rest-timer & theme persist; backup export downloads; malformed import rejected.
+- **Dates/phase:** before-countdown; day-0 active; day-41 active; day-42 complete.
+- **Today:** lapse-guard Welcome-back (not an unearned Test Day); missed-session nudge + dismissal persists across reload; backup nudge.
+- **Session:** in-progress lift logging survives reload; partial "you showed up" (done=false); autosave does NOT clobber Strava enrichment (asserts Dexie row); SE circuit rests only on a full round.
+- **Onboarding:** completes → Today & never returns; legacy no-`onboarded` row skips.
+- **Progression:** block-complete branches (first-run hold / post-first-run retest / unfinished repeat); force-progress bumps each max by its step (asserts bumpKg deltas).
+- **Maxes:** BB "nothing to do"; Operator wave table; 60kg-ceiling ⚠ flag.
+- **Settings:** load-basis confirm — cancel is a no-op / accept persists.
+- **Backup:** rejects missing-tables / newer-version / no-app-row; a valid backup restores after confirmation.
+- **History:** empty state; delete-from-list removes + persists.
+- **Strava (mocked `/api/strava/*`):** run auto-ticks the matching day on open; lift write-back PUTs name+description (breakdown); sync-failure banner; revoked-token reconnect banner.
 
-## ⏭ Still to build (highest value next)
-Strava subsystem via `page.route` mocking (#15–17: run auto-tick, lift write-back idempotency, error-banner classification); backup snapshot-rollback on a mid-import failure (#9); forceProgress/retest mutation (assert bumpKg deltas, dialog-gated); Maxes exact-load / 60kg-ceiling / TM-vs-1RM rescale; History delete-from-list + empty state; load-basis / phase-switch confirm dialogs; clock-dependent (auto-complete today's rest after 23:55, streak tolerance) — need a faked wall clock. Full detail below.
+## ⏭ Deliberately left (better as unit tests or need extra scaffolding)
+- **Backup snapshot-rollback on a mid-import write failure (#9)** — needs an injected failure hook; hard to trigger black-box.
+- **Exact load-math** (per-week working weights, TM-vs-1RM numbers) and **streak tolerance counting** — pure functions; better as a small **Vitest unit suite** than E2E.
+- **Clock-dependent:** auto-complete today's rest after 23:55 — needs `page.clock`.
+- Device-only (see §4): real notifications, audio-through-lock, live Strava OAuth, PWA install.
 
 ---
 

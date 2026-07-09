@@ -110,20 +110,39 @@ export async function seedState(page: Page, state: SeedState): Promise<void> {
   await page.reload()
 }
 
-/** Read the sessions table (for asserting what autosave/sync actually wrote). */
-export async function readSessions(page: Page): Promise<Record<string, unknown>[]> {
+/** YYYY-MM-DD of an ISO date + n days. */
+export function plusDays(isoDate: string, n: number): string {
+  const [y, m, d] = isoDate.split('-').map(Number)
+  return iso(new Date(y, m - 1, d + n))
+}
+
+async function readStore(page: Page, store: string): Promise<Record<string, unknown>[]> {
   return page.evaluate(
-    () =>
+    (name) =>
       new Promise((res, rej) => {
         const open = indexedDB.open('tb-app')
         open.onsuccess = () => {
-          const req = open.result.transaction('sessions').objectStore('sessions').getAll()
+          const req = open.result.transaction(name).objectStore(name).getAll()
           req.onsuccess = () => res(req.result)
           req.onerror = () => rej(req.error)
         }
         open.onerror = () => rej(open.error)
       }),
+    store,
   )
+}
+
+/** Read the sessions table (to assert what autosave/sync actually wrote). */
+export async function readSessions(page: Page) {
+  return readStore(page, 'sessions')
+}
+/** Read the maxes table. */
+export async function readMaxes(page: Page) {
+  return readStore(page, 'maxes')
+}
+/** Read the single settings row. */
+export async function readSettings(page: Page): Promise<Record<string, unknown> | undefined> {
+  return (await readStore(page, 'settings'))[0]
 }
 
 /** Wait until the app's Dexie DB exists with its object stores created. */
