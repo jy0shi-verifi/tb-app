@@ -28,6 +28,104 @@ export const test = base.extend<{ errors: string[] }>({
 
 export { expect }
 
+function iso(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+/** YYYY-MM-DD for today + `days` (local time). */
+export function isoOffset(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return iso(d)
+}
+/** The Monday of the week `weeks` away from this week (0 = this Monday). */
+export function mondayOffset(weeks: number): string {
+  const d = new Date()
+  const mi = (d.getDay() + 6) % 7
+  d.setDate(d.getDate() - mi + weeks * 7)
+  return iso(d)
+}
+
+/** Seeded Operator test maxes (per-DB test weight x reps). */
+export const OP_MAXES = [
+  { liftId: 'op_bench', testWeight: 22, testReps: 5, bumpKg: 0 },
+  { liftId: 'op_squat', testWeight: 28, testReps: 5, bumpKg: 0 },
+  { liftId: 'op_row', testWeight: 18, testReps: 5, bumpKg: 0 },
+]
+
+/** Lift sessions in weeks 3, 6, 6 → makes blockCompleted() true for a -42d start. */
+export function completedBlockSessions() {
+  const lift = (date: string, week: number, day: number, createdAt: number) => ({
+    date,
+    phaseId: 'operator',
+    week,
+    day,
+    type: 'lift',
+    title: `Operator — Week ${week}`,
+    exercises: [],
+    done: true,
+    createdAt,
+  })
+  return [lift(isoOffset(-27), 3, 0, 1), lift(isoOffset(-6), 6, 0, 2), lift(isoOffset(-4), 6, 2, 3)]
+}
+
+type SeedState = {
+  settings?: Record<string, unknown>
+  sessions?: Record<string, unknown>[]
+  maxes?: Record<string, unknown>[]
+}
+
+/** Inject an arbitrary starting state (settings/sessions/maxes) and reload. */
+export async function seedState(page: Page, state: SeedState): Promise<void> {
+  await page.goto('/')
+  await waitForDb(page)
+  await page.evaluate(
+    (s) =>
+      new Promise<void>((res, rej) => {
+        const open = indexedDB.open('tb-app')
+        open.onsuccess = () => {
+          const db = open.result
+          const tx = db.transaction(['settings', 'sessions', 'maxes'], 'readwrite')
+          tx.objectStore('settings').clear()
+          tx.objectStore('sessions').clear()
+          tx.objectStore('maxes').clear()
+          tx.objectStore('settings').put({
+            id: 'app',
+            dbIncrement: 2,
+            loadBasis: 'tm',
+            currentPhaseId: 'base-building',
+            phaseStartDate: '2026-01-05',
+            onboarded: true,
+            theme: 'light',
+            ...(s.settings ?? {}),
+          })
+          for (const m of s.maxes ?? []) tx.objectStore('maxes').put(m)
+          for (const ses of s.sessions ?? []) tx.objectStore('sessions').add(ses)
+          tx.oncomplete = () => res()
+          tx.onerror = () => rej(tx.error)
+        }
+        open.onerror = () => rej(open.error)
+      }),
+    state,
+  )
+  await page.reload()
+}
+
+/** Read the sessions table (for asserting what autosave/sync actually wrote). */
+export async function readSessions(page: Page): Promise<Record<string, unknown>[]> {
+  return page.evaluate(
+    () =>
+      new Promise((res, rej) => {
+        const open = indexedDB.open('tb-app')
+        open.onsuccess = () => {
+          const req = open.result.transaction('sessions').objectStore('sessions').getAll()
+          req.onsuccess = () => res(req.result)
+          req.onerror = () => rej(req.error)
+        }
+        open.onerror = () => rej(open.error)
+      }),
+  )
+}
+
 /** Wait until the app's Dexie DB exists with its object stores created. */
 async function waitForDb(page: Page) {
   await page.waitForFunction(
