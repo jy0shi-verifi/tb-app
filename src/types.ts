@@ -81,6 +81,12 @@ export interface Settings {
   operatorFirstRunDone?: boolean
   /** epoch ms of the last successful Strava sync — throttles auto-sync on app open */
   lastStravaSyncAt?: number
+  /** epoch ms of the last data export (backup) — drives the "back up your data" nudge */
+  lastBackupAt?: number
+  /** last Strava sync error message (undefined = healthy); surfaced as a banner */
+  stravaSyncError?: string
+  /** true when a Strava call failed auth (revoked/expired) — prompt a reconnect */
+  stravaNeedsReconnect?: boolean
   /** Strava OAuth tokens (on-device only); set after "Connect Strava". */
   strava?: {
     accessToken: string

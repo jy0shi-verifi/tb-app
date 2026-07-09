@@ -290,7 +290,7 @@ export interface Position {
 export function resolvePosition(settings: Settings, when: Date): Position {
   const start = parseISO(settings.phaseStartDate)
   const d = diffDays(when, start)
-  const phase = PHASES[settings.currentPhaseId]
+  const phase = PHASES[settings.currentPhaseId] ?? PHASES['base-building']
   if (d < 0) return { phaseId: settings.currentPhaseId, week: 1, day: 0, status: 'before' }
   const week = Math.floor(d / 7) + 1
   const day = ((d % 7) + 7) % 7

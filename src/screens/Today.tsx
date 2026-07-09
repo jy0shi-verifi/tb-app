@@ -5,6 +5,8 @@ import { useMaxes, useSettings, useSessions, useSessionByDate } from '../hooks'
 import { maxesMap, OPERATOR_LIFTS, PHASES, resolvePosition, sessionFor } from '../program'
 import { isoDate, today, prettyDate, parseISO, diffDays, addDays, mondayIndex, nextMonday } from '../lib/date'
 import { db, saveSettings, clearProgression } from '../db'
+import { beginStravaAuth } from '../lib/strava'
+import { shouldNudgeBackup, downloadBackup } from '../lib/backup'
 import { suggestBlockProgression, bumpedEntry, blockCompleted } from '../lib/progression'
 import { computeStreak, sessionsThisWeek } from '../lib/stats'
 import { Button, Card, Pill, SessionIcon, SESSION_META } from '../components/ui'
@@ -307,6 +309,41 @@ export default function Today() {
               : 'Final week — Test Day'}
         </p>
       </div>
+
+      {/* data-safety: Strava connection trouble + backup nudge */}
+      {settings.stravaNeedsReconnect ? (
+        <Card className="p-3 border-warm-edge/40 bg-warm">
+          <p className="font-semibold text-ink text-sm">Strava needs reconnecting</p>
+          <p className="text-xs text-muted mt-0.5">
+            Your runs stopped syncing. Reconnect to start pulling them in again.
+          </p>
+          <button onClick={beginStravaAuth} className="text-brand font-semibold text-sm mt-1">
+            Reconnect Strava →
+          </button>
+        </Card>
+      ) : settings.stravaSyncError ? (
+        <Card className="p-3 border-warm-edge/40 bg-warm">
+          <p className="font-semibold text-ink text-sm">Couldn’t reach Strava</p>
+          <p className="text-xs text-muted mt-0.5">
+            The last sync didn’t go through — it’ll retry when you reopen, or sync from Settings.
+          </p>
+        </Card>
+      ) : null}
+
+      {shouldNudgeBackup(settings, sessions) && (
+        <Card className="p-3 flex items-center gap-3 border-warm-edge/40 bg-warm">
+          <div className="flex-1 text-sm">
+            <p className="font-semibold text-ink">Back up your data</p>
+            <p className="text-xs text-muted">It lives only on this phone — export a copy to be safe.</p>
+          </div>
+          <button
+            onClick={() => downloadBackup()}
+            className="text-brand font-semibold text-sm shrink-0"
+          >
+            Export →
+          </button>
+        </Card>
+      )}
 
       {/* lapse (welcome back) takes priority over a single missed nudge */}
       {lapsed ? (

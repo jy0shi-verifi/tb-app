@@ -3,13 +3,16 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import './index.css'
 import App from './App.tsx'
-import { applyTheme, db, ensureSeeded } from './db'
+import ErrorBoundary from './components/ErrorBoundary'
+import { applyTheme, db, ensureSeeded, requestPersistentStorage } from './db'
 import { autoCompleteRestDays } from './lib/autocomplete'
 
 ensureSeeded().then(async () => {
   const s = await db.settings.get('app')
   applyTheme(s?.theme ?? 'system')
   await autoCompleteRestDays()
+  // Protect the only copy of his data from silent eviction.
+  await requestPersistentStorage()
 })
 
 // dev-only: window.tbSeed() populates fake history, window.tbClear() resets
@@ -24,8 +27,10 @@ if (import.meta.env.DEV) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
+    </ErrorBoundary>
   </StrictMode>,
 )

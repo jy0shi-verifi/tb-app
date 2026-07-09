@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react'
 import { Download, Upload } from 'lucide-react'
 import { useSettings } from '../hooks'
-import { applyTheme, exportBackup, importBackup, saveSettings } from '../db'
+import { applyTheme, importBackup, parseBackup, saveSettings } from '../db'
+import { downloadBackup } from '../lib/backup'
 import { PHASES } from '../program'
 import { Button, Card } from '../components/ui'
 import { beginStravaAuth, disconnectStrava, stravaCanWrite, stravaConfigured } from '../lib/strava'
@@ -51,14 +52,7 @@ export default function Settings() {
   const [msg, setMsg] = useState<string>('')
 
   async function doExport() {
-    const json = await exportBackup()
-    const blob = new Blob([json], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `tb-backup-${new Date().toISOString().slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    await downloadBackup()
     setMsg('Backup downloaded.')
   }
 
@@ -66,8 +60,16 @@ export default function Settings() {
     const file = e.target.files?.[0]
     if (!file) return
     try {
-      await importBackup(await file.text())
-      setMsg('Backup restored.')
+      const text = await file.text()
+      const b = parseBackup(text) // validates shape before we touch anything
+      const ok = window.confirm(
+        `Restore this backup?\n\n${b.sessions.length} sessions · ${b.maxes.length} maxes` +
+          `\nfrom ${b.exportedAt.slice(0, 10)}\n\nThis REPLACES all data currently on this phone.`,
+      )
+      if (ok) {
+        await importBackup(text)
+        setMsg('Backup restored.')
+      }
     } catch (err) {
       setMsg(`Import failed: ${(err as Error).message}`)
     }

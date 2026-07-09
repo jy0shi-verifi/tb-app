@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db } from './db'
+import { db, saveSettings } from './db'
 import { handleStravaRedirect } from './lib/strava'
 import { syncStrava } from './lib/stravaSync'
 import Layout from './components/Layout'
@@ -17,6 +17,19 @@ import Settings from './screens/Settings'
 const AUTO_SYNC_THROTTLE_MS = 10 * 60 * 1000
 let autoSyncRan = false
 
+/** Run a sync and persist its outcome so the UI can surface a failure/reconnect. */
+async function runSync(): Promise<void> {
+  try {
+    await syncStrava()
+    await saveSettings({ stravaSyncError: undefined, stravaNeedsReconnect: false })
+  } catch (e) {
+    const msg = (e as Error)?.message ?? 'unknown error'
+    // A failed token refresh means the connection was revoked/expired.
+    const needsReconnect = /token|refresh|401|invalid/i.test(msg)
+    await saveSettings({ stravaSyncError: msg.slice(0, 140), stravaNeedsReconnect: needsReconnect })
+  }
+}
+
 export default function App() {
   const settings = useLiveQuery(async () => (await db.settings.get('app')) ?? null, [])
 
@@ -28,10 +41,9 @@ export default function App() {
     autoSyncRan = true
     handleStravaRedirect()
       .then(async (connected) => {
-        if (connected) return syncStrava()
+        if (connected) return runSync()
         const s = await db.settings.get('app')
-        if (s?.strava && Date.now() - (s.lastStravaSyncAt ?? 0) > AUTO_SYNC_THROTTLE_MS)
-          return syncStrava()
+        if (s?.strava && Date.now() - (s.lastStravaSyncAt ?? 0) > AUTO_SYNC_THROTTLE_MS) return runSync()
       })
       .catch(() => {})
   }, [])
