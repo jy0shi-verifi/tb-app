@@ -8,7 +8,7 @@ import { db, saveSettings, clearProgression } from '../db'
 import { beginStravaAuth } from '../lib/strava'
 import { shouldNudgeBackup, downloadBackup } from '../lib/backup'
 import { suggestBlockProgression, bumpedEntry, blockCompleted } from '../lib/progression'
-import { computeStreak, sessionsThisWeek } from '../lib/stats'
+import { computeStreak, longestStreak, sessionsThisWeek } from '../lib/stats'
 import { Button, Card, Pill, SessionIcon, SESSION_META } from '../components/ui'
 import type { SessionLog } from '../types'
 
@@ -247,6 +247,7 @@ export default function Today() {
   const anyCeiling = plan.exercises.some((e) => e.sets[0]?.overCeiling)
   const anyFloor = plan.exercises.some((e) => e.sets[0]?.underFloor)
   const streak = computeStreak(sessions)
+  const bestStreak = longestStreak(sessions)
   const weekCount = sessionsThisWeek(sessions)
 
   // intensity / feel of the current week
@@ -300,7 +301,9 @@ export default function Today() {
           <Flame size={22} className={streak > 0 ? 'text-orange-500' : 'text-muted'} />
           <div>
             <p className="text-xl font-extrabold text-ink tnum leading-none">{streak}</p>
-            <p className="text-[11px] text-muted">session streak</p>
+            <p className="text-[11px] text-muted">
+              session streak{bestStreak > streak ? ` · best ${bestStreak}` : ''}
+            </p>
           </div>
         </Card>
         <Card className="flex-1 p-3 flex items-center gap-2">

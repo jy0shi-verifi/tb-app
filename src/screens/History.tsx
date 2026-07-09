@@ -9,13 +9,13 @@ import {
   CartesianGrid,
 } from 'recharts'
 import { Flame, Footprints, Trash2 } from 'lucide-react'
-import { useSessions } from '../hooks'
-import { OPERATOR_LIFTS } from '../program'
+import { useSessions, useSettings } from '../hooks'
+import { OPERATOR_LIFTS, PHASES } from '../program'
 import { estimate1RM } from '../lib/calc'
 import { badges, computeStreak, liftRecords, runStats, weekSummary } from '../lib/stats'
 import { deleteSession } from '../db'
 import { Card, EmptyState, SessionIcon, SESSION_META } from '../components/ui'
-import { parseISO } from '../lib/date'
+import { parseISO, diffDays, today } from '../lib/date'
 
 const LIFT_COLORS_LIGHT: Record<string, string> = { Bench: '#2c5578', Squat: '#2e7d5b', Row: '#c2831f' }
 const LIFT_COLORS_DARK: Record<string, string> = { Bench: '#6fa3cf', Squat: '#4cc38a', Row: '#e0b24a' }
@@ -43,7 +43,23 @@ function paceLabel(min?: number, km?: number): string | null {
 
 export default function History() {
   const sessions = useSessions()
+  const settings = useSettings()
   const [openId, setOpenId] = useState<number | null>(null)
+
+  // conditioning pace trend (min/km over time) — the cardio counterpart to the
+  // strength chart; the half he's rebuilding post-RAF finally gets a trend line.
+  const paceData = useMemo(
+    () =>
+      sessions
+        .filter((s) => (s.type === 'run' || s.type === 'hic') && s.durationMin && s.distanceKm)
+        .slice()
+        .sort((a, b) => (a.date < b.date ? -1 : 1))
+        .map((s) => ({
+          date: parseISO(s.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+          pace: Math.round((s.durationMin! / s.distanceKm!) * 100) / 100,
+        })),
+    [sessions],
+  )
 
   const chartData = useMemo(() => {
     const rows: Record<string, number | string>[] = []
@@ -93,6 +109,22 @@ export default function History() {
     sessions.filter((s) => s.phaseId === 'operator' && s.type === 'lift' && s.done).length / 3,
   )
   const nextMs = [10, 25, 50, 100, 200, 365].find((m) => done < m)
+  // Operator "hold" progress — a moving metric while the strength chart is
+  // deliberately flat across the 12-week hold (banked sessions = the real win).
+  const opTargetLifts = PHASES.operator.lengthWeeks * 3
+  const opProgress =
+    settings.currentPhaseId === 'operator'
+      ? {
+          block: settings.operatorBlock ?? 1,
+          lifts: sessions.filter(
+            (s) => s.type === 'lift' && s.done && s.date >= settings.phaseStartDate,
+          ).length,
+          week: Math.min(
+            PHASES.operator.lengthWeeks,
+            Math.max(1, Math.floor(diffDays(today(), parseISO(settings.phaseStartDate)) / 7) + 1),
+          ),
+        }
+      : null
 
   return (
     <div className="space-y-4">
@@ -133,6 +165,28 @@ export default function History() {
           </div>
         </div>
       </Card>
+
+      {/* operator hold progress */}
+      {opProgress && (
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="font-bold text-ink">Operator · Block {opProgress.block}</p>
+            <span className="text-xs text-muted">
+              week {opProgress.week}/{PHASES.operator.lengthWeeks}
+            </span>
+          </div>
+          <div className="h-2 rounded-full bg-line/50 overflow-hidden">
+            <div
+              className="h-full bg-brand transition-all"
+              style={{ width: `${Math.min(100, (opProgress.lifts / opTargetLifts) * 100)}%` }}
+            />
+          </div>
+          <p className="text-xs text-muted mt-2">
+            <b className="text-load tnum">{opProgress.lifts}</b> / {opTargetLifts} lift sessions banked
+            this block — holding your numbers through a cut is the win.
+          </p>
+        </Card>
+      )}
 
       {/* badges + next milestone */}
       {(earned.length > 0 || nextMs) && (
@@ -249,6 +303,52 @@ export default function History() {
             </div>
           </div>
           <p className="text-[11px] text-muted text-center mt-2">From Strava once connected.</p>
+        </Card>
+      )}
+
+      {/* conditioning pace trend */}
+      {paceData.length >= 2 && (
+        <Card className="p-4">
+          <p className="font-bold text-ink mb-1">Conditioning trend</p>
+          <p className="text-xs text-muted mb-3">avg pace · the line climbs as you get faster</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <LineChart data={paceData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,138,150,0.2)" />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: axisColor }} />
+              <YAxis
+                reversed
+                domain={['auto', 'auto']}
+                width={40}
+                tick={{ fontSize: 11, fill: axisColor }}
+                tickFormatter={(v) => {
+                  const m = Math.floor(v)
+                  return `${m}:${String(Math.round((v - m) * 60)).padStart(2, '0')}`
+                }}
+              />
+              <Tooltip
+                contentStyle={{
+                  fontSize: 12,
+                  borderRadius: 8,
+                  background: dark ? '#161d26' : '#fff',
+                  border: `1px solid ${dark ? '#2b3745' : '#e5e7eb'}`,
+                  color: dark ? '#e7edf3' : '#1a2733',
+                }}
+                formatter={(v) => {
+                  const n = Number(v)
+                  const m = Math.floor(n)
+                  return [`${m}:${String(Math.round((n - m) * 60)).padStart(2, '0')} /km`, 'pace']
+                }}
+              />
+              <Line
+                type="monotone"
+                dataKey="pace"
+                stroke={dark ? '#a78bfa' : '#7c3aed'}
+                strokeWidth={2.5}
+                dot={{ r: 3 }}
+                connectNulls
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </Card>
       )}
 

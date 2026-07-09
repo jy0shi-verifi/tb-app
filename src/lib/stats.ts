@@ -21,6 +21,21 @@ export function computeStreak(sessions: SessionLog[]): number {
   return streak
 }
 
+/** The longest run of sessions ever (same ≤3-day tolerance) — a record that
+ *  survives a reset, so a life gap doesn't erase the sense of achievement. */
+export function longestStreak(sessions: SessionLog[]): number {
+  const dates = [...new Set(sessions.filter((s) => s.done).map((s) => s.date))].sort()
+  if (!dates.length) return 0
+  let best = 1
+  let cur = 1
+  for (let i = 1; i < dates.length; i++) {
+    if (diffDays(parseISO(dates[i]), parseISO(dates[i - 1])) <= 3) cur++
+    else cur = 1
+    if (cur > best) best = cur
+  }
+  return best
+}
+
 export function sessionsThisWeek(sessions: SessionLog[]): number {
   const monday = addDays(today(), -mondayIndex(today()))
   const from = isoDate(monday)
@@ -139,13 +154,21 @@ export function badges(sessions: SessionLog[]): Badge[] {
   const opWk6 = done.filter((s) => s.phaseId === 'operator' && s.type === 'lift' && s.week === 6)
   if (opWk6.length >= 1) out.push({ key: 'op1', label: 'First Operator block', emoji: '💪' })
   const total = done.length
-  for (const m of [100, 50, 25, 10]) {
+  for (const m of [200, 100, 50, 25, 10]) {
     if (total >= m) {
       out.push({ key: `s${m}`, label: `${m} sessions`, emoji: '⭐' })
       break
     }
   }
-  const streak = computeStreak(sessions)
-  if (streak >= 7) out.push({ key: 'streak', label: `${streak}-day streak`, emoji: '🔥' })
+  // conditioning distance tiers (the half he's rebuilding post-RAF)
+  const km = runStats(sessions).totalKm
+  for (const m of [250, 100, 50, 25]) {
+    if (km >= m) {
+      out.push({ key: `km${m}`, label: `${m} km logged`, emoji: '🏃' })
+      break
+    }
+  }
+  const best = longestStreak(sessions)
+  if (best >= 7) out.push({ key: 'streak', label: `${best}-session streak`, emoji: '🔥' })
   return out
 }

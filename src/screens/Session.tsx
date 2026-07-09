@@ -367,16 +367,26 @@ export default function Session() {
       </div>
 
       {/* completion / PR moment — PRs show as soon as a top set beats your best */}
-      {(allDone || prs.length > 0) && (
+      {(doneSets > 0 || prs.length > 0) && (
         <Card className="pop p-4 text-center bg-load-soft border-load/40">
-          {allDone && (
+          {allDone ? (
             <>
               <p className="text-3xl">✅</p>
               <p className="font-bold text-load mt-1">
                 Session complete — {doneSets}/{totalSets} sets
               </p>
             </>
-          )}
+          ) : doneSets > 0 ? (
+            <>
+              <p className="text-3xl">💪</p>
+              <p className="font-bold text-load mt-1">
+                Logged — you showed up ({doneSets}/{totalSets} sets)
+              </p>
+              <p className="text-xs text-muted mt-0.5">
+                Showing up beats skipping. Every set you bank counts.
+              </p>
+            </>
+          ) : null}
           {prs.map((pr) => (
             <p key={pr.name} className="text-sm text-ink mt-1">
               🏆 {pr.name} best: {pr.prev.toFixed(0)} → <b>{pr.cur.toFixed(0)} kg</b>
