@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   ResponsiveContainer,
   LineChart,
@@ -32,8 +32,18 @@ async function confirmDelete(id?: number) {
   if (window.confirm('Delete this logged session?')) await deleteSession(id)
 }
 
+/** Average pace as "m:ss /km" from minutes + km, or null if either is missing. */
+function paceLabel(min?: number, km?: number): string | null {
+  if (!min || !km) return null
+  const perKm = min / km
+  const m = Math.floor(perKm)
+  const s = Math.round((perKm - m) * 60)
+  return `${m}:${String(s).padStart(2, '0')} /km`
+}
+
 export default function History() {
   const sessions = useSessions()
+  const [openId, setOpenId] = useState<number | null>(null)
 
   const chartData = useMemo(() => {
     const rows: Record<string, number | string>[] = []
@@ -246,30 +256,70 @@ export default function History() {
       <div className="space-y-2">
         {sessions.map((s) => {
           const setCount = s.exercises.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0)
+          const hasDetail = !!(s.stravaId || s.distanceKm != null || s.avgHr != null)
+          const open = openId === s.id
+          const pace = paceLabel(s.durationMin, s.distanceKm)
           return (
-            <Card key={s.id} className="p-3 flex items-center gap-3">
-              <SessionIcon type={s.type} size={20} />
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-ink text-[15px] truncate">{s.title}</p>
-                <p className="text-xs text-muted">
-                  {parseISO(s.date).toLocaleDateString('en-GB', {
-                    weekday: 'short',
-                    day: 'numeric',
-                    month: 'short',
-                  })}{' '}
-                  · {SESSION_META[s.type].label}
-                  {setCount > 0 && ` · ${setCount} sets`}
-                  {s.durationMin ? ` · ${s.durationMin} min` : ''}
-                </p>
+            <Card key={s.id} className="p-3">
+              <div className="flex items-center gap-3">
+                <SessionIcon type={s.type} size={20} />
+                <button
+                  type="button"
+                  disabled={!hasDetail}
+                  onClick={() => setOpenId(open ? null : (s.id ?? null))}
+                  className="flex-1 min-w-0 text-left disabled:cursor-default"
+                >
+                  <p className="font-semibold text-ink text-[15px] truncate">{s.title}</p>
+                  <p className="text-xs text-muted">
+                    {parseISO(s.date).toLocaleDateString('en-GB', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                    })}{' '}
+                    · {SESSION_META[s.type].label}
+                    {setCount > 0 && ` · ${setCount} sets`}
+                    {s.durationMin ? ` · ${s.durationMin} min` : ''}
+                    {hasDetail && <span className="text-brand font-medium"> · {open ? 'less' : 'details'}</span>}
+                  </p>
+                </button>
+                {s.done && <span className="text-load text-sm font-semibold">✓</span>}
+                <button
+                  onClick={() => confirmDelete(s.id)}
+                  className="p-2 -mr-1 text-muted/50 active:text-red-600"
+                  aria-label="Delete session"
+                >
+                  <Trash2 size={15} />
+                </button>
               </div>
-              {s.done && <span className="text-load text-sm font-semibold">✓</span>}
-              <button
-                onClick={() => confirmDelete(s.id)}
-                className="p-2 -mr-1 text-muted/50 active:text-red-600"
-                aria-label="Delete session"
-              >
-                <Trash2 size={15} />
-              </button>
+
+              {open && hasDetail && (
+                <div className="mt-3 pt-3 border-t border-line/60">
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <p className="text-lg font-extrabold text-accent tnum">{s.distanceKm ?? '—'}</p>
+                      <p className="text-[11px] text-muted">km</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-extrabold text-accent tnum">{pace ?? '—'}</p>
+                      <p className="text-[11px] text-muted">avg pace</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-extrabold text-accent tnum">{s.avgHr ?? '—'}</p>
+                      <p className="text-[11px] text-muted">avg bpm</p>
+                    </div>
+                  </div>
+                  {s.stravaId && (
+                    <a
+                      href={`https://www.strava.com/activities/${s.stravaId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 flex items-center justify-center gap-1.5 text-sm font-semibold text-[#fc4c02] active:opacity-70"
+                    >
+                      View on Strava →
+                    </a>
+                  )}
+                </div>
+              )}
             </Card>
           )
         })}

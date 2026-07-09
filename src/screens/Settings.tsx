@@ -4,8 +4,8 @@ import { useSettings } from '../hooks'
 import { applyTheme, exportBackup, importBackup, saveSettings } from '../db'
 import { PHASES } from '../program'
 import { Button, Card } from '../components/ui'
-import { beginStravaAuth, disconnectStrava, stravaConfigured } from '../lib/strava'
-import { syncStrava, importStravaHistory } from '../lib/stravaSync'
+import { beginStravaAuth, disconnectStrava, stravaCanWrite, stravaConfigured } from '../lib/strava'
+import { syncStrava, importStravaHistory, devTagLatestAsOperatorRun } from '../lib/stravaSync'
 import { APP_VERSION } from '../version'
 import type { DbIncrement, LoadBasis, ThemeMode } from '../types'
 
@@ -180,6 +180,23 @@ export default function Settings() {
               className="w-full text-sm text-brand font-medium py-1"
             >
               Import my past runs (one-off) →
+            </button>
+            {!stravaCanWrite(s) && (
+              <button
+                onClick={beginStravaAuth}
+                className="w-full text-xs text-muted py-1"
+              >
+                Reconnect to let the app name your runs on Strava →
+              </button>
+            )}
+            <button
+              onClick={async () => {
+                setMsg('Tagging latest run…')
+                setMsg(await devTagLatestAsOperatorRun())
+              }}
+              className="w-full text-xs text-brand py-1"
+            >
+              Test: tag my latest run as an Operator run day →
             </button>
           </div>
         ) : (

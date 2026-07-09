@@ -85,5 +85,7 @@ export interface Settings {
     refreshToken: string
     expiresAt: number // epoch seconds
     athleteId?: number
+    /** OAuth scopes granted at connect (comma-separated); write-back needs activity:write */
+    scope?: string
   }
 }

@@ -299,6 +299,38 @@ export function resolvePosition(settings: Settings, when: Date): Position {
   return { phaseId: settings.currentPhaseId, week, day, status: 'active' }
 }
 
+const TYPE_LABEL: Record<SessionType, string> = {
+  lift: 'Lift',
+  se: 'SE',
+  run: 'Run',
+  hic: 'HIC',
+  rest: 'Rest',
+}
+
+/**
+ * A descriptive name that places a synced activity in the programme —
+ * e.g. "Operator · Block 1 · Wk2 · HIC 2" (the 2nd HIC of that week). Used to
+ * name run/HIC days pulled in from Strava (and pushed back to Strava).
+ */
+export function programSessionName(
+  phaseId: string,
+  week: number,
+  day: number,
+  type: SessionType,
+  settings: Settings,
+): string {
+  const parts = [PHASES[phaseId]?.name ?? phaseId]
+  if (phaseId === 'operator' && settings.operatorBlock) parts.push(`Block ${settings.operatorBlock}`)
+  parts.push(`Wk${week}`)
+  // ordinal of this session type within the week (Tue HIC = 1, Sat HIC = 2, …)
+  let ordinal = 0
+  for (let d = 0; d <= day; d++) {
+    if (sessionFor(phaseId, week, d, {}, settings).type === type) ordinal++
+  }
+  parts.push(`${TYPE_LABEL[type]} ${ordinal}`)
+  return parts.join(' · ')
+}
+
 /** The session plan for a given phase/week/day. */
 export function sessionFor(
   phaseId: string,
