@@ -4,6 +4,8 @@ import { useSettings } from '../hooks'
 import { applyTheme, exportBackup, importBackup, saveSettings } from '../db'
 import { PHASES } from '../program'
 import { Button, Card } from '../components/ui'
+import { beginStravaAuth, disconnectStrava, stravaConfigured } from '../lib/strava'
+import { syncStrava } from '../lib/stravaSync'
 import type { DbIncrement, LoadBasis, ThemeMode } from '../types'
 
 function Segmented<T extends string | number>({
@@ -129,6 +131,46 @@ export default function Settings() {
             className="rounded-lg border border-line bg-surface text-ink px-3 py-2 font-semibold"
           />
         </Row>
+      </Card>
+
+      <Card className="p-4">
+        <p className="font-semibold text-ink">Strava</p>
+        <p className="text-xs text-muted mb-3">
+          Auto-tick your runs &amp; HICs — distance, pace and heart rate flow in from Strava automatically.
+        </p>
+        {!stravaConfigured() ? (
+          <p className="text-xs text-muted">Coming soon.</p>
+        ) : s.strava ? (
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={async () => {
+                setMsg('Syncing…')
+                try {
+                  setMsg(`Synced ${await syncStrava()} activities from Strava.`)
+                } catch {
+                  setMsg('Strava sync failed — try reconnecting.')
+                }
+              }}
+            >
+              Sync now
+            </Button>
+            <Button
+              variant="danger"
+              onClick={async () => {
+                await disconnectStrava()
+                setMsg('Strava disconnected.')
+              }}
+            >
+              Disconnect
+            </Button>
+          </div>
+        ) : (
+          <Button className="w-full" onClick={beginStravaAuth}>
+            Connect Strava
+          </Button>
+        )}
       </Card>
 
       <Card className="p-4">

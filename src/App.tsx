@@ -1,6 +1,9 @@
+import { useEffect } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db'
+import { handleStravaRedirect } from './lib/strava'
+import { syncStrava } from './lib/stravaSync'
 import Layout from './components/Layout'
 import Onboarding from './screens/Onboarding'
 import Today from './screens/Today'
@@ -12,6 +15,16 @@ import Settings from './screens/Settings'
 
 export default function App() {
   const settings = useLiveQuery(async () => (await db.settings.get('app')) ?? null, [])
+
+  // Handle the Strava OAuth callback (?code=…) once on load, then sync.
+  useEffect(() => {
+    handleStravaRedirect()
+      .then((connected) => {
+        if (connected) return syncStrava()
+      })
+      .catch(() => {})
+  }, [])
+
   if (settings === undefined || settings === null) return null // loading / seeding
   if (settings.onboarded === false) return <Onboarding />
 
