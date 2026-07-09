@@ -6,6 +6,7 @@ import { PHASES } from '../program'
 import { Button, Card } from '../components/ui'
 import { beginStravaAuth, disconnectStrava, stravaConfigured } from '../lib/strava'
 import { syncStrava } from '../lib/stravaSync'
+import { APP_VERSION } from '../version'
 import type { DbIncrement, LoadBasis, ThemeMode } from '../types'
 
 function Segmented<T extends string | number>({
@@ -149,8 +150,8 @@ export default function Settings() {
                 setMsg('Syncing…')
                 try {
                   setMsg(`Synced ${await syncStrava()} activities from Strava.`)
-                } catch {
-                  setMsg('Strava sync failed — try reconnecting.')
+                } catch (e) {
+                  setMsg(`Sync failed: ${(e as Error)?.message ?? 'unknown error'}`)
                 }
               }}
             >
@@ -222,7 +223,7 @@ export default function Settings() {
         </Card>
       )}
 
-      <p className="text-center text-xs text-muted">Tactical Barbell · v1 · on-device</p>
+      <p className="text-center text-xs text-muted">Tactical Barbell · {APP_VERSION} · on-device</p>
     </div>
   )
 }

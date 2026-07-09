@@ -93,7 +93,9 @@ export async function fetchStravaActivities(accessToken: string, afterEpoch: num
     body: JSON.stringify({ accessToken, after: afterEpoch }),
   })
   const data = await r.json()
-  if (!r.ok || !Array.isArray(data)) throw new Error('Strava activities fetch failed')
+  if (!r.ok || !Array.isArray(data)) {
+    throw new Error(`activities ${r.status} ${JSON.stringify(data).slice(0, 140)}`)
+  }
   return data as StravaActivity[]
 }
 
