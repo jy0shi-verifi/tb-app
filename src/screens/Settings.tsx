@@ -5,7 +5,7 @@ import { applyTheme, exportBackup, importBackup, saveSettings } from '../db'
 import { PHASES } from '../program'
 import { Button, Card } from '../components/ui'
 import { beginStravaAuth, disconnectStrava, stravaConfigured } from '../lib/strava'
-import { syncStrava } from '../lib/stravaSync'
+import { syncStrava, importStravaHistory } from '../lib/stravaSync'
 import { APP_VERSION } from '../version'
 import type { DbIncrement, LoadBasis, ThemeMode } from '../types'
 
@@ -142,30 +142,45 @@ export default function Settings() {
         {!stravaConfigured() ? (
           <p className="text-xs text-muted">Coming soon.</p>
         ) : s.strava ? (
-          <div className="flex gap-2">
-            <Button
-              variant="secondary"
-              className="flex-1"
+          <div className="space-y-2">
+            <div className="flex gap-2">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={async () => {
+                  setMsg('Syncing…')
+                  try {
+                    setMsg(`Synced ${await syncStrava()} activities from Strava.`)
+                  } catch (e) {
+                    setMsg(`Sync failed: ${(e as Error)?.message ?? 'unknown error'}`)
+                  }
+                }}
+              >
+                Sync now
+              </Button>
+              <Button
+                variant="danger"
+                onClick={async () => {
+                  await disconnectStrava()
+                  setMsg('Strava disconnected.')
+                }}
+              >
+                Disconnect
+              </Button>
+            </div>
+            <button
               onClick={async () => {
-                setMsg('Syncing…')
+                setMsg('Importing past runs…')
                 try {
-                  setMsg(`Synced ${await syncStrava()} activities from Strava.`)
+                  setMsg(`Imported ${await importStravaHistory()} past runs from Strava.`)
                 } catch (e) {
-                  setMsg(`Sync failed: ${(e as Error)?.message ?? 'unknown error'}`)
+                  setMsg(`Import failed: ${(e as Error)?.message ?? 'unknown error'}`)
                 }
               }}
+              className="w-full text-sm text-brand font-medium py-1"
             >
-              Sync now
-            </Button>
-            <Button
-              variant="danger"
-              onClick={async () => {
-                await disconnectStrava()
-                setMsg('Strava disconnected.')
-              }}
-            >
-              Disconnect
-            </Button>
+              Import my past runs (one-off) →
+            </button>
           </div>
         ) : (
           <Button className="w-full" onClick={beginStravaAuth}>

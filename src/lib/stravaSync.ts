@@ -67,3 +67,45 @@ export async function syncStrava(): Promise<number> {
   }
   return synced
 }
+
+/**
+ * One-off: import ALL your historical Strava runs (e.g. an old C25K block) as
+ * standalone run logs, so the History / running stats show real data even though
+ * they aren't part of the current programme. Deduped by Strava activity id.
+ */
+export async function importStravaHistory(): Promise<number> {
+  const settings = await db.settings.get('app')
+  if (!settings?.strava) return 0
+  const token = await getStravaAccessToken(settings)
+  if (!token) return 0
+
+  const nowEpoch = Math.floor(Date.now() / 1000)
+  const activities = await fetchStravaActivities(token, nowEpoch - 730 * 86400) // last ~2 years
+
+  const seen = new Set(
+    (await db.sessions.toArray()).map((s) => s.stravaId).filter((x): x is number => x != null),
+  )
+
+  const toAdd: SessionLog[] = []
+  for (const a of activities) {
+    const isRun = RUN_TYPES.has(a.type) || (a.sport_type ? RUN_TYPES.has(a.sport_type) : false)
+    if (!isRun || seen.has(a.id)) continue
+    toAdd.push({
+      date: a.start_date_local.slice(0, 10),
+      phaseId: 'history',
+      week: 0,
+      day: 0,
+      type: 'run',
+      title: a.name?.trim() || 'Run',
+      exercises: [],
+      done: true,
+      durationMin: Math.round(a.moving_time / 60),
+      distanceKm: Math.round((a.distance / 1000) * 10) / 10,
+      avgHr: a.average_heartrate ? Math.round(a.average_heartrate) : undefined,
+      stravaId: a.id,
+      createdAt: Date.now(),
+    })
+  }
+  if (toAdd.length) await db.sessions.bulkAdd(toAdd)
+  return toAdd.length
+}

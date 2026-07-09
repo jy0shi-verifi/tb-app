@@ -14,7 +14,7 @@ export async function onRequestPost(context: { request: Request }): Promise<Resp
 
   const url = new URL('https://www.strava.com/api/v3/athlete/activities')
   url.searchParams.set('after', String(body.after ?? 0))
-  url.searchParams.set('per_page', '100')
+  url.searchParams.set('per_page', '200')
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${body.accessToken}` },
   })

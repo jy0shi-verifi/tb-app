@@ -77,6 +77,7 @@ export async function getStravaAccessToken(settings: Settings): Promise<string |
 
 export interface StravaActivity {
   id: number
+  name?: string
   type: string
   sport_type?: string
   start_date_local: string
