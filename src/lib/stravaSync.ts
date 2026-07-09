@@ -6,17 +6,58 @@ import {
   stravaCanWrite,
   updateStravaActivityName,
 } from './strava'
+import { estimate1RM } from './calc'
+import { sessionVolume } from './stats'
 import { parseISO } from './date'
-import type { SessionLog } from '../types'
+import type { LoggedExercise, MaxEntry, Settings, SessionLog } from '../types'
 
 // Strava activity types we treat as a run/HIC (the plan decides run vs HIC by day).
 const RUN_TYPES = new Set(['Run', 'TrailRun', 'VirtualRun', 'Walk', 'Hike'])
+// Strava types we treat as a strength/circuit session (matched to a logged lift/SE).
+const LIFT_TYPES = new Set(['WeightTraining', 'Workout', 'Crossfit'])
+
+/** One logged-exercise line for a Strava description, e.g. "DB Bench Press — 18kg per DB × 5/5/5  (~21kg est. 1RM)". */
+function liftLine(ex: LoggedExercise): string {
+  const done = ex.sets.filter((s) => s.done)
+  if (!done.length) return ''
+  const reps = done.map((s) => s.reps).join('/')
+  const weighted = done.filter((s): s is typeof s & { weight: number } => s.weight != null && s.weight > 0)
+  if (!weighted.length) return `${ex.name} — ${reps}` // bodyweight move
+  const unit = /row/i.test(ex.name) ? 'per arm' : 'per DB'
+  const best1rm = Math.round(Math.max(...weighted.map((s) => estimate1RM(s.weight, s.reps))))
+  const e1rm = best1rm > 0 ? `  (~${best1rm}kg est. 1RM)` : ''
+  const allSame = weighted.length === done.length && weighted.every((s) => s.weight === weighted[0].weight)
+  if (allSame) return `${ex.name} — ${weighted[0].weight}kg ${unit} × ${reps}${e1rm}`
+  const perSet = done.map((s) => (s.weight ? `${s.weight}×${s.reps}` : `${s.reps}`)).join(', ')
+  return `${ex.name} — ${perSet} ${unit}${e1rm}`
+}
 
 /**
- * Pull recent Strava activities and auto-tick the matching run/HIC days — pulling
- * duration, distance and heart rate in. Strava is the source of truth for cardio;
- * the plan supplies which day is a run vs a HIC. Returns how many were synced.
- * Never overwrites a logged lift/SE, or a day already synced from Strava.
+ * Compose the Strava activity description for a logged lift/SE session — one line
+ * per exercise (weight per DB/arm × reps + est. 1RM), then a totals footer.
+ */
+export function liftDescription(
+  s: SessionLog,
+  maxes: Record<string, MaxEntry>,
+  settings: Settings,
+): string {
+  const lines = s.exercises.map(liftLine).filter(Boolean)
+  const footer: string[] = []
+  const vol = sessionVolume(s)
+  if (vol > 0) footer.push(`Volume ${vol.toLocaleString()} kg`)
+  const scheme = sessionFor(s.phaseId, s.week, s.day, maxes, settings).scheme
+  if (scheme) footer.push(scheme)
+  footer.push('via Tactical Barbell')
+  return [...lines, '', footer.join(' · ')].join('\n')
+}
+
+/**
+ * Pull recent Strava activities and reconcile them with the plan. Runs/HICs:
+ * Strava is the source of truth — auto-tick the matching day with duration/
+ * distance/HR. Gym uploads (WeightTraining/Workout): the APP owns the sets, so
+ * we enrich the logged lift/SE with Strava's duration/HR and push the full
+ * set/rep breakdown back onto the activity (name + description). Both name-back
+ * and description-back need activity:write. Returns how many days were touched.
  */
 export async function syncStrava(): Promise<number> {
   const settings = await db.settings.get('app')
@@ -37,7 +78,42 @@ export async function syncStrava(): Promise<number> {
 
   let synced = 0
   for (const a of activities) {
-    const isRun = RUN_TYPES.has(a.type) || (a.sport_type ? RUN_TYPES.has(a.sport_type) : false)
+    const type = a.type
+    const sport = a.sport_type
+    const isRun = RUN_TYPES.has(type) || (sport ? RUN_TYPES.has(sport) : false)
+    const isLift = LIFT_TYPES.has(type) || (sport ? LIFT_TYPES.has(sport) : false)
+
+    // A gym upload from the watch: enrich the lift/SE you already logged in-app
+    // (Strava carries duration/HR; the app owns the sets) and push the full
+    // set/rep breakdown back onto Strava so it shows in the feed.
+    if (isLift) {
+      const date = a.start_date_local.slice(0, 10)
+      const logged = byDate.get(date)
+      if (!logged?.id || (logged.type !== 'lift' && logged.type !== 'se') || !logged.exercises.length)
+        continue
+
+      const patch: Partial<SessionLog> = {}
+      if (logged.stravaId == null) patch.stravaId = a.id
+      if (logged.durationMin == null) patch.durationMin = Math.round(a.moving_time / 60)
+      if (logged.avgHr == null && a.average_heartrate) patch.avgHr = Math.round(a.average_heartrate)
+      if (Object.keys(patch).length) {
+        await db.sessions.update(logged.id, patch)
+        byDate.set(date, { ...logged, ...patch })
+        synced++
+      }
+
+      if (canWrite) {
+        const name = programSessionName(logged.phaseId, logged.week, logged.day, logged.type, settings)
+        const desc = liftDescription(logged, maxes, settings)
+        try {
+          await updateStravaActivityName(token, a.id, name, desc)
+        } catch {
+          /* leave the Strava-side activity as-is; the local log is already correct */
+        }
+      }
+      continue
+    }
+
     if (!isRun) continue
 
     const date = a.start_date_local.slice(0, 10)

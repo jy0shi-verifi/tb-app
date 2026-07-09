@@ -112,19 +112,21 @@ export async function fetchStravaActivities(accessToken: string, afterEpoch: num
 }
 
 /**
- * Rename an activity on Strava (needs activity:write). Routed through our Pages
- * Function (Strava's API has no browser CORS). Returns false if the token lacks
- * write scope (401/403) so callers can prompt a reconnect; throws on real errors.
+ * Update an activity on Strava — name and/or description (needs activity:write).
+ * Routed through our Pages Function (Strava's API has no browser CORS). Returns
+ * false if the token lacks write scope (401/403) so callers can prompt a
+ * reconnect; throws on real errors.
  */
 export async function updateStravaActivityName(
   accessToken: string,
   activityId: number,
   name: string,
+  description?: string,
 ): Promise<boolean> {
   const r = await fetch('/api/strava/update', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ accessToken, activityId, name }),
+    body: JSON.stringify({ accessToken, activityId, name, description }),
   })
   if (r.status === 401 || r.status === 403) return false // not granted write scope
   if (!r.ok) {
