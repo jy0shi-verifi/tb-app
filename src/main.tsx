@@ -1,6 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
+// self-hosted variable fonts (offline-safe, no CDN) — display + UI
+import '@fontsource-variable/oswald' // condensed athletic display (hero numbers, wordmark)
+import '@fontsource-variable/inter' // UI body
 import './index.css'
 import App from './App.tsx'
 import ErrorBoundary from './components/ErrorBoundary'

@@ -23,9 +23,9 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, St
     if (!this.state.error) return this.props.children
     return (
       <div className="min-h-dvh flex items-center justify-center p-6 bg-canvas text-ink">
-        <div className="max-w-sm w-full space-y-4 text-center">
+        <div className="max-w-sm w-full space-y-4 text-center rounded-card bg-surface border border-line elev-2 p-6">
           <p className="text-2xl">😵‍💫</p>
-          <h1 className="text-lg font-bold">Something broke</h1>
+          <h1 className="font-display uppercase text-xl tracking-tight">Something broke</h1>
           <p className="text-sm text-muted">
             The app hit an error. Your data is still safe on this device — export a backup first, then
             try reloading.
@@ -33,13 +33,13 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, St
           <div className="space-y-2">
             <button
               onClick={() => downloadBackup()}
-              className="w-full rounded-xl px-5 py-3 font-semibold bg-brand text-white active:bg-brand-dark"
+              className="w-full rounded-pill px-5 min-h-[3rem] font-bold reward-panel text-white elev-2 active:brightness-95"
             >
               Export my data
             </button>
             <button
               onClick={() => window.location.reload()}
-              className="w-full rounded-xl px-5 py-3 font-semibold bg-load-soft text-load"
+              className="w-full rounded-pill px-5 min-h-[3rem] font-bold bg-warm text-ink border border-[color-mix(in_srgb,var(--color-gold)_40%,transparent)] active:brightness-95"
             >
               Reload the app
             </button>
@@ -50,7 +50,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, St
                 await saveSettings({ ...DEFAULT_SETTINGS, phaseStartDate: nextMonday(), onboarded: true })
                 window.location.reload()
               }}
-              className="w-full text-xs text-muted py-1"
+              className="w-full text-xs text-muted py-2"
             >
               Reset settings (keeps history) →
             </button>

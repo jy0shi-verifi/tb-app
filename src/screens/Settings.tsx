@@ -4,43 +4,17 @@ import { useSettings } from '../hooks'
 import { applyTheme, importBackup, parseBackup, saveSettings } from '../db'
 import { downloadBackup } from '../lib/backup'
 import { PHASES } from '../program'
-import { Button, Card } from '../components/ui'
+import { Button, Card, SegmentedPicker } from '../components/ui'
 import { beginStravaAuth, disconnectStrava, stravaCanWrite, stravaConfigured } from '../lib/strava'
 import { syncStrava, importStravaHistory, devTagLatestAsOperatorRun } from '../lib/stravaSync'
 import { APP_VERSION } from '../version'
 import type { DbIncrement, LoadBasis, ThemeMode } from '../types'
 
-function Segmented<T extends string | number>({
-  value,
-  options,
-  onChange,
-}: {
-  value: T
-  options: { label: string; value: T }[]
-  onChange: (v: T) => void
-}) {
-  return (
-    <div className="flex rounded-xl bg-canvas p-1 gap-1">
-      {options.map((o) => (
-        <button
-          key={String(o.value)}
-          onClick={() => onChange(o.value)}
-          className={`flex-1 rounded-lg py-2 text-sm font-semibold transition ${
-            value === o.value ? 'bg-brand text-white shadow-sm' : 'text-muted'
-          }`}
-        >
-          {o.label}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div className="py-3">
-      <p className="font-semibold text-ink text-[15px]">{label}</p>
-      {hint && <p className="text-xs text-muted mb-2">{hint}</p>}
+    <div className="py-4 first:pt-0 last:pb-0">
+      <p className="font-bold text-ink text-[15px]">{label}</p>
+      {hint && <p className="text-xs text-muted mt-0.5 mb-3 leading-relaxed">{hint}</p>}
       {children}
     </div>
   )
@@ -76,90 +50,111 @@ export default function Settings() {
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  const fieldCls =
+    'rounded-field border border-line bg-[var(--color-surface-sunk)] text-ink px-3.5 py-2.5 font-semibold min-h-[2.75rem]'
+
   return (
-    <div className="space-y-4">
-      <Card className="px-4 divide-y divide-line/60">
-        <Row label="Appearance" hint="Dark follows your phone at 6am.">
-          <Segmented<ThemeMode>
-            value={s.theme ?? 'system'}
-            options={[
-              { label: 'System', value: 'system' },
-              { label: 'Light', value: 'light' },
-              { label: 'Dark', value: 'dark' },
-            ]}
-            onChange={(v) => {
-              applyTheme(v)
-              saveSettings({ theme: v })
-            }}
-          />
-        </Row>
-        <Row label="Dumbbell increment" hint="Smallest jump your adjustable DBs allow. Loads floor-round to this.">
-          <Segmented<DbIncrement>
-            value={s.dbIncrement}
-            options={[
-              { label: '2 kg', value: 2 },
-              { label: '1 kg (magnets)', value: 1 },
-            ]}
-            onChange={(v) => saveSettings({ dbIncrement: v })}
-          />
-        </Row>
-        <Row
-          label="Rest timer"
-          hint="Time the between-set timer counts down. Auto uses the book's rests (longer on the heavy weeks) — recommended on a cut. 10 sec is for testing the beep."
-        >
-          <select
-            value={s.restSec ?? 0}
-            onChange={(e) => saveSettings({ restSec: Number(e.target.value) || undefined })}
-            className="rounded-lg border border-line bg-surface text-ink px-3 py-2 font-semibold"
-          >
-            <option value={0}>Auto (book)</option>
-            <option value={180}>3 min</option>
-            <option value={150}>2½ min</option>
-            <option value={120}>2 min</option>
-            <option value={90}>90 sec</option>
-            <option value={60}>60 sec</option>
-            <option value={10}>10 sec (test)</option>
-          </select>
-        </Row>
-        <Row
-          label="Load basis"
-          hint="How every weight is worked out. K. Black recommends the 90% Training Max for high-frequency templates like Operator — you grease the groove and can hit every session, even on a bad day. True 1RM is heavier, for advanced lifters who find the TM too light."
-        >
-          <Segmented<LoadBasis>
-            value={s.loadBasis}
-            options={[
-              { label: '90% TM', value: 'tm' },
-              { label: 'True 1RM', value: '1rm' },
-            ]}
-            onChange={(v) => {
-              if (v !== s.loadBasis && window.confirm('Change how every weight is worked out? This rescales all your loads.'))
-                saveSettings({ loadBasis: v })
-            }}
-          />
-        </Row>
-        <Row label="Current phase" hint="Advanced — the app normally moves you between phases at the right time.">
-          <Segmented<string>
-            value={s.currentPhaseId}
-            options={Object.values(PHASES).map((p) => ({ label: p.name, value: p.id }))}
-            onChange={(v) => {
-              if (v !== s.currentPhaseId && window.confirm('Switch phase? This changes your plan and where you are in it.'))
-                saveSettings({ currentPhaseId: v })
-            }}
-          />
-        </Row>
-        <Row label="Phase start date" hint="The Monday your current phase's week 1 began.">
-          <input
-            type="date"
-            value={s.phaseStartDate}
-            onChange={(e) => saveSettings({ phaseStartDate: e.target.value })}
-            className="rounded-lg border border-line bg-surface text-ink px-3 py-2 font-semibold"
-          />
-        </Row>
+    <div className="stagger space-y-4">
+      <Card elev="hero" className="topo-hero text-white">
+        <p className="eyebrow text-white/60">Tactical Barbell</p>
+        <p className="display-hero text-white mt-1">SETTINGS</p>
       </Card>
 
-      <Card className="p-4">
-        <p className="font-semibold text-ink">Strava</p>
-        <p className="text-xs text-muted mb-3">
+      <Card>
+        <p className="eyebrow text-muted mb-2">Preferences</p>
+        <div className="divide-y divide-line/60">
+          <Row label="Appearance" hint="Dark follows your phone at 6am.">
+            <SegmentedPicker<ThemeMode>
+              label="Appearance"
+              value={s.theme ?? 'system'}
+              options={[
+                { v: 'system', label: 'System' },
+                { v: 'light', label: 'Light' },
+                { v: 'dark', label: 'Dark' },
+              ]}
+              onChange={(v) => {
+                applyTheme(v)
+                saveSettings({ theme: v })
+              }}
+            />
+          </Row>
+          <Row label="Dumbbell increment" hint="Smallest jump your adjustable DBs allow. Loads floor-round to this.">
+            <SegmentedPicker<string>
+              label="Dumbbell increment"
+              value={String(s.dbIncrement)}
+              options={[
+                { v: '2', label: '2 kg' },
+                { v: '1', label: '1 kg (magnets)' },
+              ]}
+              onChange={(v) => saveSettings({ dbIncrement: Number(v) as DbIncrement })}
+            />
+          </Row>
+          <Row
+            label="Rest timer"
+            hint="Time the between-set timer counts down. Auto uses the book's rests (longer on the heavy weeks) — recommended on a cut. 10 sec is for testing the beep."
+          >
+            <select
+              value={s.restSec ?? 0}
+              onChange={(e) => saveSettings({ restSec: Number(e.target.value) || undefined })}
+              className={fieldCls}
+            >
+              <option value={0}>Auto (book)</option>
+              <option value={180}>3 min</option>
+              <option value={150}>2½ min</option>
+              <option value={120}>2 min</option>
+              <option value={90}>90 sec</option>
+              <option value={60}>60 sec</option>
+              <option value={10}>10 sec (test)</option>
+            </select>
+          </Row>
+        </div>
+      </Card>
+
+      <Card>
+        <p className="eyebrow text-muted mb-2">Program</p>
+        <div className="divide-y divide-line/60">
+          <Row
+            label="Load basis"
+            hint="How every weight is worked out. K. Black recommends the 90% Training Max for high-frequency templates like Operator — you grease the groove and can hit every session, even on a bad day. True 1RM is heavier, for advanced lifters who find the TM too light."
+          >
+            <SegmentedPicker<LoadBasis>
+              label="Load basis"
+              value={s.loadBasis}
+              options={[
+                { v: 'tm', label: 'Training Max (90%)' },
+                { v: '1rm', label: 'True 1RM' },
+              ]}
+              onChange={(v) => {
+                if (v !== s.loadBasis && window.confirm('Change how every weight is worked out? This rescales all your loads.'))
+                  saveSettings({ loadBasis: v })
+              }}
+            />
+          </Row>
+          <Row label="Current phase" hint="Advanced — the app normally moves you between phases at the right time.">
+            <SegmentedPicker<string>
+              label="Current phase"
+              value={s.currentPhaseId}
+              options={Object.values(PHASES).map((p) => ({ v: p.id, label: p.name }))}
+              onChange={(v) => {
+                if (v !== s.currentPhaseId && window.confirm('Switch phase? This changes your plan and where you are in it.'))
+                  saveSettings({ currentPhaseId: v })
+              }}
+            />
+          </Row>
+          <Row label="Phase start date" hint="The Monday your current phase's week 1 began.">
+            <input
+              type="date"
+              value={s.phaseStartDate}
+              onChange={(e) => saveSettings({ phaseStartDate: e.target.value })}
+              className={fieldCls}
+            />
+          </Row>
+        </div>
+      </Card>
+
+      <Card>
+        <p className="eyebrow text-muted">Strava</p>
+        <p className="text-xs text-muted mt-1 mb-3 leading-relaxed">
           Auto-tick your runs &amp; HICs — distance, pace and heart rate flow in from Strava automatically.
         </p>
         {!stravaConfigured() ? (
@@ -200,15 +195,12 @@ export default function Settings() {
                   setMsg(`Import failed: ${(e as Error)?.message ?? 'unknown error'}`)
                 }
               }}
-              className="w-full text-sm text-brand font-medium py-1"
+              className="w-full text-sm text-brand-ink font-semibold py-2"
             >
               Import my past runs (one-off) →
             </button>
             {!stravaCanWrite(s) && (
-              <button
-                onClick={beginStravaAuth}
-                className="w-full text-xs text-muted py-1"
-              >
+              <button onClick={beginStravaAuth} className="w-full text-xs text-muted py-1">
                 Reconnect to let the app name your runs on Strava →
               </button>
             )}
@@ -218,7 +210,7 @@ export default function Settings() {
                   setMsg('Tagging latest run…')
                   setMsg(await devTagLatestAsOperatorRun())
                 }}
-                className="w-full text-xs text-brand py-1"
+                className="w-full text-xs text-brand-ink py-1"
               >
                 Test: tag my latest run as an Operator run day →
               </button>
@@ -231,9 +223,9 @@ export default function Settings() {
         )}
       </Card>
 
-      <Card className="p-4">
-        <p className="font-semibold text-ink">Backup</p>
-        <p className="text-xs text-muted mb-3">
+      <Card>
+        <p className="eyebrow text-muted">Backup</p>
+        <p className="text-xs text-muted mt-1 mb-3 leading-relaxed">
           Your data lives only on this phone. Export regularly — keep the file safe.
         </p>
         <div className="flex gap-2">
@@ -245,12 +237,12 @@ export default function Settings() {
           </Button>
           <input ref={fileRef} type="file" accept="application/json" hidden onChange={doImport} />
         </div>
-        {msg && <p className="text-xs text-load mt-2 font-medium">{msg}</p>}
+        {msg && <p className="text-xs text-load mt-3 font-semibold">{msg}</p>}
       </Card>
 
-      <Card className="p-4">
-        <p className="font-semibold text-ink">Demo data</p>
-        <p className="text-xs text-muted mb-3">
+      <Card>
+        <p className="eyebrow text-muted">Demo data</p>
+        <p className="text-xs text-muted mt-1 mb-3 leading-relaxed">
           Fill the app with ~4 months of realistic history to show it off, then reset back to a clean
           start whenever you're ready to train for real.
         </p>

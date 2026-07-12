@@ -4,13 +4,16 @@ import { useSettings } from '../hooks'
 import { OPERATOR_LIFTS, OPERATOR_WAVE } from '../program'
 import { estimate1RM, maxToBasis, trainingMax, workingLoad } from '../lib/calc'
 import { db } from '../db'
-import { Card, Pill } from '../components/ui'
+import { Card, Pill, Stepper } from '../components/ui'
 import type { MaxEntry } from '../types'
 
 interface Field {
   w: string
   r: string
 }
+
+const FIELD_CLASS =
+  'text-center rounded-field bg-[var(--color-surface-sunk)] border border-line py-2 num-display text-lg text-ink placeholder:font-sans placeholder:text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand/40 transition-shadow'
 
 export default function Maxes() {
   const settings = useSettings()
@@ -30,7 +33,13 @@ export default function Maxes() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [maxes])
 
-  if (!fields) return <p className="text-muted text-sm">Loading…</p>
+  if (!fields)
+    return (
+      <div className="space-y-4" aria-busy="true" aria-label="Loading maxes">
+        <div className="skeleton h-24 rounded-card" />
+        <div className="skeleton h-56 rounded-card" />
+      </div>
+    )
 
   const setField = async (liftId: string, patch: Partial<Field>) => {
     const next = { ...fields[liftId], ...patch }
@@ -62,23 +71,27 @@ export default function Maxes() {
   })
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 stagger">
       {settings.currentPhaseId === 'base-building' && (
-        <Card className="p-4 bg-warm border-warm-edge/30">
+        <Card elev="1" className="bg-warm border-warm-edge/30">
           <p className="text-sm text-ink">
             <b>Nothing to do here yet.</b> You'll test these on <b>Test Day</b> at the end of Base
             Building, then enter them here — and Operator works out every weight for you.
           </p>
         </Card>
       )}
-      <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-bold text-ink">Operator maxes</h2>
-          <Pill tone={settings.loadBasis === 'tm' ? 'load' : 'brand'}>
+
+      <Card elev="1">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="eyebrow text-muted">Test Day</p>
+            <h2 className="font-display font-bold text-lg text-ink">Operator maxes</h2>
+          </div>
+          <Pill tone={settings.loadBasis === 'tm' ? 'gold' : 'soft-brand'}>
             {settings.loadBasis === 'tm' ? '90% Training Max' : 'True 1RM'}
           </Pill>
         </div>
-        <p className="text-xs text-muted mt-1">
+        <p className="text-xs text-muted mt-2">
           Enter your Test Day result — the weight on <b>one dumbbell</b> (not both) and the reps you
           got (about 5, leaving 1–2 in the tank). Loads round to your {settings.dbIncrement} kg
           increment.
@@ -88,7 +101,7 @@ export default function Maxes() {
           so you always keep gas in the tank.
         </p>
 
-        <div className="mt-3 space-y-3">
+        <div className="mt-4 space-y-3">
           {OPERATOR_LIFTS.map((l) => {
             const f = fields[l.id]
             const w = Number(f.w)
@@ -97,60 +110,59 @@ export default function Maxes() {
             const oneRM = w > 0 && r > 0 ? estimate1RM(w, r) + bump : 0
             const tm = trainingMax(oneRM)
             return (
-              <div key={l.id} className="rounded-xl bg-canvas p-3">
-                <div className="flex items-center justify-between">
-                  <p className="font-semibold text-ink text-[15px]">{l.name}</p>
+              <div key={l.id} className="rounded-card bg-[var(--color-surface-sunk)] elev-sunk p-3.5">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="font-bold text-ink text-[15px]">{l.name}</p>
                   {oneRM > 0 && (
-                    <p className="text-xs text-muted tnum">
-                      1RM ~{oneRM.toFixed(1)} · TM {tm.toFixed(1)} kg
-                    </p>
+                    <Pill tone="soft-brand">
+                      <span className="num-display">1RM ~{oneRM.toFixed(1)}</span>
+                      <span className="opacity-50">·</span>
+                      <span className="num-display">TM {tm.toFixed(1)} kg</span>
+                    </Pill>
                   )}
                 </div>
-                <div className="flex items-center gap-2 mt-2">
-                  <label className="flex items-center gap-1">
+                <div className="flex items-center gap-2 mt-3">
+                  <label className="flex items-center gap-1.5">
                     <input
                       inputMode="decimal"
                       placeholder="kg"
                       value={f.w}
                       onChange={(e) => setField(l.id, { w: e.target.value })}
-                      className="w-20 text-center rounded-lg border border-line bg-surface py-2 font-semibold tnum"
+                      className={`w-20 ${FIELD_CLASS}`}
                     />
                     <span className="text-xs text-muted">kg/DB</span>
                   </label>
-                  <span className="text-muted">×</span>
-                  <label className="flex items-center gap-1">
+                  <span className="text-muted num-display">×</span>
+                  <label className="flex items-center gap-1.5">
                     <input
                       inputMode="numeric"
                       placeholder="reps"
                       value={f.r}
                       onChange={(e) => setField(l.id, { r: e.target.value })}
-                      className="w-16 text-center rounded-lg border border-line bg-surface py-2 font-semibold tnum"
+                      className={`w-16 ${FIELD_CLASS}`}
                     />
                     <span className="text-xs text-muted">reps</span>
                   </label>
                 </div>
                 {oneRM > 0 && (bump > 0 || advanced) && (
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-line/60">
+                  <div className="flex items-center justify-between gap-2 mt-3 pt-3 border-t border-line/60">
                     <span className="text-xs text-muted">
-                      {bump > 0 ? `Progressed +${bump} kg on 1RM` : 'No progression yet'}
+                      {bump > 0 ? (
+                        <>
+                          Progressed <span className="num-display text-load">+{bump} kg</span> on 1RM
+                        </>
+                      ) : (
+                        'No progression yet'
+                      )}
                     </span>
                     {advanced && (
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => bumpBy(l.id, -(l.progressStep ?? 2.5))}
-                          className="w-8 h-8 rounded-lg bg-surface border border-line text-brand font-bold"
-                          aria-label="Reduce progression"
-                        >
-                          −
-                        </button>
-                        <button
-                          onClick={() => bumpBy(l.id, l.progressStep ?? 2.5)}
-                          className="w-8 h-8 rounded-lg bg-brand text-white font-bold"
-                          aria-label="Add progression"
-                        >
-                          +
-                        </button>
-                      </div>
+                      <Stepper
+                        value={<span className="text-load">+{bump}</span>}
+                        onDec={() => bumpBy(l.id, -(l.progressStep ?? 2.5))}
+                        onInc={() => bumpBy(l.id, l.progressStep ?? 2.5)}
+                        labelDec="Reduce progression"
+                        labelInc="Add progression"
+                      />
                     )}
                   </div>
                 )}
@@ -160,7 +172,7 @@ export default function Maxes() {
         </div>
         <button
           onClick={() => setAdvanced((a) => !a)}
-          className="text-xs text-accent font-medium mt-3"
+          className="text-xs text-accent-ink font-bold mt-4"
         >
           {advanced ? 'Hide manual adjust' : 'Advanced: adjust manually'}
         </button>
@@ -172,22 +184,23 @@ export default function Maxes() {
       </Card>
 
       {/* wave table */}
-      <Card className="p-4">
-        <h2 className="font-bold text-ink mb-1">Operator working weights</h2>
-        <p className="text-xs text-muted mb-3">kg per dumbbell · ⚠︎ = over the 60 kg ceiling</p>
+      <Card elev="1">
+        <p className="eyebrow text-muted">Every week's loads</p>
+        <h2 className="font-display font-bold text-lg text-ink mt-0.5">Operator working weights</h2>
+        <p className="text-xs text-muted mt-1 mb-3">kg per dumbbell · ⚠︎ = over the 60 kg ceiling</p>
         {!anyMax ? (
           <p className="text-sm text-muted py-4 text-center">
             Enter your maxes above to see every week's loads.
           </p>
         ) : (
-          <div className="overflow-x-auto -mx-1">
+          <Card elev="sunk" pad="sm" className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-muted">
-                  <th className="text-left font-semibold py-1.5 pl-1">Wk</th>
-                  <th className="text-left font-semibold py-1.5">Scheme</th>
+                <tr>
+                  <th className="text-left eyebrow text-muted py-1.5 pl-1">Wk</th>
+                  <th className="text-left eyebrow text-muted py-1.5">Scheme</th>
                   {OPERATOR_LIFTS.map((l) => (
-                    <th key={l.id} className="text-right font-semibold py-1.5 pr-1">
+                    <th key={l.id} className="text-right eyebrow text-muted py-1.5 pr-1">
                       {l.short}
                     </th>
                   ))}
@@ -196,9 +209,10 @@ export default function Maxes() {
               <tbody>
                 {OPERATOR_WAVE.map((wk) => (
                   <tr key={wk.week} className="border-t border-line/60">
-                    <td className="py-2 pl-1 font-semibold text-ink">{wk.week}</td>
+                    <td className="py-2 pl-1 num-display text-ink">{wk.week}</td>
                     <td className="py-2 text-muted whitespace-nowrap">
-                      {wk.sets}×{wk.reps} @ {wk.pct}%
+                      <span className="num-display">{wk.sets}×{wk.reps}</span> @{' '}
+                      <span className="num-display">{wk.pct}%</span>
                     </td>
                     {OPERATOR_LIFTS.map((l) => {
                       const f = fields[l.id]
@@ -221,9 +235,9 @@ export default function Maxes() {
                       const basis = maxToBasis(entry, settings.loadBasis)
                       const lr = workingLoad(basis, wk.pct, settings.dbIncrement)
                       return (
-                        <td key={l.id} className="py-2 pr-1 text-right font-bold text-load tnum">
+                        <td key={l.id} className="py-2 pr-1 text-right num-display text-load">
                           {lr.kg}
-                          {lr.overCeiling && <span className="text-warm-edge"> ⚠︎</span>}
+                          {lr.overCeiling && <span className="text-gold-ink"> ⚠︎</span>}
                         </td>
                       )
                     })}
@@ -231,7 +245,7 @@ export default function Maxes() {
                 ))}
               </tbody>
             </table>
-          </div>
+          </Card>
         )}
       </Card>
     </div>

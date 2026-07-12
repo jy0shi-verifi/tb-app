@@ -1,13 +1,4 @@
 import { useMemo, useState } from 'react'
-import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from 'recharts'
 import { Flame, Footprints, Trash2 } from 'lucide-react'
 import { useSessions, useSettings } from '../hooks'
 import { OPERATOR_LIFTS, PHASES } from '../program'
@@ -15,16 +6,22 @@ import { estimate1RM } from '../lib/calc'
 import { badges, computeStreak, liftRecords, runStats, weekSummary } from '../lib/stats'
 import { deleteSession } from '../db'
 import { Card, EmptyState, SessionIcon, SESSION_META } from '../components/ui'
+import { CoinBadge, PaceTrend, ProgressRing, StrengthTrend } from '../components/dataviz'
 import { parseISO, diffDays, today } from '../lib/date'
 
-const LIFT_COLORS_LIGHT: Record<string, string> = { Bench: '#2c5578', Squat: '#2e7d5b', Row: '#c2831f' }
-const LIFT_COLORS_DARK: Record<string, string> = { Bench: '#6fa3cf', Squat: '#4cc38a', Row: '#e0b24a' }
+const SERIES_COLORS = ['var(--color-brand)', 'var(--color-load)', 'var(--color-accent)']
 
-function isDarkNow(): boolean {
-  const el = document.documentElement
-  if (el.classList.contains('dark')) return true
-  if (el.classList.contains('light')) return false
-  return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-color-scheme: dark)').matches
+/** Coin tier for an earned badge key. */
+function tierFor(key: string): 'bronze' | 'steel' | 'gold' | 'black' {
+  if (key === 'bb' || key === 'op1' || key === 'streak') return 'gold'
+  if (key.startsWith('s') || key.startsWith('km')) {
+    const n = parseInt(key.replace(/^\D+/, ''), 10)
+    if (n >= 200) return 'black'
+    if (n >= 100) return 'gold'
+    if (n >= 50) return 'steel'
+    return 'bronze'
+  }
+  return 'bronze'
 }
 
 async function confirmDelete(id?: number) {
@@ -102,9 +99,6 @@ export default function History() {
   const earned = badges(sessions)
   const runs = runStats(sessions)
   const records = liftRecords(sessions, OPERATOR_LIFTS)
-  const dark = isDarkNow()
-  const axisColor = dark ? '#8b97a4' : '#6b7784'
-  const lineColors = dark ? LIFT_COLORS_DARK : LIFT_COLORS_LIGHT
   const cutWeeks = Math.round(
     sessions.filter((s) => s.phaseId === 'operator' && s.type === 'lift' && s.done).length / 3,
   )
@@ -126,125 +120,114 @@ export default function History() {
         }
       : null
 
+  // strength trend — one line per Operator lift, sharing the date axis
+  const labels = chartData.map((r) => String(r.date))
+  const series = OPERATOR_LIFTS.map((l, idx) => ({
+    key: l.short,
+    label: l.short,
+    color: SERIES_COLORS[idx],
+    points: chartData
+      .map((r, i) => (r[l.short] != null ? { i, v: Number(r[l.short]) } : null))
+      .filter((p): p is { i: number; v: number } => p !== null),
+  }))
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 stagger">
       {/* headline stats */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="p-4 text-center">
+        <Card pad="sm" className="text-center">
           <div className="flex items-center justify-center gap-1">
-            <Flame size={18} className={streak > 0 ? 'text-orange-500' : 'text-muted'} />
-            <p className="text-2xl font-extrabold text-ink tnum">{streak}</p>
+            <Flame
+              size={18}
+              className={`${streak > 0 ? 'text-brand-ink' : 'text-muted'} ${streak >= 7 ? 'flicker' : ''}`}
+            />
+            <p className="num-display text-3xl text-ink">{streak}</p>
           </div>
-          <p className="text-[11px] text-muted">streak</p>
+          <p className="eyebrow text-muted mt-1">streak</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-extrabold text-load tnum">{week}</p>
-          <p className="text-[11px] text-muted">this week</p>
+        <Card pad="sm" className="text-center">
+          <p className="num-display text-3xl text-load">{week}</p>
+          <p className="eyebrow text-muted mt-1">this week</p>
         </Card>
-        <Card className="p-4 text-center">
-          <p className="text-2xl font-extrabold text-brand tnum">{done}</p>
-          <p className="text-[11px] text-muted">total done</p>
+        <Card pad="sm" className="text-center">
+          <p className="num-display text-3xl text-brand-ink">{done}</p>
+          <p className="eyebrow text-muted mt-1">total done</p>
         </Card>
       </div>
 
       {/* this week */}
-      <Card className="p-4">
-        <p className="font-bold text-ink mb-2">This week</p>
+      <Card>
+        <p className="eyebrow text-muted mb-3">This week</p>
         <div className="grid grid-cols-3 gap-3 text-center">
           <div>
-            <p className="text-2xl font-extrabold text-brand tnum">{summary.lifts}</p>
-            <p className="text-[11px] text-muted">lifts</p>
+            <p className="num-display text-2xl text-brand-ink">{summary.lifts}</p>
+            <p className="eyebrow text-muted mt-1">lifts</p>
           </div>
           <div>
-            <p className="text-2xl font-extrabold text-accent tnum">{summary.runs}</p>
-            <p className="text-[11px] text-muted">runs</p>
+            <p className="num-display text-2xl text-accent-ink">{summary.runs}</p>
+            <p className="eyebrow text-muted mt-1">runs</p>
           </div>
           <div>
-            <p className="text-2xl font-extrabold text-load tnum">{summary.volume.toLocaleString()}</p>
-            <p className="text-[11px] text-muted">kg volume</p>
+            <p className="num-display text-2xl text-load">{summary.volume.toLocaleString()}</p>
+            <p className="eyebrow text-muted mt-1">kg volume</p>
           </div>
         </div>
       </Card>
 
-      {/* operator hold progress */}
+      {/* operator hold progress — the ONE hero card */}
       {opProgress && (
-        <Card className="p-4">
+        <Card elev="hero" pad="lg" className="topo-hero text-white text-center border-white/10">
           <div className="flex items-center justify-between mb-2">
-            <p className="font-bold text-ink">Operator · Block {opProgress.block}</p>
-            <span className="text-xs text-muted">
+            <p className="eyebrow hero-text" style={{ color: 'var(--color-gold)' }}>
+              Operator · Block {opProgress.block}
+            </p>
+            <span className="text-xs text-white/80">
               week {opProgress.week}/{PHASES.operator.lengthWeeks}
             </span>
           </div>
-          <div className="h-2 rounded-full bg-line/50 overflow-hidden">
-            <div
-              className="h-full bg-brand transition-all"
-              style={{ width: `${Math.min(100, (opProgress.lifts / opTargetLifts) * 100)}%` }}
-            />
+          <div className="flex justify-center my-3">
+            <ProgressRing value={opProgress.lifts} target={opTargetLifts} label="banked" />
           </div>
-          <p className="text-xs text-muted mt-2">
-            <b className="text-load tnum">{opProgress.lifts}</b> / {opTargetLifts} lift sessions banked
+          <p className="text-xs text-white/85">
+            <b className="num-display text-load">{opProgress.lifts}</b> / {opTargetLifts} lift sessions banked
             this block — holding your numbers through a cut is the win.
           </p>
         </Card>
       )}
 
-      {/* badges + next milestone */}
+      {/* badges → challenge-coin shelf */}
       {(earned.length > 0 || nextMs) && (
-        <div className="flex gap-2 overflow-x-auto pb-1">
-          {earned.map((b) => (
-            <div
-              key={b.key}
-              className="shrink-0 rounded-full bg-surface border border-line px-3 py-1.5 flex items-center gap-1.5 text-sm"
-            >
-              <span>{b.emoji}</span>
-              <span className="font-medium text-ink">{b.label}</span>
-            </div>
-          ))}
-          {nextMs && (
-            <div className="shrink-0 rounded-full border border-dashed border-line px-3 py-1.5 flex items-center gap-1.5 text-sm">
-              <span>🎯</span>
-              <span className="font-medium text-muted">{nextMs - done} to {nextMs} sessions</span>
-            </div>
-          )}
+        <div>
+          <p className="eyebrow text-muted mb-2">Challenge coins</p>
+          <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+            {earned.map((b) => (
+              <CoinBadge key={b.key} emoji={b.emoji} label={b.label} earned tier={tierFor(b.key)} />
+            ))}
+            {nextMs && (
+              <CoinBadge
+                emoji="🎯"
+                label={`${nextMs} sessions`}
+                earned={false}
+                lockedText={`${nextMs - done} to go`}
+              />
+            )}
+          </div>
         </div>
       )}
 
       {/* strength chart */}
       {chartData.length >= 2 && (
-        <Card className="p-4">
-          <p className="font-bold text-ink mb-1">Strength trend</p>
-          <p className="text-xs text-muted mb-3">best estimated 1RM to date · kg per dumbbell</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={chartData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,138,150,0.2)" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: axisColor }} />
-              <YAxis tick={{ fontSize: 11, fill: axisColor }} width={40} />
-              <Tooltip
-                contentStyle={{
-                  fontSize: 12,
-                  borderRadius: 8,
-                  background: dark ? '#161d26' : '#fff',
-                  border: `1px solid ${dark ? '#2b3745' : '#e5e7eb'}`,
-                  color: dark ? '#e7edf3' : '#1a2733',
-                }}
-              />
-              {OPERATOR_LIFTS.map((l) => (
-                <Line
-                  key={l.short}
-                  type="monotone"
-                  dataKey={l.short}
-                  stroke={lineColors[l.short]}
-                  strokeWidth={2.5}
-                  dot={{ r: 3 }}
-                  connectNulls
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+        <Card>
+          <p className="eyebrow text-muted">Strength trend</p>
+          <p className="text-xs text-muted mt-1 mb-3">best estimated 1RM to date · kg per dumbbell</p>
+          <StrengthTrend labels={labels} series={series} />
           <div className="flex justify-center gap-4 mt-2">
-            {OPERATOR_LIFTS.map((l) => (
+            {OPERATOR_LIFTS.map((l, idx) => (
               <span key={l.short} className="flex items-center gap-1 text-xs text-muted">
-                <span className="inline-block w-3 h-1.5 rounded-full" style={{ background: lineColors[l.short] }} />
+                <span
+                  className="inline-block w-3 h-1.5 rounded-full"
+                  style={{ background: SERIES_COLORS[idx] }}
+                />
                 {l.short}
               </span>
             ))}
@@ -259,8 +242,8 @@ export default function History() {
 
       {/* records */}
       {records.some((r) => r.heaviest > 0) && (
-        <Card className="p-4">
-          <p className="font-bold text-ink mb-3">Personal records</p>
+        <Card>
+          <p className="eyebrow text-muted mb-3">Personal records</p>
           <div className="space-y-2.5">
             {records
               .filter((r) => r.heaviest > 0)
@@ -269,8 +252,8 @@ export default function History() {
                 return (
                   <div key={r.short} className="flex items-center justify-between">
                     <span className="font-medium text-ink text-[15px]">{r.name}</span>
-                    <span className="text-sm tnum text-right">
-                      <b className="text-load">{r.heaviest} kg</b>
+                    <span className="text-sm text-right">
+                      <b className="num-display text-load">{r.heaviest} kg</b>
                       <span className="text-muted"> · ~{r.bestE1RM.toFixed(0)} 1RM</span>
                       {delta > 0 && <span className="text-load font-semibold"> · +{delta} since start</span>}
                     </span>
@@ -283,23 +266,23 @@ export default function History() {
 
       {/* running */}
       {runs.count > 0 && (
-        <Card className="p-4">
+        <Card>
           <div className="flex items-center gap-2 mb-3">
-            <Footprints size={18} className="text-accent" />
-            <p className="font-bold text-ink">Running &amp; conditioning</p>
+            <Footprints size={18} className="text-accent-ink" />
+            <p className="eyebrow text-muted">Running &amp; conditioning</p>
           </div>
           <div className="grid grid-cols-3 gap-3 text-center">
             <div>
-              <p className="text-2xl font-extrabold text-accent tnum">{runs.count}</p>
-              <p className="text-[11px] text-muted">sessions</p>
+              <p className="num-display text-2xl text-accent-ink">{runs.count}</p>
+              <p className="eyebrow text-muted mt-1">sessions</p>
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-accent tnum">{runs.totalKm}</p>
-              <p className="text-[11px] text-muted">total km</p>
+              <p className="num-display text-2xl text-accent-ink">{runs.totalKm}</p>
+              <p className="eyebrow text-muted mt-1">total km</p>
             </div>
             <div>
-              <p className="text-2xl font-extrabold text-accent tnum">{runs.totalMin}</p>
-              <p className="text-[11px] text-muted">total min</p>
+              <p className="num-display text-2xl text-accent-ink">{runs.totalMin}</p>
+              <p className="eyebrow text-muted mt-1">total min</p>
             </div>
           </div>
           <p className="text-[11px] text-muted text-center mt-2">From Strava once connected.</p>
@@ -308,47 +291,10 @@ export default function History() {
 
       {/* conditioning pace trend */}
       {paceData.length >= 2 && (
-        <Card className="p-4">
-          <p className="font-bold text-ink mb-1">Conditioning trend</p>
-          <p className="text-xs text-muted mb-3">avg pace · the line climbs as you get faster</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <LineChart data={paceData} margin={{ top: 5, right: 8, left: -18, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,138,150,0.2)" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: axisColor }} />
-              <YAxis
-                reversed
-                domain={['auto', 'auto']}
-                width={40}
-                tick={{ fontSize: 11, fill: axisColor }}
-                tickFormatter={(v) => {
-                  const m = Math.floor(v)
-                  return `${m}:${String(Math.round((v - m) * 60)).padStart(2, '0')}`
-                }}
-              />
-              <Tooltip
-                contentStyle={{
-                  fontSize: 12,
-                  borderRadius: 8,
-                  background: dark ? '#161d26' : '#fff',
-                  border: `1px solid ${dark ? '#2b3745' : '#e5e7eb'}`,
-                  color: dark ? '#e7edf3' : '#1a2733',
-                }}
-                formatter={(v) => {
-                  const n = Number(v)
-                  const m = Math.floor(n)
-                  return [`${m}:${String(Math.round((n - m) * 60)).padStart(2, '0')} /km`, 'pace']
-                }}
-              />
-              <Line
-                type="monotone"
-                dataKey="pace"
-                stroke={dark ? '#a78bfa' : '#7c3aed'}
-                strokeWidth={2.5}
-                dot={{ r: 3 }}
-                connectNulls
-              />
-            </LineChart>
-          </ResponsiveContainer>
+        <Card>
+          <p className="eyebrow text-muted">Conditioning trend</p>
+          <p className="text-xs text-muted mt-1 mb-3">avg pace · the line climbs as you get faster</p>
+          <PaceTrend labels={paceData.map((p) => p.date)} values={paceData.map((p) => p.pace)} color="var(--color-accent)" />
         </Card>
       )}
 
@@ -362,7 +308,7 @@ export default function History() {
           const pace = paceLabel(s.durationMin, s.distanceKm)
           const feelLabel = s.feel === 'easy' ? '😌 Easy' : s.feel === 'ok' ? '💪 Solid' : s.feel === 'hard' ? '🥵 Hard' : null
           return (
-            <Card key={s.id} className="p-3">
+            <Card key={s.id} pad="sm">
               <div className="flex items-center gap-3">
                 <SessionIcon type={s.type} size={20} />
                 <button
@@ -381,16 +327,16 @@ export default function History() {
                     · {SESSION_META[s.type].label}
                     {setCount > 0 && ` · ${setCount} sets`}
                     {s.durationMin ? ` · ${s.durationMin} min` : ''}
-                    {hasDetail && <span className="text-brand font-medium"> · {open ? 'less' : 'details'}</span>}
+                    {hasDetail && <span className="text-brand-ink font-medium"> · {open ? 'less' : 'details'}</span>}
                   </p>
                 </button>
                 {s.done && <span className="text-load text-sm font-semibold">✓</span>}
                 <button
                   onClick={() => confirmDelete(s.id)}
-                  className="p-2 -mr-1 text-muted/50 active:text-red-600"
+                  className="w-11 h-11 -mr-1 grid place-items-center text-muted/60 active:text-danger shrink-0"
                   aria-label="Delete session"
                 >
-                  <Trash2 size={15} />
+                  <Trash2 size={16} />
                 </button>
               </div>
 
@@ -399,16 +345,16 @@ export default function History() {
                   {hasCardio && (
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div>
-                        <p className="text-lg font-extrabold text-accent tnum">{s.distanceKm ?? '—'}</p>
-                        <p className="text-[11px] text-muted">km</p>
+                        <p className="num-display text-lg text-accent-ink">{s.distanceKm ?? '—'}</p>
+                        <p className="eyebrow text-muted mt-0.5">km</p>
                       </div>
                       <div>
-                        <p className="text-lg font-extrabold text-accent tnum">{pace ?? '—'}</p>
-                        <p className="text-[11px] text-muted">avg pace</p>
+                        <p className="num-display text-lg text-accent-ink">{pace ?? '—'}</p>
+                        <p className="eyebrow text-muted mt-0.5">avg pace</p>
                       </div>
                       <div>
-                        <p className="text-lg font-extrabold text-accent tnum">{s.avgHr ?? '—'}</p>
-                        <p className="text-[11px] text-muted">avg bpm</p>
+                        <p className="num-display text-lg text-accent-ink">{s.avgHr ?? '—'}</p>
+                        <p className="eyebrow text-muted mt-0.5">avg bpm</p>
                       </div>
                     </div>
                   )}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, ChevronRight, ExternalLink, TrendingUp, AlertTriangle, X, Flame } from 'lucide-react'
+import { CheckCircle2, ChevronRight, ExternalLink, AlertTriangle, X, Flame } from 'lucide-react'
 import { useMaxes, useSettings, useSessions, useSessionByDate } from '../hooks'
 import { maxesMap, OPERATOR_LIFTS, PHASES, resolvePosition, sessionFor } from '../program'
 import { isoDate, today, prettyDate, parseISO, diffDays, addDays, mondayIndex, nextMonday } from '../lib/date'
@@ -9,7 +9,8 @@ import { beginStravaAuth } from '../lib/strava'
 import { shouldNudgeBackup, downloadBackup } from '../lib/backup'
 import { suggestBlockProgression, bumpedEntry, blockCompleted, stalledLiftsSinceRetest } from '../lib/progression'
 import { computeStreak, longestStreak, sessionsThisWeek } from '../lib/stats'
-import { Button, Card, Pill, SessionIcon, SESSION_META } from '../components/ui'
+import { Button, Card, Pill, SessionIcon, SESSION_META, CoinGlyph } from '../components/ui'
+import ShareWin from '../components/ShareWin'
 import type { SessionLog } from '../types'
 
 export default function Today() {
@@ -46,19 +47,19 @@ export default function Today() {
     const days = diffDays(parseISO(settings.phaseStartDate), now)
     const isBB = phase.id === 'base-building'
     return (
-      <div className="space-y-4">
-        <Card className="p-6 text-center">
-          <p className="text-sm text-muted">{phase.name} starts in</p>
-          <p className="text-6xl font-extrabold text-brand my-2 tnum">{days}</p>
-          <p className="text-sm text-muted">
+      <div className="space-y-4 stagger">
+        <Card elev="hero" pad="lg" className="topo-hero text-white text-center relative overflow-hidden">
+          <p className="eyebrow text-white/80">{phase.name} starts in</p>
+          <p className="num-display text-7xl my-1 hero-text">{days}</p>
+          <p className="text-sm text-white/85">
             day{days === 1 ? '' : 's'} — {prettyDate(parseISO(settings.phaseStartDate))}
           </p>
         </Card>
 
         {isBB && (
-          <Card className="p-4">
-            <p className="font-semibold text-ink mb-2">Your first week</p>
-            <ul className="text-sm text-muted space-y-1.5">
+          <Card>
+            <p className="eyebrow text-muted mb-2">Your first week</p>
+            <ul className="text-sm text-ink/90 space-y-1.5">
               <li>💪 2 SE circuits (Mon · Thu) — light &amp; high-rep</li>
               <li>🏃 3 easy runs (Tue · Wed · Sat) — LSS, flat, 30 min+</li>
               <li>🧘 Recovery Friday · 😴 Rest Sunday</li>
@@ -66,9 +67,9 @@ export default function Today() {
           </Card>
         )}
 
-        <Card className="p-4">
-          <p className="font-semibold text-ink mb-2">Before you start</p>
-          <ul className="text-sm text-muted space-y-1.5">
+        <Card>
+          <p className="eyebrow text-muted mb-2">Before you start</p>
+          <ul className="text-sm text-ink/90 space-y-1.5">
             <li>• Sort your dumbbells &amp; bench</li>
             <li>• Pick your flat run route</li>
             <li>• Lay your kit out the night before</li>
@@ -85,13 +86,13 @@ export default function Today() {
     // unearned Test Day / block review.
     if (lapsed && (lastDoneSession?.week ?? 0) < phase.lengthWeeks) {
       return (
-        <Card className="p-5 space-y-2 border-warm-edge/40 bg-warm">
-          <p className="font-semibold text-ink">Welcome back 👋</p>
+        <Card className="space-y-2 border-warm-edge/40 bg-warm">
+          <p className="font-bold text-ink">Welcome back 👋</p>
           <p className="text-sm text-muted">
             It's been {lapsedDays} days and the calendar ran on without you — you were on week{' '}
             {lastDoneSession?.week}. Pick up there rather than jumping to the finish line.
           </p>
-          <button onClick={realign} className="text-brand font-semibold text-sm">
+          <button onClick={realign} className="text-brand-ink font-bold text-sm">
             Resume from week {lastDoneSession?.week} →
           </button>
         </Card>
@@ -102,20 +103,27 @@ export default function Today() {
         await saveSettings({ currentPhaseId: 'operator', phaseStartDate: nextMonday(), operatorBlock: 1, operatorFirstRunDone: false })
       }
       return (
-        <Card className="p-6 text-center space-y-3">
-          <p className="text-2xl">🎉</p>
-          <p className="text-lg font-bold text-brand">Base Building done</p>
-          <p className="text-sm text-muted">
-            Eight weeks in the bank and your engine's rebuilt. Do your Test Day, pop the numbers into
-            Maxes, then kick off Operator — it'll work out every weight for you.
-          </p>
-          <Button onClick={() => nav('/maxes')} className="w-full">
-            Enter my Test Day maxes
-          </Button>
-          <button onClick={startOperator} className="w-full text-sm text-brand font-semibold py-1">
-            Start Operator (next Monday) →
-          </button>
-        </Card>
+        <div className="space-y-4 stagger">
+          <Card elev="hero" pad="lg" className="topo-hero text-white text-center space-y-3 relative">
+            <div className="inline-flex floaty">
+              <CoinGlyph size={76} />
+            </div>
+            <p className="font-display uppercase text-2xl text-white tracking-tight hero-text">Base Building done</p>
+            <p className="text-sm text-white/85">
+              Eight weeks in the bank and your engine's rebuilt. Do your Test Day, pop the numbers into
+              Maxes, then kick off Operator — it'll work out every weight for you.
+            </p>
+            <Button onClick={() => nav('/maxes')} className="w-full">
+              Enter my Test Day maxes
+            </Button>
+            <button onClick={startOperator} className="w-full text-sm text-white/90 font-bold py-2">
+              Start Operator (next Monday) →
+            </button>
+            <div className="pt-1">
+              <ShareWin headline="Base Building done" sub="8 weeks banked · engine rebuilt" className="text-white" />
+            </div>
+          </Card>
+        </div>
       )
     }
 
@@ -173,9 +181,9 @@ export default function Today() {
     }
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 stagger">
         {stalling && (
-          <Card className="p-4 border-warm-edge/60 bg-warm space-y-2">
+          <Card className="border-warm-edge/60 bg-warm space-y-2">
             <p className="font-bold text-ink">⚠️ A lift's retests are slowing down</p>
             <p className="text-sm text-muted">
               {stalled.map((s) => `${s.name} (+${Math.round(s.gain)}kg)`).join(', ')} gained no more
@@ -189,14 +197,14 @@ export default function Today() {
             </p>
           </Card>
         )}
-        <Card className="p-5 space-y-3">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="text-load" />
-            <p className="text-lg font-bold text-brand">Operator block done</p>
+        <Card elev="hero" className="topo-whisper space-y-3">
+          <div className="flex items-center gap-3">
+            <CoinGlyph size={44} />
+            <p className="font-display uppercase text-xl text-ink tracking-tight">Operator block done</p>
           </div>
           <p className="text-sm text-ink">
             {completed ? '🎉 ' : ''}
-            {phase.lengthWeeks} weeks · block {opBlock} · <b className="text-load tnum">{blockCount}</b>{' '}
+            {phase.lengthWeeks} weeks · block {opBlock} · <b className="text-load num-display">{blockCount}</b>{' '}
             sessions logged.
           </p>
 
@@ -209,7 +217,7 @@ export default function Today() {
             </>
           ) : !completed ? (
             <>
-              <div className="rounded-xl bg-warm p-3 text-sm text-ink">
+              <div className="rounded-field bg-warm p-3 text-sm text-ink">
                 Looks like you didn't finish the heavy weeks (3 &amp; 6). No drama — <b>don't change
                 anything.</b> Run it back at the same weights and nail it this time.
               </div>
@@ -252,7 +260,11 @@ export default function Today() {
             </>
           )}
 
-          <p className="text-[11px] text-muted border-t border-line/60 pt-2 leading-relaxed">
+          <div className="border-t border-line/60 pt-2">
+            <ShareWin headline="Operator block done" sub={`Block ${opBlock} · ${blockCount} sessions`} className="text-brand-ink" />
+          </div>
+
+          <p className="text-[11px] text-muted leading-relaxed">
             🧘 Recovery: the every-3rd-week easy weeks cover the regular load. Take a <b>full week
             off every few months</b>, and a light week when you switch phases — TB programs rest at
             the seams.
@@ -318,22 +330,22 @@ export default function Today() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 stagger">
       {/* streak strip */}
       <div className="flex items-center gap-3">
-        <Card className="flex-1 p-3 flex items-center gap-2">
-          <Flame size={22} className={streak > 0 ? 'text-orange-500' : 'text-muted'} />
+        <Card pad="sm" className="flex-1 flex items-center gap-2.5">
+          <Flame size={22} className={`${streak > 0 ? 'text-brand-ink' : 'text-muted'} ${streak >= 7 ? 'flicker' : ''}`} />
           <div>
-            <p className="text-xl font-extrabold text-ink tnum leading-none">{streak}</p>
+            <p className="num-display text-2xl text-ink leading-none">{streak}</p>
             <p className="text-[11px] text-muted">
               session streak{bestStreak > streak ? ` · best ${bestStreak}` : ''}
             </p>
           </div>
         </Card>
-        <Card className="flex-1 p-3 flex items-center gap-2">
+        <Card pad="sm" className="flex-1 flex items-center gap-2.5">
           <CheckCircle2 size={22} className="text-load" />
           <div>
-            <p className="text-xl font-extrabold text-ink tnum leading-none">{weekCount}</p>
+            <p className="num-display text-2xl text-ink leading-none">{weekCount}</p>
             <p className="text-[11px] text-muted">done this week</p>
           </div>
         </Card>
@@ -343,13 +355,13 @@ export default function Today() {
       <div className="px-1">
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted">{prettyDate(now)}</span>
-          <Pill tone="brand">
+          <Pill tone="soft-brand">
             {phase.name} · Wk {pos.week}/{phase.lengthWeeks}
           </Pill>
         </div>
         <div className="h-1.5 rounded-full bg-line/50 overflow-hidden mt-2">
           <div
-            className="h-full bg-brand transition-all"
+            className="h-full glam-gradient transition-all"
             style={{ width: `${(pos.week / phase.lengthWeeks) * 100}%` }}
           />
         </div>
@@ -364,17 +376,17 @@ export default function Today() {
 
       {/* data-safety: Strava connection trouble + backup nudge */}
       {settings.stravaNeedsReconnect ? (
-        <Card className="p-3 border-warm-edge/40 bg-warm">
+        <Card pad="sm" className="border-warm-edge/40 bg-warm">
           <p className="font-semibold text-ink text-sm">Strava needs reconnecting</p>
           <p className="text-xs text-muted mt-0.5">
             Your runs stopped syncing. Reconnect to start pulling them in again.
           </p>
-          <button onClick={beginStravaAuth} className="text-brand font-semibold text-sm mt-1">
+          <button onClick={beginStravaAuth} className="text-brand-ink font-bold text-sm mt-1">
             Reconnect Strava →
           </button>
         </Card>
       ) : settings.stravaSyncError ? (
-        <Card className="p-3 border-warm-edge/40 bg-warm">
+        <Card pad="sm" className="border-warm-edge/40 bg-warm">
           <p className="font-semibold text-ink text-sm">Couldn’t reach Strava</p>
           <p className="text-xs text-muted mt-0.5">
             The last sync didn’t go through — it’ll retry when you reopen, or sync from Settings.
@@ -383,14 +395,14 @@ export default function Today() {
       ) : null}
 
       {shouldNudgeBackup(settings, sessions) && (
-        <Card className="p-3 flex items-center gap-3 border-warm-edge/40 bg-warm">
+        <Card pad="sm" className="flex items-center gap-3 border-warm-edge/40 bg-warm">
           <div className="flex-1 text-sm">
             <p className="font-semibold text-ink">Back up your data</p>
             <p className="text-xs text-muted">It lives only on this phone — export a copy to be safe.</p>
           </div>
           <button
             onClick={() => downloadBackup()}
-            className="text-brand font-semibold text-sm shrink-0"
+            className="text-brand-ink font-bold text-sm shrink-0"
           >
             Export →
           </button>
@@ -399,22 +411,22 @@ export default function Today() {
 
       {/* lapse (welcome back) takes priority over a single missed nudge */}
       {lapsed ? (
-        <Card className="p-3 border-warm-edge/40 bg-warm">
+        <Card pad="sm" className="border-warm-edge/40 bg-warm">
           <p className="font-semibold text-ink text-sm">Welcome back 👋</p>
           <p className="text-xs text-muted mt-0.5">
             It's been {lapsedDays} days — don't jump ahead into heavier weeks. Pick up where you left
             off and ease back in.
           </p>
-          <button onClick={realign} className="text-brand font-semibold text-sm mt-1">
+          <button onClick={realign} className="text-brand-ink font-bold text-sm mt-1">
             Resume from week {lastDoneSession?.week} →
           </button>
         </Card>
       ) : missed && dismissedDate !== missed.date ? (
-        <Card className="p-3 flex items-center gap-3 border-warm-edge/40 bg-warm">
-          <AlertTriangle size={20} className="text-warm-edge shrink-0" />
+        <Card pad="sm" className="flex items-center gap-3 border-warm-edge/40 bg-warm">
+          <AlertTriangle size={20} className="text-gold-ink shrink-0" />
           <div className="flex-1 text-sm">
             <p className="font-semibold text-ink">Missed {missed.title}</p>
-            <button onClick={() => nav(`/session/${missed!.date}`)} className="text-brand font-semibold">
+            <button onClick={() => nav(`/session/${missed!.date}`)} className="text-brand-ink font-bold">
               Log it now →
             </button>
           </div>
@@ -424,7 +436,7 @@ export default function Today() {
               setDismissedDate(missed!.date)
             }}
             aria-label="Dismiss"
-            className="text-muted p-1"
+            className="text-muted w-11 h-11 -mr-2 grid place-items-center shrink-0"
           >
             <X size={16} />
           </button>
@@ -432,15 +444,15 @@ export default function Today() {
       ) : null}
 
       {/* main session card */}
-      <Card className="overflow-hidden">
+      <Card elev="hero" pad="none" className="overflow-hidden">
         <div className="p-5">
           <div className="flex items-start gap-3">
-            <SessionIcon type={plan.type} size={24} />
+            <SessionIcon type={plan.type} size={26} />
             <div className="flex-1">
-              <h2 className="text-xl font-bold text-ink">{plan.title}</h2>
-              {plan.scheme && <p className={`text-sm font-semibold ${meta.color}`}>{plan.scheme}</p>}
+              <h2 className="font-display uppercase text-2xl text-ink tracking-tight leading-tight">{plan.title}</h2>
+              {plan.scheme && <p className={`text-sm font-bold ${meta.color}`}>{plan.scheme}</p>}
               {wavePct != null && (
-                <p className="text-xs text-muted">
+                <p className="eyebrow text-muted mt-1">
                   Week {pos.week} · {wavePct}% · {weekFeel}
                 </p>
               )}
@@ -465,10 +477,10 @@ export default function Today() {
                         {ex.sets.length}×{first.reps}
                       </span>
                       {ex.loaded && first.weight != null && (
-                        <span className="font-extrabold text-load text-xl tnum leading-none">
+                        <span className="num-display text-load text-2xl leading-none">
                           {first.weight}
                           <span className="text-xs font-semibold text-muted"> kg</span>
-                          {first.overCeiling && <span className="text-warm-edge"> ⚠︎</span>}
+                          {first.overCeiling && <span className="text-gold-ink"> ⚠︎</span>}
                         </span>
                       )}
                     </div>
@@ -479,7 +491,7 @@ export default function Today() {
           )}
 
           {anyCeiling && (
-            <p className="text-xs text-warm-edge mt-2">
+            <p className="text-xs text-gold-ink mt-2">
               ⚠︎ Past your 60 kg dumbbell — hold here and add reps.
             </p>
           )}
@@ -491,7 +503,7 @@ export default function Today() {
         </div>
 
         {/* action bar */}
-        <div className="bg-canvas/70 px-5 py-4 border-t border-line/60">
+        <div className="bg-[var(--color-surface-sunk)] px-5 py-4 border-t border-line/60">
           {isTestDay ? (
             <Button variant="secondary" className="w-full" onClick={() => nav('/maxes')}>
               Enter your results in Maxes <ChevronRight className="inline -mt-0.5" size={18} />
@@ -502,7 +514,7 @@ export default function Today() {
             </Button>
           ) : isLoggable ? (
             <>
-              <Button className="w-full text-lg py-4" onClick={() => nav(`/session/${iso}`)}>
+              <Button className="w-full text-lg" onClick={() => nav(`/session/${iso}`)}>
                 {logged?.exercises?.length ? 'Continue session' : 'Start session'}
               </Button>
               {!logged?.done && (
@@ -538,7 +550,7 @@ export default function Today() {
                   href="https://www.strava.com/"
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-xl px-4 py-3 font-semibold bg-orange-500/15 text-orange-500 flex items-center gap-1"
+                  className="rounded-pill px-4 font-bold bg-[#fc4c02]/12 text-[#fc4c02] flex items-center gap-1 min-h-[3rem]"
                 >
                   Strava <ExternalLink size={16} />
                 </a>

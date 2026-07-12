@@ -4,7 +4,7 @@ import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useMaxes, useSettings, useSessions } from '../hooks'
 import { maxesMap, OPERATOR_LIFTS, PHASES, resolvePosition, sessionFor } from '../program'
 import { addDays, DAY_NAMES, isoDate, parseISO, today } from '../lib/date'
-import { Card, Pill, SESSION_META } from '../components/ui'
+import { Card, Pill, SegmentedPicker, SessionIcon, SESSION_META } from '../components/ui'
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
@@ -42,21 +42,17 @@ export default function Program() {
   }
 
   return (
-    <div className="space-y-4">
-      {/* toggle */}
-      <div className="flex rounded-xl bg-canvas p-1 gap-1">
-        {(['week', 'block'] as const).map((v) => (
-          <button
-            key={v}
-            onClick={() => setView(v)}
-            className={`flex-1 rounded-lg py-2 text-sm font-semibold capitalize transition ${
-              view === v ? 'bg-brand text-white shadow-sm' : 'text-muted'
-            }`}
-          >
-            {v} view
-          </button>
-        ))}
-      </div>
+    <div className="space-y-4 stagger">
+      {/* week / block view toggle */}
+      <SegmentedPicker
+        label="View"
+        value={view}
+        onChange={setView}
+        options={[
+          { v: 'week', label: 'Week' },
+          { v: 'block', label: 'Block' },
+        ]}
+      />
 
       {view === 'week' ? (
         <>
@@ -65,16 +61,15 @@ export default function Program() {
             <button
               onClick={() => setWeek((w) => Math.max(1, w - 1))}
               disabled={week <= 1}
-              className="p-2 rounded-lg text-brand disabled:opacity-30"
+              className="p-2 rounded-field text-brand-ink disabled:opacity-30 active:scale-90 transition"
             >
               <ChevronLeft />
             </button>
             <div className="text-center">
-              <p className="font-bold text-ink">
-                {phase.name} · Week {week}
-              </p>
+              <p className="eyebrow">{phase.name}</p>
+              <p className="num-display text-xl text-ink leading-tight">Week {week}</p>
               {wavePct(week) != null && (
-                <p className="text-xs font-semibold text-load">
+                <p className="text-xs font-bold text-load">
                   {feelWord(wavePct(week))} · {wavePct(week)}%
                 </p>
               )}
@@ -82,47 +77,43 @@ export default function Program() {
             <button
               onClick={() => setWeek((w) => Math.min(phase.lengthWeeks, w + 1))}
               disabled={week >= phase.lengthWeeks}
-              className="p-2 rounded-lg text-brand disabled:opacity-30"
+              className="p-2 rounded-field text-brand-ink disabled:opacity-30 active:scale-90 transition"
             >
               <ChevronRight />
             </button>
           </div>
 
-          <Card className="divide-y divide-line/60">
+          <Card pad="none" className="divide-y divide-line/60 overflow-hidden">
             {DAY_NAMES.map((dn, day) => {
               const date = addDays(parseISO(settings.phaseStartDate), (week - 1) * 7 + day)
               const iso = isoDate(date)
               const plan = sessionFor(settings.currentPhaseId, week, day, mm, settings)
-              const meta = SESSION_META[plan.type]
-              const Icon = meta.icon
               const isToday = iso === todayIso
               const loads = loadsLine(plan)
               return (
                 <button
                   key={day}
                   onClick={() => nav(`/session/${iso}`)}
-                  className={`w-full flex items-center gap-3 p-3 text-left ${isToday ? 'bg-brand/5' : ''}`}
+                  className={`w-full flex items-center gap-3 p-3.5 text-left transition active:bg-brand/5 ${isToday ? 'bg-brand/5' : ''}`}
                 >
                   <div className="w-9 text-center shrink-0">
                     <p className="text-[11px] text-muted font-semibold">{dn}</p>
-                    <p className={`text-lg font-bold tnum ${isToday ? 'text-brand' : 'text-ink'}`}>
+                    <p className={`num-display text-lg leading-tight ${isToday ? 'text-brand-ink' : 'text-ink'}`}>
                       {date.getDate()}
                     </p>
                   </div>
-                  <span className={`inline-flex items-center justify-center w-9 h-9 rounded-lg shrink-0 ${meta.bg} ${meta.color}`}>
-                    <Icon size={18} />
-                  </span>
+                  <SessionIcon type={plan.type} size={18} />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-ink text-[15px]">{plan.title}</p>
                     {plan.scheme && <p className="text-xs text-muted">{plan.scheme}</p>}
-                    {loads && <p className="text-xs font-semibold text-load tnum mt-0.5">{loads}</p>}
+                    {loads && <p className="num-display text-xs text-load mt-0.5">{loads}</p>}
                   </div>
                   {doneDates.has(iso) ? (
-                    <span className="w-6 h-6 rounded-full bg-load text-white flex items-center justify-center shrink-0">
-                      <Check size={14} />
+                    <span className="w-7 h-7 rounded-chip gold-gradient text-[#3a2600] grid place-items-center shrink-0">
+                      <Check size={15} />
                     </span>
                   ) : isToday ? (
-                    <Pill tone="brand">Today</Pill>
+                    <Pill tone="soft-brand">Today</Pill>
                   ) : null}
                 </button>
               )
@@ -133,7 +124,7 @@ export default function Program() {
       ) : (
         <>
           <div className="px-1">
-            <h2 className="font-bold text-ink">{phase.name}</h2>
+            <p className="eyebrow">{phase.name}</p>
             <p className="text-xs text-muted">{phase.lengthWeeks} weeks · the whole block at a glance</p>
           </div>
           <Card className="p-2">
@@ -157,10 +148,10 @@ export default function Program() {
                         setWeek(w)
                         setView('week')
                       }}
-                      className="flex flex-col items-center justify-center"
+                      className="flex flex-col items-center justify-center active:scale-90 transition"
                     >
-                      <span className="text-[11px] font-bold text-brand">W{w}</span>
-                      {pct != null && <span className="text-[9px] text-load font-semibold">{pct}%</span>}
+                      <span className="num-display text-[13px] text-brand-ink leading-none">W{w}</span>
+                      {pct != null && <span className="num-display text-[10px] text-load leading-tight">{pct}%</span>}
                     </button>
                     {Array.from({ length: 7 }, (_, day) => {
                       const date = addDays(weekStart, day)
@@ -173,16 +164,16 @@ export default function Program() {
                         <button
                           key={day}
                           onClick={() => nav(`/session/${iso}`)}
-                          className={`relative rounded-lg ${meta.bg} py-1.5 flex flex-col items-center gap-0.5 ${
-                            isToday ? 'ring-2 ring-brand' : doneDates.has(iso) ? 'ring-1 ring-load/60' : ''
+                          className={`relative rounded-field ${meta.bg} py-1.5 flex flex-col items-center gap-0.5 transition ${
+                            isToday ? 'ring-2 ring-brand' : doneDates.has(iso) ? 'ring-2 ring-load/60' : ''
                           }`}
                         >
-                          <span className={`text-[11px] font-semibold ${isToday ? 'text-brand' : 'text-ink/70'} tnum`}>
+                          <span className={`num-display text-[12px] leading-none ${isToday ? 'text-brand-ink' : 'text-ink/70'}`}>
                             {date.getDate()}
                           </span>
                           <Icon size={15} className={meta.color} />
                           {doneDates.has(iso) ? (
-                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-load text-white flex items-center justify-center">
+                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full gold-gradient text-[#3a2600] flex items-center justify-center">
                               <Check size={11} />
                             </span>
                           ) : loggedDates.has(iso) ? (
