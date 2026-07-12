@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Home, CalendarDays, History as HistoryIcon, Calculator, Settings as SettingsIcon } from 'lucide-react'
 import { useSettings } from '../hooks'
 import { PHASES, resolvePosition } from '../program'
@@ -24,7 +24,9 @@ const buzz = () => {
 
 export default function Layout() {
   const settings = useSettings()
+  const { pathname } = useLocation()
   const [scrolled, setScrolled] = useState(false)
+  const pageTitle = NAV.find((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to)))?.label ?? 'Tactical Barbell'
 
   const pos = resolvePosition(settings, today())
   const phase = PHASES[settings.currentPhaseId]
@@ -38,14 +40,19 @@ export default function Layout() {
         {/* header — slim topo bar with scroll-elevation */}
         <header
           className={`safe-top topo-hero text-white shrink-0 transition-shadow duration-300 ${
-            scrolled ? 'shadow-[0_6px_22px_-10px_rgba(0,0,0,0.7)]' : ''
+            scrolled ? 'header-scrolled' : ''
           }`}
         >
           <div className="max-w-xl mx-auto px-4 h-14 flex items-center justify-between gap-3">
             <Wordmark size="sm" onDark />
-            <span className="text-xs font-bold uppercase tracking-wider text-white/85 hero-text truncate">
-              {context}
-            </span>
+            <div className="text-right leading-none shrink-0">
+              <span className="block display-hero text-[13px] tracking-wide text-white hero-text">
+                Be a fucking pro
+              </span>
+              <span className="block text-[10px] uppercase tracking-wider text-white/70 mt-0.5">
+                {context}
+              </span>
+            </div>
           </div>
         </header>
 
@@ -55,6 +62,7 @@ export default function Layout() {
           className="flex-1 min-h-0 overflow-y-auto overscroll-y-contain"
         >
           <div className="max-w-xl mx-auto px-4 pt-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
+            <h1 className="sr-only">{pageTitle}</h1>
             <Outlet />
           </div>
         </main>

@@ -1,5 +1,18 @@
 @import 'tailwindcss';
 
+/* Make the `dark:` variant follow the app's class-based theme (.dark / .light),
+   matching the CSS-variable logic below — not just the OS media query. */
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(html:not(.light) *) {
+      @slot;
+    }
+  }
+}
+
 /* ============================================================
    TACTICAL BARBELL — "Tactical Premium" design system
    Ported from Strut's scaffold; token NAMES kept so components
@@ -24,6 +37,7 @@
   --color-hic: #9a6420; /* coyote (conditioning) — AA light */
   --color-line: #dcd8ce; /* warm paper hairline */
   --color-line-strong: #c7c1b4; /* input / edge line */
+  --color-field-border: #a39e92; /* form-control edge — ≥3:1 on surface (WCAG 1.4.11) */
 
   /* ---- surface ramp ---- */
   --color-surface: #fbfaf6; /* raised card (warm paper) */
@@ -41,6 +55,10 @@
   --color-gold-hi: #ebc24a;
   --color-gold-lo: #9a7b1f;
   --color-spot: #3a2a12;
+  --color-good: #2e9e6e; /* traffic-light green (AA on light) */
+  --color-on-gold: #3a2600; /* ink on brass/gold surfaces (theme-invariant) */
+  --color-strava: #c43a02; /* Strava fill/icon — AA on light; brand #fc4c02 in dark */
+  --color-strava-ink: #9e2f02; /* Strava TEXT — AA on light tint */
   --color-danger: #b3261e;
   --color-danger-bg: #fbeae8;
 
@@ -52,6 +70,7 @@
   --elev-inset: inset 0 1px 2px rgba(70, 60, 50, 0.1);
 
   /* ---- geometry ---- */
+  --radius-inner: 0.5rem;
   --radius-chip: 0.75rem;
   --radius-field: 1rem;
   --radius-card: 1.25rem;
@@ -86,8 +105,12 @@
   --color-muted: #9a9c99;
   --color-run: #5b94b0;
   --color-hic: #c98a3a;
+  --color-strava: #fc4c02;
+  --color-strava-ink: #fc4c02;
+  --color-good: #4cc98d;
   --color-line: #2c2f35;
   --color-line-strong: #3b3f47;
+  --color-field-border: #565b63;
   --color-surface: #191b1f;
   --color-surface-sunk: #101215;
   --color-surface-raised: #202329;
@@ -124,8 +147,12 @@
     --color-muted: #9a9c99;
     --color-run: #5b94b0;
     --color-hic: #c98a3a;
+    --color-strava: #fc4c02;
+    --color-strava-ink: #fc4c02;
+    --color-good: #4cc98d;
     --color-line: #2c2f35;
     --color-line-strong: #3b3f47;
+    --color-field-border: #565b63;
     --color-surface: #191b1f;
     --color-surface-sunk: #101215;
     --color-surface-raised: #202329;
@@ -153,30 +180,34 @@
 /* ============================================================
    TYPOGRAPHY UTILITIES  (Oswald = condensed athletic display)
    ============================================================ */
-.font-display {
-  font-family: var(--font-display);
-  font-weight: 600;
-  letter-spacing: 0.005em;
-}
-.display-hero {
-  font-family: var(--font-display);
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.004em;
-  line-height: 0.9;
-}
-.num-display {
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: 0;
-}
-.eyebrow {
-  font-weight: 600;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  font-size: 0.6875rem;
-  font-family: var(--font-display);
+/* In @layer components so Tailwind's later `utilities` layer (font-*, tracking-*,
+   leading-*, text-*) can still override these when a caller sets one explicitly. */
+@layer components {
+  .font-display {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: 0.005em;
+  }
+  .display-hero {
+    font-family: var(--font-display);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.004em;
+    line-height: 0.9;
+  }
+  .num-display {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+  }
+  .eyebrow {
+    font-weight: 600;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    font-size: 0.6875rem;
+    font-family: var(--font-display);
+  }
 }
 
 /* ============================================================
@@ -552,7 +583,14 @@
   outline: 2px solid var(--color-gold);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.35);
-  border-radius: 8px;
+  /* no border-radius here — it would reshape focused pills/cards (the outline
+     already follows each element's own shape via outline-offset). */
+}
+
+/* header drop-shadow on scroll — an UNLAYERED class so it wins over .topo-hero's
+   own box-shadow (utilities can't); includes topo-hero's inset so both render. */
+.header-scrolled {
+  box-shadow: inset 0 -40px 60px -30px rgba(0, 0, 0, 0.55), 0 8px 24px -12px rgba(0, 0, 0, 0.7);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -589,6 +627,23 @@ body {
     radial-gradient(110% 70% at -10% 110%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 55%),
     var(--color-canvas);
   background-attachment: fixed;
+}
+
+/* mirror the class-based dark tweaks for the default 'system' theme (no .dark class) */
+@media (prefers-color-scheme: dark) {
+  html:not(.light) .grain {
+    opacity: 0.06;
+  }
+  html:not(.light) .topo-whisper::after {
+    opacity: 0.07;
+    mix-blend-mode: screen;
+  }
+  html:not(.light) body {
+    background: radial-gradient(120% 80% at 100% -10%, color-mix(in srgb, var(--color-brand) 13%, transparent), transparent 60%),
+      radial-gradient(110% 70% at -10% 110%, color-mix(in srgb, var(--color-accent) 10%, transparent), transparent 55%),
+      var(--color-canvas);
+    background-attachment: fixed;
+  }
 }
 
 .safe-top {

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, ChevronRight, ExternalLink, AlertTriangle, X, Flame } from 'lucide-react'
 import { useMaxes, useSettings, useSessions, useSessionByDate } from '../hooks'
@@ -25,6 +26,16 @@ export default function Today() {
     localStorage.getItem('tb-dismiss-missed'),
   )
 
+  // undefined until IndexedDB loads — avoids a flash of the wrong phase on DEFAULT_SETTINGS
+  const settingsLoading = useLiveQuery(() => db.settings.get('app'), []) === undefined
+  if (settingsLoading)
+    return (
+      <div className="space-y-4" aria-busy="true" aria-label="Loading">
+        <div className="skeleton h-24 rounded-card" />
+        <div className="skeleton h-40 rounded-card" />
+      </div>
+    )
+
   const pos = resolvePosition(settings, now)
   const phase = PHASES[pos.phaseId]
   const mm = maxesMap(maxes)
@@ -48,8 +59,8 @@ export default function Today() {
     const isBB = phase.id === 'base-building'
     return (
       <div className="space-y-4 stagger">
-        <Card elev="hero" pad="lg" className="topo-hero text-white text-center relative overflow-hidden">
-          <p className="eyebrow text-white/80">{phase.name} starts in</p>
+        <Card elev="hero" pad="lg" className="topo-hero text-white text-center relative overflow-hidden border-white/10">
+          <p className="eyebrow hero-text text-gold-hi">{phase.name} starts in</p>
           <p className="num-display text-7xl my-1 hero-text">{days}</p>
           <p className="text-sm text-white/85">
             day{days === 1 ? '' : 's'} — {prettyDate(parseISO(settings.phaseStartDate))}
@@ -60,7 +71,7 @@ export default function Today() {
           <Card>
             <p className="eyebrow text-muted mb-2">Your first week</p>
             <ul className="text-sm text-ink/90 space-y-1.5">
-              <li>💪 2 SE circuits (Mon · Thu) — light &amp; high-rep</li>
+              <li>💪 2 circuits (Mon · Thu) — light &amp; high-rep</li>
               <li>🏃 3 easy runs (Tue · Wed · Sat) — LSS, flat, 30 min+</li>
               <li>🧘 Recovery Friday · 😴 Rest Sunday</li>
             </ul>
@@ -92,7 +103,7 @@ export default function Today() {
             It's been {lapsedDays} days and the calendar ran on without you — you were on week{' '}
             {lastDoneSession?.week}. Pick up there rather than jumping to the finish line.
           </p>
-          <button onClick={realign} className="text-brand-ink font-bold text-sm">
+          <button onClick={realign} className="text-brand-ink font-bold text-sm min-h-[44px] inline-flex items-center">
             Resume from week {lastDoneSession?.week} →
           </button>
         </Card>
@@ -104,11 +115,11 @@ export default function Today() {
       }
       return (
         <div className="space-y-4 stagger">
-          <Card elev="hero" pad="lg" className="topo-hero text-white text-center space-y-3 relative">
+          <Card elev="hero" pad="lg" className="topo-hero text-white text-center space-y-3 relative border-white/10">
             <div className="inline-flex floaty">
               <CoinGlyph size={76} />
             </div>
-            <p className="font-display uppercase text-2xl text-white tracking-tight hero-text">Base Building done</p>
+            <p className="display-hero text-2xl text-white hero-text">Base Building done</p>
             <p className="text-sm text-white/85">
               Eight weeks in the bank and your engine's rebuilt. Do your Test Day, pop the numbers into
               Maxes, then kick off Operator — it'll work out every weight for you.
@@ -116,7 +127,7 @@ export default function Today() {
             <Button onClick={() => nav('/maxes')} className="w-full">
               Enter my Test Day maxes
             </Button>
-            <button onClick={startOperator} className="w-full text-sm text-white/90 font-bold py-2">
+            <button onClick={startOperator} className="w-full text-sm text-white/90 font-bold min-h-[44px] inline-flex items-center justify-center">
               Start Operator (next Monday) →
             </button>
             <div className="pt-1">
@@ -174,6 +185,7 @@ export default function Today() {
       const lifts = Object.fromEntries(items.map((it) => [it.liftId, it.currentOneRM]))
       const history = [...(settings.maxHistory ?? []), { date: isoDate(now), lifts }].slice(-8)
       await clearProgression()
+      localStorage.removeItem('tb-testday-celebrated') // re-arm the Test Day reward
       // Mark the first 12-week run done: after a retest the ladder is retest-every-
       // 6-weeks, so don't re-arm the "first run — hold the weights" hold (TB1 p.108).
       await saveSettings({ operatorBlock: 1, operatorFirstRunDone: true, maxHistory: history })
@@ -200,7 +212,7 @@ export default function Today() {
         <Card elev="hero" className="topo-whisper space-y-3">
           <div className="flex items-center gap-3">
             <CoinGlyph size={44} />
-            <p className="font-display uppercase text-xl text-ink tracking-tight">Operator block done</p>
+            <p className="display-hero text-xl text-ink">Operator block done</p>
           </div>
           <p className="text-sm text-ink">
             {completed ? '🎉 ' : ''}
@@ -224,7 +236,7 @@ export default function Today() {
               <Button className="w-full" onClick={repeatBlock}>
                 Repeat this block (same weights)
               </Button>
-              <button onClick={retest} className="w-full text-sm text-muted font-medium py-1">
+              <button onClick={retest} className="w-full text-sm text-muted font-medium min-h-[44px] inline-flex items-center justify-center">
                 Retest my maxes instead →
               </button>
             </>
@@ -237,7 +249,7 @@ export default function Today() {
               <Button className="w-full" onClick={repeatBlock}>
                 Start next block — same weights
               </Button>
-              <button onClick={retest} className="w-full text-sm text-muted font-medium py-1">
+              <button onClick={retest} className="w-full text-sm text-muted font-medium min-h-[44px] inline-flex items-center justify-center">
                 Retest my maxes instead →
               </button>
             </>
@@ -251,10 +263,10 @@ export default function Today() {
               <Button className="w-full" onClick={retest}>
                 Retest my maxes
               </Button>
-              <button onClick={forceProgress} className="w-full text-sm text-muted font-medium py-1">
+              <button onClick={forceProgress} className="w-full text-sm text-muted font-medium min-h-[44px] inline-flex items-center justify-center">
                 Force-progress a small bump &amp; continue →
               </button>
-              <button onClick={repeatBlock} className="w-full text-sm text-muted font-medium py-1">
+              <button onClick={repeatBlock} className="w-full text-sm text-muted font-medium min-h-[44px] inline-flex items-center justify-center">
                 Repeat the same weights →
               </button>
             </>
@@ -312,7 +324,9 @@ export default function Today() {
 
   async function markDone() {
     if (logged?.id && logged.done) {
-      await db.sessions.delete(logged.id)
+      // don't destroy a Strava-enriched row — just un-tick it
+      if (logged.stravaId != null) await db.sessions.update(logged.id, { done: false })
+      else await db.sessions.delete(logged.id)
       return
     }
     const rec: SessionLog = {
@@ -321,10 +335,15 @@ export default function Today() {
       week: pos.week,
       day: pos.day,
       type: plan.type,
-      title: plan.title,
+      title: logged?.stravaId ? (logged.title ?? plan.title) : plan.title,
       exercises: [],
       done: true,
-      createdAt: Date.now(),
+      // keep any Strava-synced conditioning data
+      durationMin: logged?.durationMin,
+      distanceKm: logged?.distanceKm,
+      avgHr: logged?.avgHr,
+      stravaId: logged?.stravaId,
+      createdAt: logged?.createdAt ?? Date.now(),
     }
     await db.sessions.put(logged?.id ? { ...rec, id: logged.id } : rec)
   }
@@ -337,7 +356,7 @@ export default function Today() {
           <Flame size={22} className={`${streak > 0 ? 'text-brand-ink' : 'text-muted'} ${streak >= 7 ? 'flicker' : ''}`} />
           <div>
             <p className="num-display text-2xl text-ink leading-none">{streak}</p>
-            <p className="text-[11px] text-muted">
+            <p className="eyebrow text-muted">
               session streak{bestStreak > streak ? ` · best ${bestStreak}` : ''}
             </p>
           </div>
@@ -346,7 +365,7 @@ export default function Today() {
           <CheckCircle2 size={22} className="text-load" />
           <div>
             <p className="num-display text-2xl text-ink leading-none">{weekCount}</p>
-            <p className="text-[11px] text-muted">done this week</p>
+            <p className="eyebrow text-muted">done this week</p>
           </div>
         </Card>
       </div>
@@ -381,7 +400,7 @@ export default function Today() {
           <p className="text-xs text-muted mt-0.5">
             Your runs stopped syncing. Reconnect to start pulling them in again.
           </p>
-          <button onClick={beginStravaAuth} className="text-brand-ink font-bold text-sm mt-1">
+          <button onClick={beginStravaAuth} className="text-brand-ink font-bold text-sm mt-1 min-h-[44px] inline-flex items-center">
             Reconnect Strava →
           </button>
         </Card>
@@ -402,7 +421,7 @@ export default function Today() {
           </div>
           <button
             onClick={() => downloadBackup()}
-            className="text-brand-ink font-bold text-sm shrink-0"
+            className="text-brand-ink font-bold text-sm shrink-0 min-h-[44px] inline-flex items-center"
           >
             Export →
           </button>
@@ -417,7 +436,7 @@ export default function Today() {
             It's been {lapsedDays} days — don't jump ahead into heavier weeks. Pick up where you left
             off and ease back in.
           </p>
-          <button onClick={realign} className="text-brand-ink font-bold text-sm mt-1">
+          <button onClick={realign} className="text-brand-ink font-bold text-sm mt-1 min-h-[44px] inline-flex items-center">
             Resume from week {lastDoneSession?.week} →
           </button>
         </Card>
@@ -426,7 +445,7 @@ export default function Today() {
           <AlertTriangle size={20} className="text-gold-ink shrink-0" />
           <div className="flex-1 text-sm">
             <p className="font-semibold text-ink">Missed {missed.title}</p>
-            <button onClick={() => nav(`/session/${missed!.date}`)} className="text-brand-ink font-bold">
+            <button onClick={() => nav(`/session/${missed!.date}`)} className="text-brand-ink font-bold min-h-[44px] inline-flex items-center">
               Log it now →
             </button>
           </div>
@@ -449,7 +468,7 @@ export default function Today() {
           <div className="flex items-start gap-3">
             <SessionIcon type={plan.type} size={26} />
             <div className="flex-1">
-              <h2 className="font-display uppercase text-2xl text-ink tracking-tight leading-tight">{plan.title}</h2>
+              <h2 className="display-hero text-2xl text-ink leading-tight">{plan.title}</h2>
               {plan.scheme && <p className={`text-sm font-bold ${meta.color}`}>{plan.scheme}</p>}
               {wavePct != null && (
                 <p className="eyebrow text-muted mt-1">
@@ -543,14 +562,14 @@ export default function Today() {
                 className="flex-1"
                 onClick={markDone}
               >
-                {logged?.done ? 'Done ✓' : 'Mark done'}
+                {logged?.done ? 'Completed' : 'Mark complete'}
               </Button>
               {(plan.type === 'run' || plan.type === 'hic') && (
                 <a
                   href="https://www.strava.com/"
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-pill px-4 font-bold bg-[#fc4c02]/12 text-[#fc4c02] flex items-center gap-1 min-h-[3rem]"
+                  className="rounded-pill px-4 font-bold bg-strava/12 text-strava-ink flex items-center gap-1 min-h-[3rem]"
                 >
                   Strava <ExternalLink size={16} />
                 </a>
@@ -561,7 +580,7 @@ export default function Today() {
       </Card>
 
       <p className="text-center text-xs text-muted px-6">
-        Show up in the morning. A bad session done beats a good one skipped.
+        Consistency is the whole program. One session at a time.
       </p>
     </div>
   )

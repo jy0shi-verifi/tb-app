@@ -1,15 +1,18 @@
-import { useMemo, useState } from 'react'
-import { Flame, Footprints, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { Check, Flame, Footprints, Trash2 } from 'lucide-react'
 import { useSessions, useSettings } from '../hooks'
 import { OPERATOR_LIFTS, PHASES } from '../program'
 import { estimate1RM } from '../lib/calc'
 import { badges, computeStreak, liftRecords, runStats, weekSummary } from '../lib/stats'
-import { deleteSession } from '../db'
+import { db, deleteSession } from '../db'
 import { Card, EmptyState, SessionIcon, SESSION_META } from '../components/ui'
 import { CoinBadge, PaceTrend, ProgressRing, StrengthTrend } from '../components/dataviz'
 import { parseISO, diffDays, today } from '../lib/date'
 
 const SERIES_COLORS = ['var(--color-brand)', 'var(--color-load)', 'var(--color-accent)']
+// second (non-colour) channel so the three lift lines are distinguishable for colour-vision deficiency
+const SERIES_DASH = ['', '5 3', '1.5 2.5']
 
 /** Coin tier for an earned badge key. */
 function tierFor(key: string): 'bronze' | 'steel' | 'gold' | 'black' {
@@ -42,6 +45,27 @@ export default function History() {
   const sessions = useSessions()
   const settings = useSettings()
   const [openId, setOpenId] = useState<number | null>(null)
+  // undefined until IndexedDB has loaded — lets us show a skeleton instead of flashing
+  // "No sessions yet" at an established user on a cold start.
+  const loading = useLiveQuery(() => db.sessions.count(), []) === undefined
+
+  // "Just earned" pulse: a coin earned since the last History visit pops once, then settles.
+  const earnedKeys = useMemo(() => badges(sessions).map((b) => b.key), [sessions])
+  const seenCoins = useMemo(() => {
+    try {
+      return new Set<string>(JSON.parse(localStorage.getItem('tb-seen-coins') || '[]'))
+    } catch {
+      return new Set<string>()
+    }
+  }, [])
+  useEffect(() => {
+    if (!earnedKeys.length) return
+    try {
+      localStorage.setItem('tb-seen-coins', JSON.stringify(earnedKeys))
+    } catch {
+      /* private mode — the pulse is cosmetic */
+    }
+  }, [earnedKeys])
 
   // conditioning pace trend (min/km over time) — the cardio counterpart to the
   // strength chart; the half he's rebuilding post-RAF finally gets a trend line.
@@ -89,8 +113,16 @@ export default function History() {
     return rows
   }, [sessions])
 
+  if (loading)
+    return (
+      <div className="space-y-4" aria-busy="true" aria-label="Loading history">
+        <div className="skeleton h-24 rounded-card" />
+        <div className="skeleton h-56 rounded-card" />
+      </div>
+    )
+
   if (!sessions.length)
-    return <EmptyState title="No sessions logged yet" sub="Finish a workout and it'll show up here." />
+    return <EmptyState title="No sessions logged yet" sub="Log your first session and it lands here." />
 
   const streak = computeStreak(sessions)
   const summary = weekSummary(sessions)
@@ -102,7 +134,7 @@ export default function History() {
   const cutWeeks = Math.round(
     sessions.filter((s) => s.phaseId === 'operator' && s.type === 'lift' && s.done).length / 3,
   )
-  const nextMs = [10, 25, 50, 100, 200, 365].find((m) => done < m)
+  const nextMs = [10, 25, 50, 100, 200].find((m) => done < m)
   // Operator "hold" progress — a moving metric while the strength chart is
   // deliberately flat across the 12-week hold (banked sessions = the real win).
   const opTargetLifts = PHASES.operator.lengthWeeks * 3
@@ -126,6 +158,7 @@ export default function History() {
     key: l.short,
     label: l.short,
     color: SERIES_COLORS[idx],
+    dash: SERIES_DASH[idx],
     points: chartData
       .map((r, i) => (r[l.short] != null ? { i, v: Number(r[l.short]) } : null))
       .filter((p): p is { i: number; v: number } => p !== null),
@@ -178,7 +211,7 @@ export default function History() {
       {opProgress && (
         <Card elev="hero" pad="lg" className="topo-hero text-white text-center border-white/10">
           <div className="flex items-center justify-between mb-2">
-            <p className="eyebrow hero-text" style={{ color: 'var(--color-gold)' }}>
+            <p className="eyebrow hero-text text-gold-hi">
               Operator · Block {opProgress.block}
             </p>
             <span className="text-xs text-white/80">
@@ -189,7 +222,7 @@ export default function History() {
             <ProgressRing value={opProgress.lifts} target={opTargetLifts} label="banked" />
           </div>
           <p className="text-xs text-white/85">
-            <b className="num-display text-load">{opProgress.lifts}</b> / {opTargetLifts} lift sessions banked
+            <b className="num-display text-gold-hi">{opProgress.lifts}</b> / {opTargetLifts} lift sessions banked
             this block — holding your numbers through a cut is the win.
           </p>
         </Card>
@@ -201,7 +234,14 @@ export default function History() {
           <p className="eyebrow text-muted mb-2">Challenge coins</p>
           <div className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1">
             {earned.map((b) => (
-              <CoinBadge key={b.key} emoji={b.emoji} label={b.label} earned tier={tierFor(b.key)} />
+              <CoinBadge
+                key={b.key}
+                emoji={b.emoji}
+                label={b.label}
+                earned
+                tier={tierFor(b.key)}
+                justEarned={!seenCoins.has(b.key)}
+              />
             ))}
             {nextMs && (
               <CoinBadge
@@ -224,10 +264,18 @@ export default function History() {
           <div className="flex justify-center gap-4 mt-2">
             {OPERATOR_LIFTS.map((l, idx) => (
               <span key={l.short} className="flex items-center gap-1 text-xs text-muted">
-                <span
-                  className="inline-block w-3 h-1.5 rounded-full"
-                  style={{ background: SERIES_COLORS[idx] }}
-                />
+                <svg width="16" height="6" aria-hidden="true">
+                  <line
+                    x1="0"
+                    y1="3"
+                    x2="16"
+                    y2="3"
+                    stroke={SERIES_COLORS[idx]}
+                    strokeWidth="2.5"
+                    strokeDasharray={SERIES_DASH[idx] || undefined}
+                    strokeLinecap="round"
+                  />
+                </svg>
                 {l.short}
               </span>
             ))}
@@ -314,6 +362,7 @@ export default function History() {
                 <button
                   type="button"
                   disabled={!hasDetail}
+                  aria-expanded={hasDetail ? open : undefined}
                   onClick={() => setOpenId(open ? null : (s.id ?? null))}
                   className="flex-1 min-w-0 text-left disabled:cursor-default"
                 >
@@ -330,10 +379,10 @@ export default function History() {
                     {hasDetail && <span className="text-brand-ink font-medium"> · {open ? 'less' : 'details'}</span>}
                   </p>
                 </button>
-                {s.done && <span className="text-load text-sm font-semibold">✓</span>}
+                {s.done && <Check size={16} className="text-load shrink-0" />}
                 <button
                   onClick={() => confirmDelete(s.id)}
-                  className="w-11 h-11 -mr-1 grid place-items-center text-muted/60 active:text-danger shrink-0"
+                  className="w-11 h-11 -mr-1 grid place-items-center text-muted/80 active:text-danger shrink-0"
                   aria-label="Delete session"
                 >
                   <Trash2 size={16} />
@@ -369,7 +418,7 @@ export default function History() {
                       href={`https://www.strava.com/activities/${s.stravaId}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-3 flex items-center justify-center gap-1.5 text-sm font-semibold text-[#fc4c02] active:opacity-70"
+                      className="mt-3 flex items-center justify-center gap-1.5 text-sm font-semibold text-strava-ink active:opacity-70 min-h-[44px]"
                     >
                       View on Strava →
                     </a>

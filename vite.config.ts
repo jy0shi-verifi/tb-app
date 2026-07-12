@@ -17,7 +17,7 @@ export default defineConfig({
       // 'prompt' (not autoUpdate): a new build waits until the user taps "reload"
       // so it can't hot-swap chunks under a live 6am session (see UpdatePrompt).
       registerType: 'prompt',
-      includeAssets: ['favicon.svg', 'icons/apple-touch-icon.png'],
+      includeAssets: ['icons/apple-touch-icon.png'],
       manifest: {
         name: 'Tactical Barbell',
         short_name: 'TB',
@@ -36,6 +36,9 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
+        // English-only app — don't precache the cyrillic/greek/vietnamese font subsets
+        // (~170KB). They still fetch from network if ever needed while online.
+        globIgnores: ['**/*cyrillic*.woff2', '**/*greek*.woff2', '**/*vietnamese*.woff2', 'icons.svg', 'favicon.svg'],
         navigateFallback: '/index.html',
       },
       devOptions: { enabled: false },

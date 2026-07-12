@@ -27,7 +27,7 @@ export function Card({
   const surface =
     elev === 'sunk'
       ? 'bg-[var(--color-surface-sunk)] border-line/40'
-      : 'bg-surface border-line/60 dark:border-white/[0.06]'
+      : 'bg-surface border-line/60'
   // twMerge so caller className (p-*, bg tints) reliably overrides the defaults — Tailwind resolves
   // same-property conflicts by CSS source order, not class-attribute order
   return (
@@ -113,7 +113,7 @@ export function Pill({
   children: ReactNode
 }) {
   const tones: Record<string, string> = {
-    gold: 'gold-gradient text-[#3a2600] elev-1 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.4)]',
+    gold: 'gold-gradient text-on-gold shadow-[var(--elev-1),inset_0_0_0_1px_rgba(255,255,255,0.4)]',
     'soft-brand': 'bg-brand/12 text-brand-ink',
     'soft-steel': 'bg-accent/15 text-accent-ink',
     outline: 'bg-[var(--color-surface-sunk)] text-muted border border-dashed border-line',
@@ -161,7 +161,7 @@ export function SessionIcon({ type, size = 22 }: { type: SessionType; size?: num
 // SegmentedPicker — a well with quiet tinted selection
 // ============================================================
 export type SegOption<T extends string> = { v: T; label: string; tone?: 'green' | 'amber' | 'red'; Icon?: LucideIcon }
-const TONE_DOT: Record<string, string> = { green: '#35b37e', amber: 'var(--color-gold)', red: 'var(--color-danger)' }
+const TONE_DOT: Record<string, string> = { green: 'var(--color-good)', amber: 'var(--color-gold)', red: 'var(--color-danger)' }
 
 export function SegmentedPicker<T extends string>({
   label,
@@ -202,7 +202,7 @@ export function SegmentedPicker<T extends string>({
             aria-pressed={on}
             onClick={() => onChange(v)}
             style={selectedStyle}
-            className={`rounded-[0.5rem] min-h-[2.75rem] text-xs font-bold flex items-center justify-center gap-1.5 transition-[background,color,box-shadow] duration-150 ${cls}`}
+            className={`rounded-inner min-h-[2.75rem] text-xs font-bold flex items-center justify-center gap-1.5 transition-[background,color,box-shadow] duration-150 ${cls}`}
           >
             {tone && toneMode === 'dot' && !Icon && (
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: TONE_DOT[tone] }} />
@@ -291,7 +291,7 @@ export function SetCheck({ done, onToggle, label }: { done: boolean; onToggle: (
       aria-label={label}
       aria-pressed={done}
       className={`w-11 h-11 rounded-chip grid place-items-center transition-colors duration-200 ${
-        done ? 'gold-gradient text-[#3a2600] elev-1' : 'bg-[var(--color-surface-sunk)] border border-line text-muted'
+        done ? 'gold-gradient text-on-gold elev-1' : 'bg-[var(--color-surface-sunk)] border border-line text-muted'
       }`}
     >
       <span key={String(done)} className={done ? 'pop-check inline-flex' : 'inline-flex'}>
@@ -355,11 +355,11 @@ export function Checkbox({
       className="flex items-start gap-3 text-left w-full"
     >
       <span
-        className={`mt-0.5 w-6 h-6 rounded-[0.5rem] grid place-items-center transition shrink-0 ${
+        className={`mt-0.5 w-6 h-6 rounded-inner grid place-items-center transition shrink-0 ${
           checked ? 'gold-gradient border-2 border-transparent' : 'border-2 border-line bg-[var(--color-surface-sunk)]'
         }`}
       >
-        <Check size={14} className={`text-[#3a2600] transition-opacity ${checked ? 'opacity-100' : 'opacity-0'}`} />
+        <Check size={14} className={`text-on-gold transition-opacity ${checked ? 'opacity-100' : 'opacity-0'}`} />
       </span>
       <span className="text-sm text-ink">{children}</span>
     </button>

@@ -5,6 +5,7 @@ import { OPERATOR_LIFTS, OPERATOR_WAVE } from '../program'
 import { estimate1RM, maxToBasis, trainingMax, workingLoad } from '../lib/calc'
 import { db } from '../db'
 import { Card, Pill, Stepper } from '../components/ui'
+import Celebration, { type CelebrationContent } from '../components/Celebration'
 import type { MaxEntry } from '../types'
 
 interface Field {
@@ -13,7 +14,7 @@ interface Field {
 }
 
 const FIELD_CLASS =
-  'text-center rounded-field bg-[var(--color-surface-sunk)] border border-line py-2 num-display text-lg text-ink placeholder:font-sans placeholder:text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-brand/40 transition-shadow'
+  'text-center rounded-field bg-[var(--color-surface-sunk)] border border-[var(--color-field-border)] py-2 num-display text-lg text-ink placeholder:font-sans placeholder:text-sm placeholder:text-muted transition-shadow'
 
 export default function Maxes() {
   const settings = useSettings()
@@ -21,6 +22,7 @@ export default function Maxes() {
   const maxes = useLiveQuery(() => db.maxes.toArray(), [])
   const [fields, setFields] = useState<Record<string, Field> | null>(null)
   const [advanced, setAdvanced] = useState(false)
+  const [celebration, setCelebration] = useState<CelebrationContent | null>(null)
 
   useEffect(() => {
     if (fields !== null || maxes === undefined) return
@@ -53,6 +55,22 @@ export default function Maxes() {
       const bumpKg = changed ? 0 : (existing?.bumpKg ?? 0)
       const entry: MaxEntry = { liftId, testWeight: w, testReps: r, bumpKg }
       await db.maxes.put(entry)
+      // Test Day reward: fire once when this entry completes the full set of maxes.
+      const merged = { ...fields, [liftId]: next }
+      const allSet = OPERATOR_LIFTS.every((l) => Number(merged[l.id]?.w) > 0 && Number(merged[l.id]?.r) > 0)
+      if (allSet && !localStorage.getItem('tb-testday-celebrated')) {
+        try {
+          localStorage.setItem('tb-testday-celebrated', '1')
+        } catch {
+          /* private mode — reward is cosmetic */
+        }
+        setCelebration({
+          title: 'Test Day banked',
+          sub: 'Your Operator numbers are set — every weight is dialled in.',
+          icon: 'trophy',
+          share: { headline: 'Test Day', sub: 'Operator maxes locked in' },
+        })
+      }
     } else {
       await db.maxes.delete(liftId)
     }
@@ -85,7 +103,7 @@ export default function Maxes() {
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="eyebrow text-muted">Test Day</p>
-            <h2 className="font-display font-bold text-lg text-ink">Operator maxes</h2>
+            <h2 className="display-hero text-xl text-ink">Operator maxes</h2>
           </div>
           <Pill tone={settings.loadBasis === 'tm' ? 'gold' : 'soft-brand'}>
             {settings.loadBasis === 'tm' ? '90% Training Max' : 'True 1RM'}
@@ -125,9 +143,10 @@ export default function Maxes() {
                   <label className="flex items-center gap-1.5">
                     <input
                       inputMode="decimal"
+                      aria-label={`${l.name} test weight (kg per dumbbell)`}
                       placeholder="kg"
                       value={f.w}
-                      onChange={(e) => setField(l.id, { w: e.target.value })}
+                      onChange={(e) => setField(l.id, { w: e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1') })}
                       className={`w-20 ${FIELD_CLASS}`}
                     />
                     <span className="text-xs text-muted">kg/DB</span>
@@ -136,9 +155,10 @@ export default function Maxes() {
                   <label className="flex items-center gap-1.5">
                     <input
                       inputMode="numeric"
+                      aria-label={`${l.name} test reps`}
                       placeholder="reps"
                       value={f.r}
-                      onChange={(e) => setField(l.id, { r: e.target.value })}
+                      onChange={(e) => setField(l.id, { r: e.target.value.replace(/[^0-9]/g, '') })}
                       className={`w-16 ${FIELD_CLASS}`}
                     />
                     <span className="text-xs text-muted">reps</span>
@@ -186,7 +206,7 @@ export default function Maxes() {
       {/* wave table */}
       <Card elev="1">
         <p className="eyebrow text-muted">Every week's loads</p>
-        <h2 className="font-display font-bold text-lg text-ink mt-0.5">Operator working weights</h2>
+        <h2 className="display-hero text-xl text-ink mt-0.5">Operator working weights</h2>
         <p className="text-xs text-muted mt-1 mb-3">kg per dumbbell · ⚠︎ = over the 60 kg ceiling</p>
         {!anyMax ? (
           <p className="text-sm text-muted py-4 text-center">
@@ -220,7 +240,7 @@ export default function Maxes() {
                       const r = Number(f.r)
                       if (!(w > 0 && r > 0))
                         return (
-                          <td key={l.id} className="py-2 pr-1 text-right text-line">
+                          <td key={l.id} className="py-2 pr-1 text-right text-muted/60">
                             —
                           </td>
                         )
@@ -248,6 +268,7 @@ export default function Maxes() {
           </Card>
         )}
       </Card>
+      {celebration && <Celebration content={celebration} onClose={() => setCelebration(null)} />}
     </div>
   )
 }

@@ -51,13 +51,13 @@ export default function Settings() {
   }
 
   const fieldCls =
-    'rounded-field border border-line bg-[var(--color-surface-sunk)] text-ink px-3.5 py-2.5 font-semibold min-h-[2.75rem]'
+    'rounded-field border border-[var(--color-field-border)] bg-[var(--color-surface-sunk)] text-ink px-3.5 py-2.5 font-semibold min-h-[2.75rem]'
 
   return (
     <div className="stagger space-y-4">
-      <Card elev="hero" className="topo-hero text-white">
-        <p className="eyebrow text-white/60">Tactical Barbell</p>
-        <p className="display-hero text-white mt-1">SETTINGS</p>
+      <Card elev="hero" className="topo-hero text-white border-white/10">
+        <p className="eyebrow hero-text text-gold-hi">Tactical Barbell</p>
+        <p className="display-hero text-3xl text-white mt-1">SETTINGS</p>
       </Card>
 
       <Card>
@@ -94,6 +94,7 @@ export default function Settings() {
             hint="Time the between-set timer counts down. Auto uses the book's rests (longer on the heavy weeks) — recommended on a cut. 10 sec is for testing the beep."
           >
             <select
+              aria-label="Rest timer"
               value={s.restSec ?? 0}
               onChange={(e) => saveSettings({ restSec: Number(e.target.value) || undefined })}
               className={fieldCls}
@@ -144,6 +145,7 @@ export default function Settings() {
           <Row label="Phase start date" hint="The Monday your current phase's week 1 began.">
             <input
               type="date"
+              aria-label="Phase start date"
               value={s.phaseStartDate}
               onChange={(e) => saveSettings({ phaseStartDate: e.target.value })}
               className={fieldCls}
@@ -155,10 +157,10 @@ export default function Settings() {
       <Card>
         <p className="eyebrow text-muted">Strava</p>
         <p className="text-xs text-muted mt-1 mb-3 leading-relaxed">
-          Auto-tick your runs &amp; HICs — distance, pace and heart rate flow in from Strava automatically.
+          Auto-tick your runs &amp; conditioning sessions — distance, pace and heart rate flow in from Strava automatically.
         </p>
         {!stravaConfigured() ? (
-          <p className="text-xs text-muted">Coming soon.</p>
+          <p className="text-xs text-muted">Not set up on this build yet.</p>
         ) : s.strava ? (
           <div className="space-y-2">
             <div className="flex gap-2">
@@ -195,7 +197,7 @@ export default function Settings() {
                   setMsg(`Import failed: ${(e as Error)?.message ?? 'unknown error'}`)
                 }
               }}
-              className="w-full text-sm text-brand-ink font-semibold py-2"
+              className="w-full text-sm text-brand-ink font-semibold min-h-[44px] inline-flex items-center justify-center"
             >
               Import my past runs (one-off) →
             </button>
@@ -237,7 +239,9 @@ export default function Settings() {
           </Button>
           <input ref={fileRef} type="file" accept="application/json" hidden onChange={doImport} />
         </div>
-        {msg && <p className="text-xs text-load mt-3 font-semibold">{msg}</p>}
+        <p role="status" aria-live="polite" className="text-xs text-load mt-3 font-semibold empty:hidden">
+          {msg}
+        </p>
       </Card>
 
       <Card>

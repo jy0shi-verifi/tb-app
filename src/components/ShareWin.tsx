@@ -64,10 +64,10 @@ async function buildImage(headline: string, sub: string): Promise<Blob | null> {
 
   ctx.textAlign = 'center'
 
-  // eyebrow
-  ctx.fillStyle = 'rgba(255,255,255,0.7)'
+  // eyebrow — the achievement category (brand shows once, at the bottom wordmark)
+  ctx.fillStyle = 'rgba(255,255,255,0.65)'
   ctx.font = "600 40px 'Inter Variable', system-ui, sans-serif"
-  ctx.fillText('T A C T I C A L   B A R B E L L', S / 2, 250)
+  ctx.fillText('E A R N E D', S / 2, 250)
 
   // headline (condensed uppercase)
   ctx.fillStyle = '#ffffff'

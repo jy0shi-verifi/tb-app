@@ -21,12 +21,12 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="min-h-[100dvh] bg-canvas flex flex-col safe-top safe-bottom">
+    <div className="min-h-[100dvh] flex flex-col safe-top safe-bottom">
       <div className="flex-1 w-full max-w-xl mx-auto px-5 py-6 flex flex-col">
         {/* Branded hero */}
-        <Card elev="hero" pad="lg" className="topo-hero text-white overflow-hidden flex items-center justify-between gap-4">
+        <Card elev="hero" pad="lg" className="topo-hero text-white overflow-hidden flex items-center justify-between gap-4 border-white/10">
           <div>
-            <p className="eyebrow hero-text" style={{ color: 'var(--color-gold)' }}>
+            <p className="eyebrow hero-text text-gold-hi">
               Welcome to
             </p>
             <div className="mt-1">
@@ -61,7 +61,7 @@ export default function Onboarding() {
         {step === 0 ? (
           <div className="flex-1 flex flex-col stagger mt-6">
             <div>
-              <p className="eyebrow text-brand-ink">Your programme</p>
+              <p className="eyebrow text-brand-ink">Your program</p>
               <h1 className="display-hero text-ink text-4xl mt-1">
                 Your training,
                 <br />
@@ -120,9 +120,10 @@ export default function Onboarding() {
                 </p>
                 <input
                   type="date"
+                  aria-label="Start date"
                   value={start}
                   onChange={(e) => setStart(e.target.value)}
-                  className="rounded-field border border-line bg-[var(--color-surface-sunk)] px-4 py-3 font-semibold text-ink outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/25"
+                  className="rounded-field border border-[var(--color-field-border)] bg-[var(--color-surface-sunk)] px-4 py-3 font-semibold text-ink transition"
                 />
                 <p className="text-xs text-muted mt-2">Defaults to next Monday — {prettyDate(parseISO(start))}.</p>
               </div>

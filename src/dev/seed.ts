@@ -164,5 +164,13 @@ export async function clearAll(): Promise<string> {
     await db.maxes.clear()
     await db.settings.put(baseSettings('base-building', nextMonday()))
   })
+  // also reset one-shot reward flags so a clean reset re-arms first-time celebrations
+  for (const k of ['tb-testday-celebrated', 'tb-seen-coins', 'tb-dismiss-missed', 'tb-rest-end']) {
+    try {
+      localStorage.removeItem(k)
+    } catch {
+      /* ignore */
+    }
+  }
   return 'cleared'
 }

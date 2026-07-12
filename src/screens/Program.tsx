@@ -61,12 +61,13 @@ export default function Program() {
             <button
               onClick={() => setWeek((w) => Math.max(1, w - 1))}
               disabled={week <= 1}
-              className="p-2 rounded-field text-brand-ink disabled:opacity-30 active:scale-90 transition"
+              aria-label="Previous week"
+              className="w-11 h-11 grid place-items-center rounded-field text-brand-ink disabled:opacity-30 active:scale-90 transition"
             >
               <ChevronLeft />
             </button>
             <div className="text-center">
-              <p className="eyebrow">{phase.name}</p>
+              <p className="eyebrow text-muted">{phase.name}</p>
               <p className="num-display text-xl text-ink leading-tight">Week {week}</p>
               {wavePct(week) != null && (
                 <p className="text-xs font-bold text-load">
@@ -77,7 +78,8 @@ export default function Program() {
             <button
               onClick={() => setWeek((w) => Math.min(phase.lengthWeeks, w + 1))}
               disabled={week >= phase.lengthWeeks}
-              className="p-2 rounded-field text-brand-ink disabled:opacity-30 active:scale-90 transition"
+              aria-label="Next week"
+              className="w-11 h-11 grid place-items-center rounded-field text-brand-ink disabled:opacity-30 active:scale-90 transition"
             >
               <ChevronRight />
             </button>
@@ -109,7 +111,7 @@ export default function Program() {
                     {loads && <p className="num-display text-xs text-load mt-0.5">{loads}</p>}
                   </div>
                   {doneDates.has(iso) ? (
-                    <span className="w-7 h-7 rounded-chip gold-gradient text-[#3a2600] grid place-items-center shrink-0">
+                    <span className="w-7 h-7 rounded-chip gold-gradient text-on-gold grid place-items-center shrink-0">
                       <Check size={15} />
                     </span>
                   ) : isToday ? (
@@ -124,7 +126,7 @@ export default function Program() {
       ) : (
         <>
           <div className="px-1">
-            <p className="eyebrow">{phase.name}</p>
+            <p className="eyebrow text-muted">{phase.name}</p>
             <p className="text-xs text-muted">{phase.lengthWeeks} weeks · the whole block at a glance</p>
           </div>
           <Card className="p-2">
@@ -164,6 +166,7 @@ export default function Program() {
                         <button
                           key={day}
                           onClick={() => nav(`/session/${iso}`)}
+                          aria-label={`Day ${date.getDate()}, ${meta.label}${doneDates.has(iso) ? ', done' : loggedDates.has(iso) ? ', logged not done' : ''}`}
                           className={`relative rounded-field ${meta.bg} py-1.5 flex flex-col items-center gap-0.5 transition ${
                             isToday ? 'ring-2 ring-brand' : doneDates.has(iso) ? 'ring-2 ring-load/60' : ''
                           }`}
@@ -173,11 +176,14 @@ export default function Program() {
                           </span>
                           <Icon size={15} className={meta.color} />
                           {doneDates.has(iso) ? (
-                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full gold-gradient text-[#3a2600] flex items-center justify-center">
+                            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full gold-gradient text-on-gold flex items-center justify-center">
                               <Check size={11} />
                             </span>
                           ) : loggedDates.has(iso) ? (
-                            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-accent" />
+                            <span
+                              className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full border-2 border-accent bg-surface"
+                              aria-hidden="true"
+                            />
                           ) : null}
                         </button>
                       )

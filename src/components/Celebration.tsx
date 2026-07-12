@@ -1,9 +1,10 @@
 import { useEffect, useRef, type CSSProperties } from 'react'
-import { Check, Flag, Medal, Trophy } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Check, Trophy } from 'lucide-react'
 import { Button, Card } from './ui'
 import ShareWin from './ShareWin'
 
-export type CelebrationIcon = 'trophy' | 'check' | 'flag' | 'medal'
+export type CelebrationIcon = 'trophy' | 'check'
 
 export interface CelebrationContent {
   title: string
@@ -13,7 +14,7 @@ export interface CelebrationContent {
   share?: { headline: string; sub: string }
 }
 
-const ICONS = { trophy: Trophy, check: Check, flag: Flag, medal: Medal }
+const ICONS = { trophy: Trophy, check: Check }
 
 /** One-shot full-screen celebration thrown after a TB win (PR, block done, Test Day, milestone). */
 export default function Celebration({
@@ -25,26 +26,48 @@ export default function Celebration({
 }) {
   const Icon = ICONS[content.icon ?? 'check']
   const closeRef = useRef<HTMLButtonElement>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    const prevFocus = document.activeElement as HTMLElement | null
     closeRef.current?.focus() // move focus into the dialog for keyboard/screen-reader users
     try {
       navigator.vibrate?.([15, 40, 15]) // a little triple-buzz flourish
     } catch {
       /* no-op */
     }
+    return () => prevFocus?.focus?.() // restore focus to whatever triggered the dialog
   }, [])
 
-  return (
+  // Keep Tab focus inside the dialog while it's open.
+  const trap = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      onClose()
+      return
+    }
+    if (e.key !== 'Tab' || !dialogRef.current) return
+    const f = dialogRef.current.querySelectorAll<HTMLElement>('button, a[href], [tabindex]:not([tabindex="-1"])')
+    if (!f.length) return
+    const first = f[0]
+    const last = f[f.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }
+
+  return createPortal(
     <div
+      ref={dialogRef}
       className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/60 backdrop-blur-md scrim-in"
       role="dialog"
       aria-modal="true"
       aria-labelledby="celebrate-title"
       onClick={onClose}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose()
-      }}
+      onKeyDown={trap}
     >
       {/* confetti burst from centre — deterministic spread (no RNG) */}
       <div className="pointer-events-none absolute inset-0 grid place-items-center">
@@ -87,10 +110,10 @@ export default function Celebration({
           style={{ background: 'radial-gradient(circle, color-mix(in srgb, var(--color-gold) 40%, transparent), transparent 70%)' }}
           aria-hidden="true"
         />
-        <div className="relative inline-grid place-items-center w-[72px] h-[72px] rounded-pill gold-gradient text-[#3a2600] mb-3 elev-1 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.45)] pop-check">
+        <div className="relative inline-grid place-items-center w-[72px] h-[72px] rounded-pill gold-gradient text-on-gold mb-3 shadow-[var(--elev-1),inset_0_0_0_2px_rgba(255,255,255,0.45)] pop-check">
           <Icon size={34} strokeWidth={content.icon === 'check' ? 3 : 2} />
         </div>
-        <p id="celebrate-title" className="relative font-display uppercase text-3xl text-ink tracking-tight">
+        <p id="celebrate-title" className="relative display-hero text-3xl text-ink">
           {content.title}
         </p>
         <p className="relative text-muted text-sm mt-2">{content.sub}</p>
@@ -104,6 +127,7 @@ export default function Celebration({
         )}
       </Card>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

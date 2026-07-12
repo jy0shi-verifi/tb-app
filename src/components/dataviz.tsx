@@ -86,9 +86,9 @@ export function CoinBadge({
     <div className="shrink-0 w-[4.5rem] flex flex-col items-center gap-1.5 text-center">
       {earned ? (
         <div
-          className={`w-16 h-16 rounded-pill grid place-items-center text-2xl elev-1 shadow-[inset_0_0_0_2px_rgba(255,255,255,0.4)] ${
+          className={`w-16 h-16 rounded-pill grid place-items-center text-2xl shadow-[var(--elev-1),inset_0_0_0_2px_rgba(255,255,255,0.4)] ${
             justEarned ? 'pop ring-pulse' : ''
-          } ${tier === 'black' ? 'ring-1 ring-[#c6f135]/60' : ''}`}
+          } ${tier === 'black' ? 'ring-1 ring-[var(--color-gold-hi)]/60' : ''}`}
           style={{ backgroundImage: TIER_GRAD[tier] }}
           aria-label={`${label}, earned`}
         >
@@ -136,6 +136,7 @@ export interface TrendSeries {
   key: string
   label: string
   color: string
+  dash?: string // strokeDasharray — a second (non-colour) channel for colour-vision safety
   points: { i: number; v: number; title?: string }[] // i = index along the shared x-axis
 }
 
@@ -190,7 +191,15 @@ function SeriesLine({ s, n, min, max }: { s: TrendSeries; n: number; min: number
   const d = s.points.map((p, k) => `${k ? 'L' : 'M'}${xAt(p.i, n).toFixed(1)},${yAt(p.v, min, max).toFixed(1)}`).join(' ')
   return (
     <g>
-      <path d={d} fill="none" stroke={s.color} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d={d}
+        fill="none"
+        stroke={s.color}
+        strokeWidth="2.4"
+        strokeDasharray={s.dash}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
       {s.points.map((p, k) => (
         <circle
           key={k}

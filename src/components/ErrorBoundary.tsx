@@ -25,7 +25,7 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, St
       <div className="min-h-dvh flex items-center justify-center p-6 bg-canvas text-ink">
         <div className="max-w-sm w-full space-y-4 text-center rounded-card bg-surface border border-line elev-2 p-6">
           <p className="text-2xl">😵‍💫</p>
-          <h1 className="font-display uppercase text-xl tracking-tight">Something broke</h1>
+          <h1 className="display-hero text-xl">Something broke</h1>
           <p className="text-sm text-muted">
             The app hit an error. Your data is still safe on this device — export a backup first, then
             try reloading.

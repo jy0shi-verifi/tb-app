@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { createPortal } from 'react-dom'
 import { Check, Timer, X, Plus, Minus, Smile, Meh, Frown } from 'lucide-react'
 import { maxesMap, resolvePosition, sessionFor, type SessionPlan } from '../program'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
@@ -83,6 +84,87 @@ function beep() {
 // Rest timer end-time is persisted so a refresh mid-rest resumes it.
 const REST_KEY = 'tb-rest-end'
 
+// Steppers sized for cold, one-handed, low-light taps (44px hit area).
+const STEP =
+  'w-11 h-11 grid place-items-center text-brand-ink shrink-0 active:scale-90 active:bg-brand/10 transition-transform'
+
+/**
+ * One set's row. Hoisted to MODULE scope (not defined inside Session) so its component
+ * identity is stable across Session re-renders — otherwise every render (incl. the rest
+ * timer ticking 4x/sec) would remount the row and blur the weight/reps input mid-keystroke.
+ */
+function SetRow({
+  s,
+  loaded,
+  index,
+  inc,
+  onSet,
+  onToggle,
+}: {
+  s: SetState
+  loaded: boolean
+  index: number
+  inc: number
+  onSet: (patch: Partial<SetState>) => void
+  onToggle: () => void
+}) {
+  const w = Number(s.weight) || 0
+  const r = Number(s.reps) || 0
+  const bumpW = (d: number) => onSet({ weight: String(Math.max(0, Math.round((w + d) * 10) / 10)) })
+  const bumpR = (d: number) => onSet({ reps: String(Math.max(0, r + d)) })
+  return (
+    <div className={`flex items-center gap-2 rounded-field p-2 transition ${s.done ? 'bg-load-soft' : 'bg-[var(--color-surface-sunk)]'}`}>
+      <span className="w-4 text-center text-xs font-bold text-muted shrink-0 num-display">{index + 1}</span>
+      {loaded && (
+        <div className="flex items-center rounded-pill bg-surface elev-sunk overflow-hidden">
+          <button onClick={() => bumpW(-inc)} className={STEP} aria-label="Less weight">
+            <Minus size={15} />
+          </button>
+          <div className="w-12 text-center border-x border-line">
+            <input
+              type="text"
+              inputMode="decimal"
+              value={s.weight}
+              onChange={(e) => onSet({ weight: e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1') })}
+              onFocus={(e) => e.currentTarget.select()}
+              placeholder="0"
+              aria-label="Weight per dumbbell"
+              className="w-full text-center num-display text-ink text-[15px] leading-none bg-transparent outline-none focus:text-brand-ink"
+            />
+            <span className="text-[10px] text-muted block leading-none">kg/DB</span>
+          </div>
+          <button onClick={() => bumpW(inc)} className={STEP} aria-label="More weight">
+            <Plus size={15} />
+          </button>
+        </div>
+      )}
+      <div className="flex items-center rounded-pill bg-surface elev-sunk overflow-hidden">
+        <button onClick={() => bumpR(-1)} className={STEP} aria-label="Fewer reps">
+          <Minus size={15} />
+        </button>
+        <div className="w-10 text-center border-x border-line">
+          <input
+            type="text"
+            inputMode="numeric"
+            value={s.reps}
+            onChange={(e) => onSet({ reps: e.target.value.replace(/[^0-9]/g, '') })}
+            onFocus={(e) => e.currentTarget.select()}
+            aria-label="Reps"
+            className="w-full text-center num-display text-ink text-[15px] leading-none bg-transparent outline-none focus:text-brand-ink"
+          />
+          <span className="text-[10px] text-muted block leading-none">reps</span>
+        </div>
+        <button onClick={() => bumpR(1)} className={STEP} aria-label="More reps">
+          <Plus size={15} />
+        </button>
+      </div>
+      <div className="ml-auto shrink-0">
+        <SetCheck done={s.done} onToggle={onToggle} label="Mark set done" />
+      </div>
+    </div>
+  )
+}
+
 export default function Session() {
   const nav = useNavigate()
   const params = useParams()
@@ -101,6 +183,7 @@ export default function Session() {
   const [meta, setMeta] = useState<MetaState>({ done: false, duration: '', feel: '', notes: '' })
   const [restEnd, setRestEnd] = useState<number | null>(null)
   const [remaining, setRemaining] = useState(0)
+  const [restTotal, setRestTotal] = useState(0)
   const [celebration, setCelebration] = useState<CelebrationContent | null>(null)
   const celebrated = useRef<Set<string>>(new Set())
   const touched = useRef(false)
@@ -170,7 +253,9 @@ export default function Session() {
     const saved = Number(localStorage.getItem(REST_KEY))
     if (saved && saved > Date.now()) {
       setRestEnd(saved)
-      setRemaining(Math.max(0, Math.round((saved - Date.now()) / 1000)))
+      const left = Math.max(0, Math.round((saved - Date.now()) / 1000))
+      setRemaining(left)
+      setRestTotal(left)
     } else if (saved) {
       localStorage.removeItem(REST_KEY)
     }
@@ -203,7 +288,7 @@ export default function Session() {
       const exercises: LoggedExercise[] = ex.map((e) => ({
         name: e.name,
         sets: e.sets.map((s) => ({
-          weight: s.weight === '' ? undefined : Number(s.weight),
+          weight: s.weight === '' || !Number.isFinite(Number(s.weight)) ? undefined : Number(s.weight),
           reps: Number(s.reps) || 0,
           done: s.done,
         })),
@@ -226,8 +311,8 @@ export default function Session() {
         distanceKm: existing?.distanceKm,
         avgHr: existing?.avgHr,
         stravaId: existing?.stravaId,
-        feel: meta.feel === '' ? existing?.feel : meta.feel,
-        notes: meta.notes || existing?.notes,
+        feel: meta.feel === '' ? undefined : meta.feel,
+        notes: meta.notes === '' ? undefined : meta.notes,
         createdAt: existing?.createdAt ?? Date.now(),
       }
       await db.sessions.put(rec)
@@ -264,11 +349,13 @@ export default function Session() {
     const end = Date.now() + restSec * 1000
     setRestEnd(end)
     setRemaining(restSec)
+    setRestTotal(restSec)
     localStorage.setItem(REST_KEY, String(end))
   }
   const bumpRest = (ms: number) => {
     const end = (restEnd ?? Date.now()) + ms
     setRestEnd(end)
+    setRestTotal((s) => s + ms / 1000)
     localStorage.setItem(REST_KEY, String(end))
   }
   const clearRest = () => {
@@ -277,6 +364,7 @@ export default function Session() {
   }
   // Fire the confetti moment the instant a set becomes a fresh all-time PR.
   const maybeCelebratePR = (ei: number, si: number) => {
+    if (iso !== isoDate(today())) return // don't re-fire when editing a past PR session
     const e = ex[ei]
     if (!e.loaded) return
     const w = Number(e.sets[si].weight)
@@ -329,75 +417,13 @@ export default function Session() {
     .filter((x): x is { name: string; prev: number; cur: number } => x != null)
 
   // Weight/reps steppers — editable inputs kept (e2e fills them); styled as sunk wells.
-  const STEP = 'w-11 h-11 grid place-items-center text-brand-ink shrink-0 active:scale-90 active:bg-brand/10 transition-transform'
-  function SetRow({ ei, si }: { ei: number; si: number }) {
-    const s = ex![ei].sets[si]
-    const loaded = ex![ei].loaded
-    const w = Number(s.weight) || 0
-    const r = Number(s.reps) || 0
-    const bumpW = (d: number) =>
-      setSet(ei, si, { weight: String(Math.max(0, Math.round((w + d) * 10) / 10)) })
-    const bumpR = (d: number) => setSet(ei, si, { reps: String(Math.max(0, r + d)) })
-    return (
-      <div className={`flex items-center gap-2 rounded-field p-2 transition ${s.done ? 'bg-load-soft' : 'bg-[var(--color-surface-sunk)]'}`}>
-        <span className="w-4 text-center text-xs font-bold text-muted shrink-0 num-display">{si + 1}</span>
-        {loaded && (
-          <div className="flex items-center rounded-pill bg-surface elev-sunk overflow-hidden">
-            <button onClick={() => bumpW(-inc)} className={STEP} aria-label="Less weight">
-              <Minus size={15} />
-            </button>
-            <div className="w-12 text-center border-x border-line">
-              <input
-                type="text"
-                inputMode="decimal"
-                value={s.weight}
-                onChange={(e) => setSet(ei, si, { weight: e.target.value.replace(/[^0-9.]/g, '') })}
-                onFocus={(e) => e.currentTarget.select()}
-                placeholder="0"
-                aria-label="Weight per dumbbell"
-                className="w-full text-center num-display text-ink text-[15px] leading-none bg-transparent outline-none focus:text-brand-ink"
-              />
-              <span className="text-[10px] text-muted block leading-none">kg/DB</span>
-            </div>
-            <button onClick={() => bumpW(inc)} className={STEP} aria-label="More weight">
-              <Plus size={15} />
-            </button>
-          </div>
-        )}
-        <div className="flex items-center rounded-pill bg-surface elev-sunk overflow-hidden">
-          <button onClick={() => bumpR(-1)} className={STEP} aria-label="Fewer reps">
-            <Minus size={15} />
-          </button>
-          <div className="w-10 text-center border-x border-line">
-            <input
-              type="text"
-              inputMode="numeric"
-              value={s.reps}
-              onChange={(e) => setSet(ei, si, { reps: e.target.value.replace(/[^0-9]/g, '') })}
-              onFocus={(e) => e.currentTarget.select()}
-              aria-label="Reps"
-              className="w-full text-center num-display text-ink text-[15px] leading-none bg-transparent outline-none focus:text-brand-ink"
-            />
-            <span className="text-[10px] text-muted block leading-none">reps</span>
-          </div>
-          <button onClick={() => bumpR(1)} className={STEP} aria-label="More reps">
-            <Plus size={15} />
-          </button>
-        </div>
-        <div className="ml-auto shrink-0">
-          <SetCheck done={s.done} onToggle={() => toggleDone(ei, si)} label="Mark set done" />
-        </div>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-4 pb-24 stagger">
       <div className="px-1">
         <div className="flex items-center gap-2">
           <SessionIcon type={plan.type} size={22} />
           <div>
-            <h2 className="font-display uppercase text-2xl text-ink leading-tight tracking-tight">{plan.title}</h2>
+            <h2 className="display-hero text-2xl text-ink leading-tight">{plan.title}</h2>
             <p className="text-sm text-muted">
               {prettyDate(when)}
               {plan.scheme ? ` · ${plan.scheme}` : ''}
@@ -423,7 +449,7 @@ export default function Session() {
             <>
               <p className="text-3xl">✅</p>
               <p className="font-bold text-load">
-                Session complete — {doneSets}/{totalSets} sets
+                Session done — {doneSets}/{totalSets} sets
               </p>
             </>
           ) : doneSets > 0 ? (
@@ -433,13 +459,13 @@ export default function Session() {
                 Logged — you showed up ({doneSets}/{totalSets} sets)
               </p>
               <p className="text-xs text-muted">
-                Showing up beats skipping. Every set you bank counts.
+                That's work in the bank. Every set you log counts.
               </p>
             </>
           ) : null}
           {prs.map((pr) => (
             <p key={pr.name} className="text-sm text-ink">
-              🏆 {pr.name} best: {pr.prev.toFixed(0)} → <b>{pr.cur.toFixed(0)} kg</b>
+              🏆 {pr.name} est. 1RM: {pr.prev.toFixed(0)} → <b>{pr.cur.toFixed(0)} kg</b>
             </p>
           ))}
           {allDone && (
@@ -480,7 +506,15 @@ export default function Session() {
             </div>
             <div className="space-y-2">
               {e.sets.map((_, si) => (
-                <SetRow key={si} ei={ei} si={si} />
+                <SetRow
+                  key={si}
+                  index={si}
+                  s={e.sets[si]}
+                  loaded={e.loaded}
+                  inc={inc}
+                  onSet={(patch) => setSet(ei, si, patch)}
+                  onToggle={() => toggleDone(ei, si)}
+                />
               ))}
             </div>
           </Card>
@@ -491,7 +525,7 @@ export default function Session() {
           <button
             onClick={() => setMetaTouched({ done: !meta.done })}
             className={`w-full rounded-field py-4 font-bold text-lg flex items-center justify-center gap-2 transition active:scale-[0.98] ${
-              meta.done ? 'gold-gradient text-[#3a2600]' : 'bg-[var(--color-surface-sunk)] text-ink border border-line'
+              meta.done ? 'gold-gradient text-on-gold' : 'bg-[var(--color-surface-sunk)] text-ink border border-line'
             }`}
           >
             <Check size={22} /> {meta.done ? 'Completed' : isRest ? 'Mark rest taken' : 'Mark complete'}
@@ -527,8 +561,9 @@ export default function Session() {
       )}
 
       {/* rest timer */}
-      {restEnd != null && (
-        <div className="fixed bottom-20 inset-x-0 px-4 z-20 timer-in">
+      {restEnd != null &&
+        createPortal(
+          <div className="fixed bottom-20 inset-x-0 px-4 z-20 timer-in">
           <div className="max-w-xl mx-auto rounded-field reward-panel text-white elev-2 hero-text overflow-hidden">
             <div className="px-4 py-3 flex items-center gap-3">
               <Timer size={22} />
@@ -552,12 +587,13 @@ export default function Session() {
             <div className="h-1 bg-white/20">
               <div
                 className="h-full bg-white/85 transition-all duration-200"
-                style={{ width: `${restSec ? (remaining / restSec) * 100 : 0}%` }}
+                style={{ width: `${Math.min(100, restTotal ? (remaining / restTotal) * 100 : 0)}%` }}
               />
             </div>
           </div>
-        </div>
-      )}
+          </div>,
+          document.body,
+        )}
 
       {/* how it felt + notes (journaling) */}
       {!isRest && (
@@ -579,8 +615,9 @@ export default function Session() {
           <input
             value={meta.notes}
             onChange={(e) => setMetaTouched({ notes: e.target.value })}
+            aria-label="Session notes"
             placeholder="Notes (optional) — how it went, tweaks, niggles…"
-            className="w-full rounded-field border border-line bg-[var(--color-surface-sunk)] text-ink px-3 py-2.5 text-sm placeholder:text-muted/60"
+            className="w-full rounded-field border border-[var(--color-field-border)] bg-[var(--color-surface-sunk)] text-ink px-3 py-2.5 text-sm placeholder:text-muted"
           />
         </Card>
       )}
