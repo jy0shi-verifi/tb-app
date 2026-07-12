@@ -14,7 +14,7 @@ const MOVE_ORDER = [
   'Pull-up progression',
   'Push-ups',
   'Bodyweight squats',
-  'Inverted rows on the beam',
+  'Chest-supported DB row',
   'DB Romanian Deadlift',
   'Back extensions / Supermans',
   'Bicycle crunches',
@@ -320,7 +320,7 @@ const SECTIONS: Section[] = [
         </p>
         <p className="mt-2">
           The <b>goal</b> is the pull-up. Chip away on your beam — negatives (jump up, lower slow) and
-          inverted rows. When you can do <b>~10 bodyweight pull-ups</b>, we’ll swap the cluster’s pull
+          chair-assisted reps. When you can do <b>~10 bodyweight pull-ups</b>, we’ll swap the cluster’s pull
           to a weighted pull-up at a block boundary — bang on the book.
         </p>
       </>

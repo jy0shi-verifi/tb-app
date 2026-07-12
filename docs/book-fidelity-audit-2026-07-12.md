@@ -42,7 +42,7 @@ App (`baseBuildingDay`, `SE_REPS`, `BB_E_WEEKDAY`, `BB_E_LONG`):
 - Rest day-7, Recovery day-5 (wk1-5) — matches ✓
 
 **Sanctioned adaptations (not deviations):**
-- SE circuit uses bodyweight + one DB move (push-ups, BW squats, beam inverted rows,
+- SE circuit uses bodyweight + DB moves (push-ups, BW squats, chest-supported DB row,
   DB RDL, back-ext, bicycle) — book explicitly allows all-bodyweight SE clusters and 2-8
   balanced moves (TB1 p119-131). SE load is token 20-40%, set once for the block ✓.
 - Weeks 6-8 "Strength Intro" is *light, no-max* re-acclimation because Josh has **no tested

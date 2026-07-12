@@ -159,9 +159,9 @@ const BB_E_LONG: Record<number, string> = {
 // SE circuit rep target per week (per exercise). Reps ramp 20 → 50.
 const SE_REPS: Record<number, number> = { 1: 20, 2: 30, 3: 40, 4: 50, 5: 50 }
 const SE_MOVES: { name: string; loaded: boolean; note?: string }[] = [
-  { name: 'Push-ups', loaded: false },
+  { name: 'Push-ups', loaded: false, note: 'your normal push-up — drop to knees if a set gets tough' },
   { name: 'Bodyweight squats', loaded: false, note: 'or light DB goblet' },
-  { name: 'Inverted rows on the beam', loaded: false },
+  { name: 'Chest-supported DB row', loaded: true, note: 'same light DBs as the RDL' },
   { name: 'DB Romanian Deadlift', loaded: true, note: 'the DBs — light, set once' },
   { name: 'Back extensions / Supermans', loaded: false },
   { name: 'Bicycle crunches', loaded: false, note: 'or a plank hold' },
@@ -207,7 +207,7 @@ const bbStrengthIntro = (): SessionPlan => ({
     { name: 'DB Bench Press', loaded: true, sets: mk(3, 5, true) },
     { name: 'Two-DB Front-rack Squat', loaded: true, sets: mk(3, 5, true) },
     { name: '1-Arm DB Row', loaded: true, sets: mk(3, 5, true) },
-    { name: 'Pull-up progression', loaded: false, note: 'beam negatives / inverted rows', sets: mk(3, 5, false) },
+    { name: 'Pull-up progression', loaded: false, note: 'beam negatives / dead hangs', sets: mk(3, 5, false) },
   ],
 })
 const bbTestDay = (): SessionPlan => ({

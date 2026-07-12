@@ -52,9 +52,9 @@ export const EXERCISE_INFO: Record<string, ExerciseInfo> = {
     video: 'eGo4IYlbE5g', // Calisthenic Movement — The Perfect Pull Up
     howTo: [
       "Can’t do a strict pull-up yet? That’s expected — build up on your beam and it becomes your Operator pull once you can do ~10.",
-      'Negatives: jump/step to the top (chin over the bar), then lower yourself as slowly as you can (aim 3–5s). 3–5 reps.',
-      'Inverted rows: set the bar lower, body straight, and pull your chest to it — this trains the same pull standing-assisted.',
-      'Dead hangs + scapular pulls: hang, then pull your shoulder blades down without bending your arms.',
+      'Negatives: jump (or step off a box) to the top with your chin over the beam, then lower yourself as slowly as you can (aim 3–5s). 3–5 reps.',
+      'Assisted reps: put a chair or box under the beam and push through your feet just enough to help — take away as little help as you can each time.',
+      'Dead hangs + scapular pulls: hang from the beam, then pull your shoulder blades down without bending your arms.',
       'When you can do ~10 clean bodyweight pull-ups, add weight (pack/DB) and it becomes a Weighted Pull-up — the book’s Operator pull.',
     ],
   },
@@ -62,13 +62,13 @@ export const EXERCISE_INFO: Record<string, ExerciseInfo> = {
   // --- Base Building SE circuit moves ---
   'Push-ups': {
     targets: ['chest', 'shoulders', 'triceps', 'core'],
-    video: 'IODxDxX7oi4', // Calisthenic Movement — The Perfect Push Up
+    video: '_l3ySVKYVJ8', // CrossFit — The Push-Up (standard, chest-to-floor; do them the way you're used to)
     howTo: [
-      'Hands a little wider than your shoulders, body in a straight line from head to heels.',
-      'Squeeze your glutes and brace your core so your hips don’t sag.',
-      'Lower your chest toward the floor, elbows about 45° from your body.',
-      'Push back up until your arms are straight. Breathe out as you push.',
-      'Too hard? Put your hands on the bench or a step. Reps are what count in SE — pause and finish if you have to.',
+      'Standard push-up — the way you’re used to (your RAF-style ones are perfect). Don’t worry about the ultra-strict slow-tempo style; that’s harder and not what we’re after.',
+      'Hands about shoulder-width (a touch wider is fine), body in a straight line from head to heels.',
+      'Brace your core and glutes so your hips don’t sag or pike.',
+      'Lower until your chest is near the floor, elbows travelling back at a comfortable angle — they do NOT have to be pinned tight to your sides.',
+      'Push back up to straight arms at a normal, controlled tempo. This is SE — reps are the point, so when a set gets tough drop to your knees and keep going rather than stopping.',
     ],
   },
   'Bodyweight squats': {
@@ -82,15 +82,15 @@ export const EXERCISE_INFO: Record<string, ExerciseInfo> = {
       'Keep the pace steady and rhythmic — you’re chasing reps here, not weight.',
     ],
   },
-  'Inverted rows on the beam': {
+  'Chest-supported DB row': {
     targets: ['back', 'biceps'],
-    video: 'KOaCM1HMwU0', // Renaissance Periodization — Inverted Row
+    video: '_b6ch2nIchk', // Fit Father Project — Chest-Supported Dumbbell Row
     howTo: [
-      'Set up under your beam (or a low bar), grab it with straight arms, body straight and heels on the floor.',
-      'The lower the bar, the harder it is — start higher to make it easier.',
-      'Pull your chest up to the bar, driving your elbows back and squeezing your shoulder blades.',
-      'Lower under control until your arms are straight. Keep your body a rigid plank throughout.',
-      'Breathe out as you pull. This is your horizontal pull in the circuit.',
+      'Set your bench to an incline (~30–45°) and lie face-down with your chest on the pad, a dumbbell in each hand hanging straight down.',
+      'Use the same light dumbbells as your RDL — one weight, set once for the whole circuit.',
+      'Pull both dumbbells up to your ribs, driving your elbows back and squeezing your shoulder blades together.',
+      'Lower under control until your arms are straight. Your chest stays on the pad the whole time — so there’s no strain on your lower back.',
+      'No bench free? A standing bent-over DB row does the same job — just keep a flat back. This is your horizontal pull in the circuit.',
     ],
   },
   'DB Romanian Deadlift': {
