@@ -1,0 +1,129 @@
+/**
+ * Per-exercise reference data: a form video (YouTube id), the muscles worked, and
+ * plain-English how-to steps. Keyed by the exercise `name` used in program.ts, so a
+ * session move can look itself up. Videos are verified embeddable; each detail view
+ * also shows a "Search more form videos" fallback in case of link-rot.
+ */
+export interface ExerciseInfo {
+  targets: string[] // muscle keys understood by BodyDiagram
+  video?: string // YouTube id
+  videoStart?: number // seconds
+  howTo: string[]
+}
+
+export const EXERCISE_INFO: Record<string, ExerciseInfo> = {
+  // --- Operator + weeks 6-8 strength lifts ---
+  'DB Bench Press': {
+    targets: ['chest', 'shoulders', 'triceps'],
+    video: 'VmB1G1K7v94', // ScottHermanFitness — Dumbbell Chest Press
+    howTo: [
+      'Lie back on the bench, a dumbbell in each hand resting on your thighs.',
+      'Kick them up to your shoulders as you lie down; start with them at chest level, elbows about 45° from your body.',
+      'Press both dumbbells up until your arms are straight, bringing them together over your chest.',
+      'Lower under control until your elbows are level with the bench. Breathe out as you press.',
+      'Keep your feet flat, glutes down, and a small natural arch in your lower back.',
+    ],
+  },
+  'Two-DB Front-rack Squat': {
+    targets: ['quads', 'glutes', 'core'],
+    video: 'k_EhLGvM8TQ', // Buff Dudes — Goblet Squat (closest simple DB squat pattern)
+    videoStart: 17,
+    howTo: [
+      'Hold a dumbbell in each hand up at your shoulders (the "front rack"). If that’s awkward, hold one dumbbell at your chest like a goblet squat instead — same legs.',
+      'Feet about shoulder-width, toes turned slightly out.',
+      'Brace your core, push your hips back and bend your knees, pushing your knees out (don’t let them cave in).',
+      'Go down to about parallel — thighs level with the floor — keeping your chest up and heels down.',
+      'Drive up through your heels. Breathe out as you stand.',
+    ],
+  },
+  '1-Arm DB Row': {
+    targets: ['back', 'biceps'],
+    video: 'pYcpY20QaE8', // ScottHermanFitness — Single-Arm Dumbbell Row
+    howTo: [
+      'Put one hand and the same-side knee on the bench; the other foot stays on the floor. Back flat, roughly parallel to the ground.',
+      'Let the dumbbell hang straight down from your shoulder.',
+      'Pull it up to your ribs / hip, driving your elbow back and up — lead with the elbow, not the hand.',
+      'Squeeze your shoulder blade at the top, then lower under control.',
+      'Do all reps one side, then switch. Breathe out as you pull.',
+    ],
+  },
+  'Pull-up progression': {
+    targets: ['back', 'biceps'],
+    video: 'eGo4IYlbE5g', // Calisthenic Movement — The Perfect Pull Up
+    howTo: [
+      "Can’t do a strict pull-up yet? That’s expected — build up on your beam and it becomes your Operator pull once you can do ~10.",
+      'Negatives: jump/step to the top (chin over the bar), then lower yourself as slowly as you can (aim 3–5s). 3–5 reps.',
+      'Inverted rows: set the bar lower, body straight, and pull your chest to it — this trains the same pull standing-assisted.',
+      'Dead hangs + scapular pulls: hang, then pull your shoulder blades down without bending your arms.',
+      'When you can do ~10 clean bodyweight pull-ups, add weight (pack/DB) and it becomes a Weighted Pull-up — the book’s Operator pull.',
+    ],
+  },
+
+  // --- Base Building SE circuit moves ---
+  'Push-ups': {
+    targets: ['chest', 'shoulders', 'triceps', 'core'],
+    video: 'IODxDxX7oi4', // Calisthenic Movement — The Perfect Push Up
+    howTo: [
+      'Hands a little wider than your shoulders, body in a straight line from head to heels.',
+      'Squeeze your glutes and brace your core so your hips don’t sag.',
+      'Lower your chest toward the floor, elbows about 45° from your body.',
+      'Push back up until your arms are straight. Breathe out as you push.',
+      'Too hard? Put your hands on the bench or a step. Reps are what count in SE — pause and finish if you have to.',
+    ],
+  },
+  'Bodyweight squats': {
+    targets: ['quads', 'glutes'],
+    video: 'C_VtOYc6j5c', // CrossFit — The Air Squat
+    howTo: [
+      'Feet about shoulder-width, toes slightly out, arms out in front for balance.',
+      'Push your hips back and down, knees tracking over your toes.',
+      'Go to about parallel (or as low as you can with a flat back and heels down).',
+      'Drive up through your heels to standing. Breathe out as you stand.',
+      'Keep the pace steady and rhythmic — you’re chasing reps here, not weight.',
+    ],
+  },
+  'Inverted rows on the beam': {
+    targets: ['back', 'biceps'],
+    video: 'KOaCM1HMwU0', // Renaissance Periodization — Inverted Row
+    howTo: [
+      'Set up under your beam (or a low bar), grab it with straight arms, body straight and heels on the floor.',
+      'The lower the bar, the harder it is — start higher to make it easier.',
+      'Pull your chest up to the bar, driving your elbows back and squeezing your shoulder blades.',
+      'Lower under control until your arms are straight. Keep your body a rigid plank throughout.',
+      'Breathe out as you pull. This is your horizontal pull in the circuit.',
+    ],
+  },
+  'DB Romanian Deadlift': {
+    targets: ['hamstrings', 'glutes', 'back'],
+    video: 'FQKfr1YDhEk', // ScottHermanFitness — Dumbbell Romanian Deadlift
+    howTo: [
+      'Stand holding a dumbbell in each hand in front of your thighs, knees slightly bent (and kept there).',
+      'Push your hips back and slide the dumbbells down your legs — the movement is at the hips, not the knees.',
+      'Keep your back flat and the dumbbells close to your legs; feel a stretch in your hamstrings.',
+      'Go as low as you can keep a flat back (usually mid-shin), then drive your hips forward to stand tall.',
+      'Squeeze your glutes at the top. Breathe out as you stand. This is the only loaded move in the circuit — set the weight light and leave it.',
+    ],
+  },
+  'Back extensions / Supermans': {
+    targets: ['back', 'glutes', 'hamstrings'],
+    video: 'z6PJMT2y8GQ', // Superman exercise tutorial
+    howTo: [
+      'Lie face-down, arms out in front, legs straight.',
+      'Squeeze your glutes and lift your chest, arms and legs off the floor at the same time.',
+      'Hold for a second at the top — think "long", not "high"; don’t crank your neck back.',
+      'Lower under control. Breathe out as you lift.',
+      'This strengthens your lower back and posterior chain to prep for heavier lifting.',
+    ],
+  },
+  'Bicycle crunches': {
+    targets: ['core'],
+    video: '1we3bh9uhqY', // Tone and Tighten — Bicycle Crunch
+    howTo: [
+      'Lie on your back, hands lightly by your ears, knees up over your hips.',
+      'Press your lower back gently into the floor and keep it there.',
+      'Bring one elbow toward the opposite knee while you straighten the other leg.',
+      'Switch sides in a smooth pedalling motion — control it, don’t rush or yank your neck.',
+      'Keep breathing throughout. Prefer a plank? Hold a straight-body plank for time instead.',
+    ],
+  },
+}

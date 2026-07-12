@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Home, CalendarDays, History as HistoryIcon, Calculator, Settings as SettingsIcon } from 'lucide-react'
+import { Home, CalendarDays, History as HistoryIcon, Calculator, BookOpen, Settings as SettingsIcon } from 'lucide-react'
 import { useSettings } from '../hooks'
 import { PHASES, resolvePosition } from '../program'
 import { today } from '../lib/date'
@@ -11,6 +11,7 @@ const NAV = [
   { to: '/program', label: 'Program', icon: CalendarDays },
   { to: '/history', label: 'History', icon: HistoryIcon },
   { to: '/maxes', label: 'Maxes', icon: Calculator },
+  { to: '/guide', label: 'Guide', icon: BookOpen },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ]
 
@@ -70,7 +71,7 @@ export default function Layout() {
 
       {/* floating glass tab bar with an ember active pill */}
       <nav className="fixed bottom-0 inset-x-0 z-10 safe-bottom bg-surface/85 backdrop-blur-xl border-t border-line/60 shadow-[0_-8px_28px_-18px_color-mix(in_srgb,var(--color-brand)_45%,transparent)]">
-        <div className="max-w-xl mx-auto grid grid-cols-5">
+        <div className="max-w-xl mx-auto grid grid-cols-6">
           {NAV.map((n) => {
             const Icon = n.icon
             return (

@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createPortal } from 'react-dom'
-import { Check, Timer, X, Plus, Minus, Smile, Meh, Frown } from 'lucide-react'
+import { Check, Timer, X, Plus, Minus, Smile, Meh, Frown, ChevronDown } from 'lucide-react'
 import { maxesMap, resolvePosition, sessionFor, type SessionPlan } from '../program'
+import { EXERCISE_INFO } from '../exerciseInfo'
+import ExerciseDetail from '../components/ExerciseDetail'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
 import { db, DEFAULT_SETTINGS } from '../db'
 import { estimate1RM } from '../lib/calc'
@@ -185,6 +187,7 @@ export default function Session() {
   const [remaining, setRemaining] = useState(0)
   const [restTotal, setRestTotal] = useState(0)
   const [celebration, setCelebration] = useState<CelebrationContent | null>(null)
+  const [openInfo, setOpenInfo] = useState<string | null>(null)
   const celebrated = useRef<Set<string>>(new Set())
   const touched = useRef(false)
 
@@ -478,7 +481,38 @@ export default function Session() {
 
       {/* SE = round-by-round; other lifts = per-exercise */}
       {isSE ? (
-        Array.from({ length: ex[0]?.sets.length ?? 0 }, (_, round) => (
+        <>
+        <Card>
+          <p className="eyebrow text-muted mb-1">The circuit — tap a move for form &amp; muscles</p>
+          <div className="divide-y divide-line">
+            {ex.map((e, ei) => {
+              const info = EXERCISE_INFO[e.name]
+              const open = openInfo === e.name
+              return (
+                <div key={ei}>
+                  <button
+                    onClick={() => info && setOpenInfo(open ? null : e.name)}
+                    className="w-full flex items-center gap-1.5 py-2 text-left min-h-11"
+                    aria-expanded={open}
+                    disabled={!info}
+                  >
+                    <span className="text-[15px] font-medium text-ink">{e.name}</span>
+                    {info && (
+                      <ChevronDown size={15} className={`text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+                    )}
+                    {info && <span className="ml-auto text-[11px] font-bold text-brand-ink">Form ▸</span>}
+                  </button>
+                  {info && open && (
+                    <div className="pb-3">
+                      <ExerciseDetail name={e.name} info={info} embed />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+        {Array.from({ length: ex[0]?.sets.length ?? 0 }, (_, round) => (
           <Card key={round}>
             <p className="eyebrow text-muted mb-2">Round {round + 1}</p>
             <div className="space-y-2">
@@ -496,14 +530,35 @@ export default function Session() {
               ))}
             </div>
           </Card>
-        ))
+        ))}
+        </>
       ) : isLifting ? (
-        ex.map((e, ei) => (
+        ex.map((e, ei) => {
+          const info = EXERCISE_INFO[e.name]
+          const open = openInfo === e.name
+          return (
           <Card key={ei}>
             <div className="mb-2">
-              <p className="font-bold text-ink">{e.name}</p>
-              {e.note && <p className="text-xs text-muted">{e.note}</p>}
+              {info ? (
+                <button
+                  onClick={() => setOpenInfo(open ? null : e.name)}
+                  className="w-full flex items-center gap-1.5 text-left min-h-11"
+                  aria-expanded={open}
+                >
+                  <span className="font-bold text-ink">{e.name}</span>
+                  <ChevronDown size={16} className={`text-muted transition-transform ${open ? 'rotate-180' : ''}`} />
+                  <span className="ml-auto text-[11px] font-bold text-brand-ink">Form ▸</span>
+                </button>
+              ) : (
+                <p className="font-bold text-ink">{e.name}</p>
+              )}
+              {e.note && <p className="text-xs text-muted mt-0.5">{e.note}</p>}
             </div>
+            {info && open && (
+              <div className="mb-3">
+                <ExerciseDetail name={e.name} info={info} embed />
+              </div>
+            )}
             <div className="space-y-2">
               {e.sets.map((_, si) => (
                 <SetRow
@@ -518,7 +573,8 @@ export default function Session() {
               ))}
             </div>
           </Card>
-        ))
+          )
+        })
       ) : (
         // cardio / rest — mark complete only; Strava owns run data
         <Card className="space-y-3">

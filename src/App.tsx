@@ -13,6 +13,7 @@ import Program from './screens/Program'
 import History from './screens/History'
 import Maxes from './screens/Maxes'
 import Settings from './screens/Settings'
+import Guide from './screens/Guide'
 
 // Don't auto-sync more than once per this window (covers app reopens / remounts).
 const AUTO_SYNC_THROTTLE_MS = 10 * 60 * 1000
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/program" element={<Program />} />
           <Route path="/history" element={<History />} />
           <Route path="/maxes" element={<Maxes />} />
+          <Route path="/guide" element={<Guide />} />
           <Route path="/settings" element={<Settings />} />
         </Route>
       </Routes>

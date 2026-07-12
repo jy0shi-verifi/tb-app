@@ -182,7 +182,7 @@ const bbSe = (week: number, rounds: number): SessionPlan => {
     title: 'SE Circuit',
     scheme: `${rounds} round${rounds > 1 ? 's' : ''} × ${reps}`,
     detail:
-      'Circuit: one set of each move in order, short rests (30–120s), ~2 min between rounds. One token weight, set once. Rest-pause to finish the reps.',
+      'Circuit: one set of each move in order, short rests (30–120s), 2–3 min between rounds. One token weight, set once. Rest-pause to finish the reps.',
     exercises: SE_MOVES.map((m) => ({
       name: m.name,
       note: m.note,
