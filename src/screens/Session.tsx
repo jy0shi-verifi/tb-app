@@ -7,7 +7,9 @@ import { maxesMap, resolvePosition, sessionFor, type SessionPlan } from '../prog
 import { EXERCISE_INFO } from '../exerciseInfo'
 import ExerciseDetail from '../components/ExerciseDetail'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
-import { db, DEFAULT_SETTINGS } from '../db'
+import { db, DEFAULT_SETTINGS, saveSettings } from '../db'
+import IntervalTimer from '../components/IntervalTimer'
+import { applyBeginnerProgress, beginnerDayLetter } from '../beginner'
 import { estimate1RM } from '../lib/calc'
 import { bestEst1RM } from '../lib/stats'
 import { Button, Card, SegmentedPicker, SetCheck, SessionIcon } from '../components/ui'
@@ -401,6 +403,24 @@ export default function Session() {
     setMeta((m) => ({ ...m, ...patch }))
   }
 
+  // Leaving a session: in Beginner mode, run the LP double-progression off what was
+  // actually logged (bump a lift 2 kg once all 3 sets hit 12), then go back.
+  async function finish() {
+    if (settings?.programMode === 'beginner' && plan?.type === 'lift' && pos && ex) {
+      const loggedEx = ex.map((e) => ({
+        name: e.name,
+        sets: e.sets.map((s) => ({
+          weight: s.weight === '' || !Number.isFinite(Number(s.weight)) ? undefined : Number(s.weight),
+          reps: Number(s.reps) || 0,
+          done: s.done,
+        })),
+      }))
+      const next = applyBeginnerProgress(settings, beginnerDayLetter(pos.week, pos.day), loggedEx)
+      if (next) await saveSettings({ beginner: { lifts: next } })
+    }
+    nav(-1)
+  }
+
   const totalSets = ex.reduce((n, e) => n + e.sets.length, 0)
   const doneSets = ex.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0)
   const allDone = totalSets > 0 && doneSets === totalSets
@@ -576,7 +596,11 @@ export default function Session() {
           )
         })
       ) : (
-        // cardio / rest — mark complete only; Strava owns run data
+        // cardio / rest — a C25K interval timer (beginner runs) then mark complete
+        <>
+        {plan.intervals && plan.intervals.length > 0 && (
+          <IntervalTimer intervals={plan.intervals} onComplete={() => setMetaTouched({ done: true })} />
+        )}
         <Card className="space-y-3">
           <button
             onClick={() => setMetaTouched({ done: !meta.done })}
@@ -586,7 +610,7 @@ export default function Session() {
           >
             <Check size={22} /> {meta.done ? 'Completed' : isRest ? 'Mark rest taken' : 'Mark complete'}
           </button>
-          {!isRest &&
+          {!isRest && !plan.intervals &&
             (logged && (logged.durationMin != null || logged.distanceKm != null) ? (
               <div className="flex justify-around text-center pt-1">
                 {logged.distanceKm != null && (
@@ -614,6 +638,7 @@ export default function Session() {
               </p>
             ))}
         </Card>
+        </>
       )}
 
       {/* rest timer */}
@@ -679,10 +704,10 @@ export default function Session() {
       )}
 
       <div className="flex gap-2 pt-1">
-        <Button variant="ghost" className="flex-1" onClick={() => nav(-1)}>
+        <Button variant="ghost" className="flex-1" onClick={finish}>
           {isLifting ? 'Back' : 'Cancel'}
         </Button>
-        <Button className="flex-[2]" onClick={() => nav(-1)}>
+        <Button className="flex-[2]" onClick={finish}>
           {allDone ? 'Finish ✓' : 'Done for now'}
         </Button>
       </div>

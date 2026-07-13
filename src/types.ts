@@ -75,6 +75,10 @@ export interface Settings {
   phaseStartDate: string // ISO yyyy-mm-dd (Monday of week 1)
   theme?: ThemeMode
   onboarded?: boolean
+  /** 'tb' = Tactical Barbell (default); 'beginner' = the LP + C25K on-ramp */
+  programMode?: 'tb' | 'beginner'
+  /** Beginner-mode linear-progression state: current working weight (kg/DB) per lift id */
+  beginner?: { lifts: Record<string, number> }
   /** which 6-week Operator block since the last retest (1-based); first run = 12 wks before retest */
   operatorBlock?: number
   /** true once the first 12-week Operator run has been retested — after which retest every 6 wks (TB1 p.108) */

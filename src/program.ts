@@ -1,6 +1,7 @@
 import type { Lift, MaxEntry, Settings, SessionType, WaveWeek } from './types'
 import { maxToBasis, workingLoad } from './lib/calc'
 import { diffDays, parseISO } from './lib/date'
+import { beginnerSessionFor, type Interval } from './beginner'
 
 // ---------------------------------------------------------------------------
 // Resolved plan shapes (what a screen renders)
@@ -24,6 +25,8 @@ export interface SessionPlan {
   scheme?: string
   detail?: string
   exercises: PlannedExercise[]
+  /** Beginner-mode C25K run/walk intervals (time-based), if this is a C25K run. */
+  intervals?: Interval[]
 }
 
 export interface PhaseMeta {
@@ -273,6 +276,8 @@ function baseBuildingDay(week: number, day: number): SessionPlan {
 export const PHASES: Record<string, PhaseMeta> = {
   'base-building': { id: 'base-building', name: 'Base Building', lengthWeeks: 8, lifts: [] },
   operator: { id: 'operator', name: 'Operator', lengthWeeks: 6, lifts: OPERATOR_LIFTS, wave: OPERATOR_WAVE },
+  // Beginner Mode (LP + C25K) — an open-ended on-ramp, so it never "completes".
+  beginner: { id: 'beginner', name: 'Beginner', lengthWeeks: 999, lifts: [] },
 }
 
 export function maxesMap(entries: MaxEntry[]): Record<string, MaxEntry> {
@@ -339,6 +344,7 @@ export function sessionFor(
   maxes: Record<string, MaxEntry>,
   settings: Settings,
 ): SessionPlan {
+  if (settings.programMode === 'beginner' || phaseId === 'beginner') return beginnerSessionFor(week, day, settings)
   if (phaseId === 'operator') return operatorDay(week, day, maxes, settings)
   return baseBuildingDay(week, day)
 }

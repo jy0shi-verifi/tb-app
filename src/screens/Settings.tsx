@@ -4,6 +4,8 @@ import { useSettings } from '../hooks'
 import { applyTheme, importBackup, parseBackup, saveSettings } from '../db'
 import { downloadBackup } from '../lib/backup'
 import { PHASES } from '../program'
+import { defaultBeginnerWeights } from '../beginner'
+import { isoDate, today, addDays, mondayIndex } from '../lib/date'
 import { Button, Card, SegmentedPicker } from '../components/ui'
 import { beginStravaAuth, disconnectStrava, stravaCanWrite, stravaConfigured } from '../lib/strava'
 import { syncStrava, importStravaHistory, devTagLatestAsOperatorRun } from '../lib/stravaSync'
@@ -53,11 +55,52 @@ export default function Settings() {
   const fieldCls =
     'rounded-field border border-[var(--color-field-border)] bg-[var(--color-surface-sunk)] text-ink px-3.5 py-2.5 font-semibold min-h-[2.75rem]'
 
+  const isBeginner = s.programMode === 'beginner'
+  async function switchToBeginner() {
+    if (
+      !window.confirm(
+        'Switch to Beginner mode?\n\nThis swaps your plan to Linear Progression + Couch-to-5K — a gentler on-ramp. Your Tactical Barbell setup is kept; you can switch back any time.',
+      )
+    )
+      return
+    const mon = isoDate(addDays(today(), -mondayIndex(today())))
+    await saveSettings({
+      programMode: 'beginner',
+      currentPhaseId: 'beginner',
+      phaseStartDate: mon,
+      beginner: { lifts: defaultBeginnerWeights() },
+    })
+    setMsg('Beginner mode on — Linear Progression + Couch-to-5K.')
+  }
+  async function switchToTB() {
+    if (!window.confirm('Switch back to Tactical Barbell (Base Building → Operator)?')) return
+    await saveSettings({ programMode: 'tb', currentPhaseId: 'base-building' })
+    setMsg('Tactical Barbell mode.')
+  }
+
   return (
     <div className="stagger space-y-4">
       <Card elev="hero" className="topo-hero text-white border-white/10">
         <p className="eyebrow hero-text text-gold-hi">Tactical Barbell</p>
         <p className="display-hero text-3xl text-white mt-1">SETTINGS</p>
+      </Card>
+
+      <Card>
+        <p className="eyebrow text-muted mb-2">Program mode</p>
+        <p className="text-xs text-muted mb-3 leading-relaxed">
+          {isBeginner
+            ? 'You’re on Beginner mode — Linear Progression (dumbbell A/B) + Couch-to-5K. Build a base, then step up to Tactical Barbell.'
+            : 'Tactical Barbell (Base Building → Operator). New to training? Beginner mode is a gentler on-ramp.'}
+        </p>
+        {isBeginner ? (
+          <Button variant="secondary" className="w-full" onClick={switchToTB}>
+            Switch to Tactical Barbell
+          </Button>
+        ) : (
+          <Button className="w-full" onClick={switchToBeginner}>
+            Switch to Beginner mode (LP + C25K)
+          </Button>
+        )}
       </Card>
 
       <Card>

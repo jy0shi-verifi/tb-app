@@ -1,111 +1,162 @@
-// Generates the tb-app icon set: a tactical "challenge-coin barbell" emblem on
-// blacked-out gunmetal with ember (action) + brass (achievement) — matching the
-// Tactical Premium theme. Rendered via Playwright for crisp vector output.
+// Tactical Barbell app icon — a STRUCK-METAL challenge coin whose barbell "bar" is a
+// kitted AR silhouette (photo cutout via cut_rifle.py). SVG -> PNG via Playwright.
+// One warm key light, top-left (azimuth 135, elevation 58) obeyed everywhere.
 import { chromium } from 'playwright'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import { readFileSync } from 'fs'
 
-const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'icons')
-const C = 256 // centre on a 512 viewBox
+const HERE = dirname(fileURLToPath(import.meta.url))
+const OUT = join(HERE, '..', 'public', 'icons')
+const C = 256
+const RIFLE_MASK = readFileSync(join(HERE, 'rifle_mask.png')).toString('base64')
+const OSWALD = readFileSync(join(HERE, '..', 'node_modules', '@fontsource-variable', 'oswald', 'files', 'oswald-latin-wght-normal.woff2')).toString('base64')
+const RX = 121, RY = 205, RW = 270, RH = 102
+const BAR = 249
 
-// --- emblem builder (coin + knurled brass rim + loaded barbell), scalable ---
-function emblem(scale) {
-  const knurl = Array.from({ length: 48 }, (_, i) => {
-    const a = (i / 48) * Math.PI * 2
-    const r1 = 212, r2 = 226
-    const x1 = C + Math.cos(a) * r1, y1 = C + Math.sin(a) * r1
-    const x2 = C + Math.cos(a) * r2, y2 = C + Math.sin(a) * r2
-    return `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="url(#brass)" stroke-width="3.2" stroke-linecap="round" opacity="0.85"/>`
+function defs() {
+  const rays = Array.from({ length: 120 }, (_, i) => {
+    const a = (i / 120) * 2 * Math.PI, a2 = a + 0.008, inr = 6, r = 150
+    return `<path d="M${C + Math.cos(a) * inr} ${C + Math.sin(a) * inr} L${C + Math.cos(a) * r} ${C + Math.sin(a) * r} L${C + Math.cos(a2) * r} ${C + Math.sin(a2) * r} Z"/>`
   }).join('')
+  const reeds = Array.from({ length: 90 }, (_, i) => {
+    const a = (i / 90) * 2 * Math.PI
+    return `<line x1="${C + Math.cos(a) * 207}" y1="${C + Math.sin(a) * 207}" x2="${C + Math.cos(a) * 217}" y2="${C + Math.sin(a) * 217}" stroke="url(#brass)" stroke-width="2.4"/>`
+  }).join('')
+  return `<defs>
+    <style>@font-face{font-family:'OswaldEmbed';font-weight:200 700;src:url(data:font/woff2;base64,${OSWALD}) format('woff2');}</style>
+    <path id="topArc" d="M ${C - 177} ${C} A 177 177 0 0 1 ${C + 177} ${C}"/>
+    <path id="botArc" d="M ${C - 177} ${C} A 177 177 0 0 0 ${C + 177} ${C}"/>
+    <radialGradient id="face" gradientUnits="userSpaceOnUse" cx="214" cy="206" r="238">
+      <stop offset="0" stop-color="#1b1e24"/><stop offset="0.5" stop-color="#101318"/><stop offset="1" stop-color="#070809"/>
+    </radialGradient>
+    <linearGradient id="brass" gradientUnits="userSpaceOnUse" x1="150" y1="118" x2="372" y2="404">
+      <stop offset="0" stop-color="#fbeeb4"/><stop offset="0.34" stop-color="#e8c24a"/><stop offset="0.72" stop-color="#a8761a"/><stop offset="1" stop-color="#6e3e0c"/>
+    </linearGradient>
+    <linearGradient id="brassEdge" gradientUnits="userSpaceOnUse" x1="150" y1="118" x2="372" y2="404">
+      <stop offset="0" stop-color="#8a6a1f"/><stop offset="1" stop-color="#3a2708"/>
+    </linearGradient>
+    <linearGradient id="ember" gradientUnits="userSpaceOnUse" x1="${RX}" y1="${RY - 4}" x2="${RX + RW}" y2="${RY + RH + 8}">
+      <stop offset="0" stop-color="#ff8a50"/><stop offset="0.42" stop-color="#e85a24"/><stop offset="0.78" stop-color="#c33f1b"/><stop offset="1" stop-color="#8f2a10"/>
+    </linearGradient>
+    <radialGradient id="vign" gradientUnits="userSpaceOnUse" cx="256" cy="252" r="196">
+      <stop offset="0.55" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity="0.55"/>
+    </radialGradient>
+    <radialGradient id="sheen" gradientUnits="userSpaceOnUse" cx="192" cy="150" r="150">
+      <stop offset="0" stop-color="#fff" stop-opacity="0.09"/><stop offset="1" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
 
-  // brass weight plates at each end (keeps the "loaded barbell" read)
-  const plate = (cx, w, h) =>
-    `<rect x="${cx - w / 2}" y="${C - h / 2}" width="${w}" height="${h}" rx="${w * 0.32}" fill="url(#brass)"/>` +
-    `<rect x="${cx - w / 2 + 3}" y="${C - h / 2 + 3}" width="${w - 6}" height="${h - 6}" rx="${w * 0.24}" fill="none" stroke="#2a1e07" stroke-opacity="0.4" stroke-width="2"/>`
-  const plates =
-    plate(150, 22, 122) + plate(127, 16, 84) + // left
-    plate(362, 22, 122) + plate(385, 16, 84)   // right
+    <filter id="bevel" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.4" result="b"/>
+      <feSpecularLighting in="b" surfaceScale="4" specularConstant="0.7" specularExponent="12" lighting-color="#ffe7a8" result="s">
+        <feDistantLight azimuth="135" elevation="58"/>
+      </feSpecularLighting>
+      <feComposite in="s" in2="SourceAlpha" operator="in" result="sc"/>
+      <feComposite in="SourceGraphic" in2="sc" operator="arithmetic" k1="0" k2="1" k3="1" k4="0"/>
+    </filter>
 
-  // picatinny top-rail teeth
-  const rail = Array.from({ length: 8 }, (_, i) =>
-    `<rect x="${214 + i * 6.5}" y="243" width="3.6" height="5" rx="1" fill="#34383f"/>`).join('')
+    <filter id="relief" x="-30%" y="-30%" width="160%" height="160%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="5.5" result="b"/>
+      <feSpecularLighting in="b" surfaceScale="1" specularConstant="0.42" specularExponent="8" lighting-color="#ffcf9a" result="s">
+        <feDistantLight azimuth="135" elevation="60"/>
+      </feSpecularLighting>
+      <feComposite in="s" in2="SourceAlpha" operator="in" result="sc"/>
+      <feMerge><feMergeNode in="SourceGraphic"/><feMergeNode in="sc"/></feMerge>
+    </filter>
 
-  // a kitted AR platform, muzzle left -> stock right (stylised for icon legibility)
+    <!-- directional relief for the rifle: dark drop to bottom-right, light catch top-left -->
+    <filter id="ashadow" x="-30%" y="-30%" width="160%" height="160%"><feMorphology in="SourceAlpha" operator="dilate" radius="2" result="d"/><feOffset in="d" dx="1.6" dy="1.9"/></filter>
+    <filter id="ahi" x="-30%" y="-30%" width="160%" height="160%"><feMorphology in="SourceAlpha" operator="dilate" radius="1.4" result="d"/><feOffset in="d" dx="-1.1" dy="-1.1"/></filter>
+
+    <filter id="contact" x="-40%" y="-40%" width="180%" height="180%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="b"/><feOffset in="b" dx="1" dy="4"/>
+    </filter>
+    <filter id="pan" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feOffset in="SourceAlpha" dx="0" dy="5" result="o"/><feGaussianBlur in="o" stdDeviation="6" result="bb"/>
+      <feComposite in="bb" in2="SourceAlpha" operator="out" result="ish"/>
+      <feFlood flood-color="#000" flood-opacity="0.55"/><feComposite in2="ish" operator="in"/>
+    </filter>
+    <filter id="softblur"><feGaussianBlur stdDeviation="14"/></filter>
+    <filter id="tight"><feGaussianBlur stdDeviation="5"/></filter>
+    <filter id="glow" x="-70%" y="-70%" width="240%" height="240%" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feColorMatrix in="b" type="matrix" values="0 0 0 0 0.95  0 0 0 0 0.38  0 0 0 0 0.16  0 0 0 0.6 0"/>
+    </filter>
+    <filter id="deboss" x="-25%" y="-25%" width="150%" height="150%" color-interpolation-filters="sRGB">
+      <feOffset in="SourceAlpha" dx="-1" dy="-1" result="a"/><feGaussianBlur in="a" stdDeviation="0.5" result="ab"/>
+      <feFlood flood-color="#1a0f00" flood-opacity="0.9"/><feComposite in2="ab" operator="in" result="dk"/>
+      <feOffset in="SourceAlpha" dx="0.9" dy="0.9" result="c"/><feGaussianBlur in="c" stdDeviation="0.5" result="cb"/>
+      <feFlood flood-color="#fff3c4" flood-opacity="0.55"/><feComposite in2="cb" operator="in" result="lt"/>
+      <feMerge><feMergeNode in="dk"/><feMergeNode in="SourceGraphic"/><feMergeNode in="lt"/></feMerge>
+    </filter>
+    <filter id="grain" x="0" y="0" width="100%" height="100%" color-interpolation-filters="sRGB">
+      <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" result="n"/>
+      <feColorMatrix in="n" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.5 0"/>
+    </filter>
+
+    <mask id="rmask"><image href="data:image/png;base64,${RIFLE_MASK}" x="${RX}" y="${RY}" width="${RW}" height="${RH}" preserveAspectRatio="xMidYMid meet"/></mask>
+    <clipPath id="coinClip"><circle cx="${C}" cy="${C}" r="200"/></clipPath>
+    <g id="sun">${rays}</g>
+    <g id="reed">${reeds}</g>
+  </defs>`
+}
+
+const plate = (cx, w, h) =>
+  `<g filter="url(#bevel)"><rect x="${cx - w / 2}" y="${BAR - h / 2}" width="${w}" height="${h}" rx="${w * 0.14}" fill="url(#brass)"/></g>`
+
+// small struck 4-point star device
+const star = (cx, cy) => `<path d="M${cx} ${cy - 10} L${cx + 2.5} ${cy - 2.5} L${cx + 10} ${cy} L${cx + 2.5} ${cy + 2.5} L${cx} ${cy + 10} L${cx - 2.5} ${cy + 2.5} L${cx - 10} ${cy} L${cx - 2.5} ${cy - 2.5} Z"/>`
+
+function emblem(scale) {
+  const plates = plate(150, 18, 82) + plate(129, 11, 58) + plate(362, 18, 82) + plate(383, 11, 58)
   const rifle = `
-    <g stroke="#1f2228" stroke-width="1.4" stroke-linejoin="round">
-      <!-- suppressor -->
-      <rect x="150" y="244" width="56" height="24" rx="10" fill="url(#steel)"/>
-      <line x1="164" y1="247" x2="164" y2="265" stroke="#454a52" stroke-width="2"/>
-      <line x1="178" y1="247" x2="178" y2="265" stroke="#454a52" stroke-width="2"/>
-      <line x1="192" y1="247" x2="192" y2="265" stroke="#454a52" stroke-width="2"/>
-      <!-- barrel + front sight post -->
-      <rect x="206" y="251" width="10" height="10" fill="url(#steel)"/>
-      <rect x="209" y="236" width="5" height="15" rx="1.5" fill="url(#steel)"/>
-      <!-- handguard / rail -->
-      <rect x="213" y="248" width="52" height="18" rx="3" fill="url(#steel)"/>
-      <!-- receiver body -->
-      <rect x="262" y="243" width="74" height="27" rx="4" fill="url(#steel)"/>
-      <rect x="300" y="255" width="13" height="8" rx="1" fill="#25282e"/>
-      <!-- optic on a raised mount + ember reticle -->
-      <rect x="285" y="235" width="32" height="9" rx="2" fill="url(#steel)"/>
-      <rect x="289" y="220" width="25" height="17" rx="3" fill="url(#steel)"/>
-      <circle cx="301.5" cy="228" r="5" fill="url(#ember)" filter="url(#glow)"/>
-      <circle cx="301.5" cy="228" r="2.6" fill="#ffdcc6" stroke="none"/>
-      <!-- curved magazine -->
-      <path d="M298 270 h20 q6 0 5 8 l-7 34 q-1 7 -8 7 h-9 q-6 0 -5 -7 l4 -35 q1 -7 5 -7 z" fill="url(#steel)"/>
-      <!-- pistol grip -->
-      <path d="M330 268 q13 1 11 15 l-3 15 q-1 6 -8 4 q-7 -2 -6 -11 l3 -19 q1 -6 3 -4 z" fill="url(#steel)"/>
-      <!-- collapsible stock -->
-      <path d="M334 245 h42 q6 0 6 6 v7 h-15 v9 q0 6 -6 6 h-21 q-6 0 -6 -6 z" fill="url(#steel)"/>
+    <g transform="translate(${C} 249) scale(1.1) translate(${-C} ${-C})">
+      <g filter="url(#contact)" mask="url(#rmask)"><rect x="${RX}" y="${RY}" width="${RW}" height="${RH}" fill="#000"/></g>
+      <g filter="url(#ashadow)" mask="url(#rmask)"><rect x="${RX}" y="${RY}" width="${RW}" height="${RH}" fill="#160d05"/></g>
+      <g filter="url(#ahi)" mask="url(#rmask)"><rect x="${RX}" y="${RY}" width="${RW}" height="${RH}" fill="#ffc79a" opacity="0.5"/></g>
+      <g filter="url(#relief)"><g mask="url(#rmask)"><rect x="${RX}" y="${RY}" width="${RW}" height="${RH}" fill="url(#ember)"/></g></g>
+      <g filter="url(#glow)"><ellipse cx="378" cy="243" rx="12" ry="7" fill="#ff6a3d"/></g>
+      <ellipse cx="380" cy="243" rx="5" ry="3.2" fill="#ffe6cf"/>
+      ${plates}
     </g>`
-
   return `
   <g transform="translate(${C} ${C}) scale(${scale}) translate(${-C} ${-C})">
-    <!-- coin face -->
-    <circle cx="${C}" cy="${C}" r="206" fill="url(#coin)" stroke="url(#brass)" stroke-width="11"/>
-    <!-- faint topo contours -->
-    <g fill="none" stroke="#e8c24a" stroke-opacity="0.06">
-      <circle cx="${C}" cy="${C}" r="168"/><circle cx="${C}" cy="${C}" r="128"/><circle cx="${C}" cy="${C}" r="92"/>
+    <!-- cast shadow (soft + tight) + milled edge so it reads as a photographed object -->
+    <ellipse cx="${C}" cy="${C + 17}" rx="197" ry="195" fill="#000" opacity="0.5" filter="url(#softblur)"/>
+    <ellipse cx="${C}" cy="${C + 7}" rx="201" ry="200" fill="#000" opacity="0.45" filter="url(#tight)"/>
+    <circle cx="${C + 3}" cy="${C + 5}" r="205" fill="url(#brassEdge)"/>
+    <circle cx="${C}" cy="${C}" r="204" fill="url(#face)"/>
+    <g clip-path="url(#coinClip)">
+      <use href="#sun" fill="#e8c24a" opacity="0.03"/>
+      <g fill="none" stroke="#e8c24a" stroke-opacity="0.045"><circle cx="${C}" cy="${C}" r="140"/><circle cx="${C}" cy="${C}" r="104"/></g>
+      <rect x="0" y="0" width="512" height="512" fill="url(#sheen)"/>
+      <circle cx="${C}" cy="${C}" r="204" fill="url(#vign)"/>
+      <circle cx="${C}" cy="${C}" r="177" fill="none" stroke="#0a0c10" stroke-opacity="0.5" stroke-width="30"/>
     </g>
-    <!-- inner ember accent ring -->
-    <circle cx="${C}" cy="${C}" r="188" fill="none" stroke="url(#ember)" stroke-width="2.5" stroke-opacity="0.55"/>
-    ${knurl}
-    ${plates}
-    <!-- hot muzzle glow (ember = action) -->
-    <g filter="url(#glow)"><ellipse cx="176" cy="256" rx="34" ry="17" fill="#ff6a3d"/></g>
-    ${rail}
+    <circle cx="${C}" cy="${C}" r="198" fill="none" filter="url(#pan)"/>
+    <use href="#reed"/>
+    <g filter="url(#bevel)"><circle cx="${C}" cy="${C}" r="204" fill="none" stroke="url(#brass)" stroke-width="9"/></g>
+    <circle cx="${C}" cy="${C}" r="163" fill="none" stroke="#3a2c0a" stroke-opacity="0.6" stroke-width="1.5"/>
+    <g filter="url(#bevel)"><circle cx="${C}" cy="${C}" r="160" fill="none" stroke="url(#brass)" stroke-width="3.5"/></g>
+    <circle cx="${C}" cy="${C}" r="156" fill="none" stroke="url(#ember)" stroke-width="2" stroke-opacity="0.4"/>
+    <g font-family="OswaldEmbed, 'Arial Narrow', sans-serif" font-weight="600" fill="#d8ad3e" filter="url(#deboss)">
+      <text font-size="25" letter-spacing="3"><textPath href="#topArc" startOffset="50%" text-anchor="middle">TACTICAL BARBELL</textPath></text>
+      <text font-size="23" letter-spacing="4"><textPath href="#botArc" startOffset="50%" text-anchor="middle">BE A FUCKING PRO</textPath></text>
+    </g>
+    <g fill="#d8ad3e" filter="url(#deboss)">${star(C - 177, C)}${star(C + 177, C)}</g>
     ${rifle}
   </g>`
 }
 
 function svg({ maskable }) {
-  const bg = maskable
-    ? `<rect width="512" height="512" fill="url(#gun)"/>`
-    : `<rect width="512" height="512" rx="0" fill="url(#gun)"/>`
+  const s = maskable ? 0.82 : 0.98
   return `<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <defs>
-    <radialGradient id="gun" cx="42%" cy="34%" r="80%">
-      <stop offset="0%" stop-color="#1b1f25"/><stop offset="55%" stop-color="#101317"/><stop offset="100%" stop-color="#08090b"/>
-    </radialGradient>
-    <radialGradient id="coin" cx="42%" cy="36%" r="72%">
-      <stop offset="0%" stop-color="#20242b"/><stop offset="70%" stop-color="#14171c"/><stop offset="100%" stop-color="#0c0e11"/>
-    </radialGradient>
-    <linearGradient id="ember" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ff9a5e"/><stop offset="48%" stop-color="#ff6a3d"/><stop offset="100%" stop-color="#d8451f"/>
-    </linearGradient>
-    <linearGradient id="brass" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#f7e29a"/><stop offset="45%" stop-color="#e8c24a"/><stop offset="100%" stop-color="#977719"/>
-    </linearGradient>
-    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#d7dae0"/><stop offset="42%" stop-color="#9498a0"/><stop offset="100%" stop-color="#565b64"/>
-    </linearGradient>
-    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
-      <feGaussianBlur stdDeviation="9" result="b"/>
-      <feColorMatrix in="b" type="matrix" values="0 0 0 0 1  0 0 0 0 0.42  0 0 0 0 0.24  0 0 0 0.9 0"/>
-    </filter>
-  </defs>
-  ${bg}
-  ${emblem(maskable ? 0.72 : 0.98)}
+  ${defs()}
+  <rect width="512" height="512" fill="#0a0b0d"/>
+  ${emblem(s)}
+  <g clip-path="url(#coinClip)" transform="translate(${C} ${C}) scale(${s}) translate(${-C} ${-C})">
+    <rect width="512" height="512" filter="url(#grain)" opacity="0.035"/>
+  </g>
 </svg>`
 }
 
@@ -120,14 +171,14 @@ const targets = [
 const browser = await chromium.launch()
 const page = await browser.newPage()
 for (const t of targets) {
-  const markup = svg({ maskable: t.maskable }).replace('width="512" height="512"', `width="${t.size}" height="${t.size}"`)
+  const markup = svg({ maskable: t.maskable }).replace('width="512" height="512" viewBox', `width="${t.size}" height="${t.size}" viewBox`)
   await page.setViewportSize({ width: t.size, height: t.size })
   await page.setContent(`<!doctype html><html><body style="margin:0;padding:0;line-height:0">${markup}</body></html>`, { waitUntil: 'networkidle' })
+  await page.evaluate(() => document.fonts.ready)
   await page.screenshot({ path: join(OUT, t.file), clip: { x: 0, y: 0, width: t.size, height: t.size } })
   console.log('wrote', t.file, t.size)
 }
-// standalone SVG favicon (browser tab)
 const fs = await import('fs')
 fs.writeFileSync(join(OUT, '..', 'favicon.svg'), svg({ maskable: false }))
-console.log('wrote favicon.svg')
+console.log('done')
 await browser.close()

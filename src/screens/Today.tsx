@@ -289,7 +289,9 @@ export default function Today() {
   // ---- an active training day ----
   const plan = sessionFor(pos.phaseId, pos.week, pos.day, mm, settings)
   const meta = SESSION_META[plan.type]
-  const isLoggable = plan.type === 'lift' || plan.type === 'se'
+  const isBeginner = settings.programMode === 'beginner'
+  // beginner C25K runs open the session (for the interval timer); TB runs mark-complete on Today
+  const isLoggable = plan.type === 'lift' || plan.type === 'se' || (plan.intervals?.length ?? 0) > 0
   const isTestDay = plan.title === 'Test Day'
   const needsMaxes = plan.type === 'lift' && pos.phaseId === 'operator' && maxes.length === 0
   const anyCeiling = plan.exercises.some((e) => e.sets[0]?.overCeiling)
@@ -375,22 +377,30 @@ export default function Today() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted">{prettyDate(now)}</span>
           <Pill tone="soft-brand">
-            {phase.name} · Wk {pos.week}/{phase.lengthWeeks}
+            {isBeginner ? `Beginner · Wk ${pos.week}` : `${phase.name} · Wk ${pos.week}/${phase.lengthWeeks}`}
           </Pill>
         </div>
-        <div className="h-1.5 rounded-full bg-line/50 overflow-hidden mt-2">
-          <div
-            className="h-full glam-gradient transition-all"
-            style={{ width: `${(pos.week / phase.lengthWeeks) * 100}%` }}
-          />
-        </div>
-        <p className="text-[11px] text-muted mt-1">
-          {phase.lengthWeeks - pos.week > 0
-            ? `${phase.lengthWeeks - pos.week} week${phase.lengthWeeks - pos.week === 1 ? '' : 's'} to ${pos.phaseId === 'operator' ? 'block review' : 'Test Day'}`
-            : pos.phaseId === 'operator'
-              ? 'Final week — block review'
-              : 'Final week — Test Day'}
-        </p>
+        {isBeginner ? (
+          <p className="text-[11px] text-muted mt-2">
+            Linear Progression + Couch-to-5K. Add weight when you earn it; the runs build the engine.
+          </p>
+        ) : (
+          <>
+            <div className="h-1.5 rounded-full bg-line/50 overflow-hidden mt-2">
+              <div
+                className="h-full glam-gradient transition-all"
+                style={{ width: `${(pos.week / phase.lengthWeeks) * 100}%` }}
+              />
+            </div>
+            <p className="text-[11px] text-muted mt-1">
+              {phase.lengthWeeks - pos.week > 0
+                ? `${phase.lengthWeeks - pos.week} week${phase.lengthWeeks - pos.week === 1 ? '' : 's'} to ${pos.phaseId === 'operator' ? 'block review' : 'Test Day'}`
+                : pos.phaseId === 'operator'
+                  ? 'Final week — block review'
+                  : 'Final week — Test Day'}
+            </p>
+          </>
+        )}
       </div>
 
       {/* data-safety: Strava connection trouble + backup nudge */}
