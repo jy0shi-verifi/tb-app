@@ -9,9 +9,9 @@ import ExerciseDetail from '../components/ExerciseDetail'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
 import { db, DEFAULT_SETTINGS, saveSettings } from '../db'
 import IntervalTimer from '../components/IntervalTimer'
-import { applyBeginnerProgress, beginnerDayLetter } from '../beginner'
+import { applyBeginnerProgress, beginnerDayLetter, REP_HI } from '../beginner'
 import { estimate1RM } from '../lib/calc'
-import { bestEst1RM } from '../lib/stats'
+import { bestEst1RM, lastPerformance } from '../lib/stats'
 import { Button, Card, SegmentedPicker, SetCheck, SessionIcon } from '../components/ui'
 import Celebration, { type CelebrationContent } from '../components/Celebration'
 import ShareWin from '../components/ShareWin'
@@ -201,9 +201,16 @@ export default function Session() {
   useEffect(() => {
     if (!ready || !plan || ex !== null) return
     const fromLog = logged && logged.exercises.length > 0
+    const beginnerLift = settings.programMode === 'beginner' && plan.type === 'lift'
     setEx(
       plan.exercises.map((e, i) => {
         const saved = fromLog ? logged!.exercises[i] : undefined
+        // Beginner double progression: pre-fill last time's reps (so the natural move
+        // is to beat them), UNLESS a +2 kg bump just raised the working weight — then
+        // keep the range floor the plan already set (reps reset on a weight bump).
+        const working = e.sets[0]?.weight
+        const last = beginnerLift && !fromLog ? lastPerformance(allSessions, e.name, iso) : null
+        const prefill = last && last.weight === working ? last.reps : null
         return {
           name: e.name,
           note: e.note,
@@ -212,7 +219,7 @@ export default function Session() {
             const ss = saved?.sets[j]
             return {
               weight: ss?.weight != null ? String(ss.weight) : s.weight != null ? String(s.weight) : '',
-              reps: ss ? String(ss.reps) : String(s.reps),
+              reps: ss ? String(ss.reps) : String(prefill?.[j] ?? s.reps),
               done: ss?.done ?? false,
             }
           }),
@@ -227,7 +234,8 @@ export default function Session() {
         notes: logged.notes ?? '',
       })
     }
-  }, [ready, plan, logged, ex])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, plan, logged, ex, allSessions])
 
   // keep the screen awake while logging
   useEffect(() => {
@@ -340,6 +348,7 @@ export default function Session() {
   const isSE = plan.type === 'se'
   const restSec = restSeconds(plan, pos.week, settings.restSec)
   const inc = settings.dbIncrement
+  const beginnerLift = settings.programMode === 'beginner' && plan.type === 'lift'
 
   const setSet = (ei: number, si: number, patch: Partial<SetState>) => {
     touched.current = true
@@ -574,6 +583,35 @@ export default function Session() {
               )}
               {e.note && <p className="text-xs text-muted mt-0.5">{e.note}</p>}
             </div>
+            {beginnerLift &&
+              (() => {
+                const last = lastPerformance(allSessions, e.name, iso)
+                const atTop = e.sets.filter((s) => s.done && Number(s.reps) >= REP_HI).length
+                const need = e.sets.length - atTop
+                return (
+                  <div className="-mt-1 mb-2 flex flex-wrap items-center gap-2">
+                    {last && (
+                      <span className="text-xs text-muted">
+                        Last time:{' '}
+                        <b className="text-ink font-semibold">
+                          {last.weight != null ? `${last.weight}kg × ` : ''}
+                          {last.reps.join(', ')}
+                        </b>{' '}
+                        — aim higher
+                      </span>
+                    )}
+                    <span
+                      className={`text-[11px] font-bold px-2 py-0.5 rounded-pill ${
+                        need <= 0 ? 'bg-load-soft text-load' : 'bg-[var(--color-surface-sunk)] text-muted'
+                      }`}
+                    >
+                      {need <= 0
+                        ? '✓ +2 kg next session'
+                        : `${need} more ${need === 1 ? 'set' : 'sets'} at ${REP_HI} → +2 kg`}
+                    </span>
+                  </div>
+                )
+              })()}
             {info && open && (
               <div className="mb-3">
                 <ExerciseDetail name={e.name} info={info} embed />

@@ -77,15 +77,6 @@ export function c25kWorkout(week: number, runIndex: number): Interval[] {
   return Array.isArray(w[0]) ? (w as Interval[][])[runIndex] : (w as Interval[])
 }
 
-function intervalSummary(iv: Interval[]): string {
-  const jogTotal = iv.filter((i) => i.kind === 'jog').reduce((n, i) => n + i.sec, 0)
-  const total = iv.reduce((n, i) => n + i.sec, 0)
-  const cont = iv.length === 2 && iv[1].kind === 'jog'
-  return cont
-    ? `5-min walk, then a ${Math.round(iv[1].sec / 60)}-min continuous run.`
-    : `5-min brisk-walk warm-up, then ${Math.round(jogTotal / 60)} min of jogging in intervals (~${Math.round(total / 60)} min total). Keep the jog easy — you should be able to talk.`
-}
-
 // ---------------------------------------------------------------------------
 // Weekly template: Mon/Wed/Fri = strength (A/B alternating), Tue/Thu/Sat = C25K,
 // Sun = rest.
@@ -118,26 +109,22 @@ function liftPlan(week: number, day: number, settings: Settings): SessionPlan {
   }
 }
 
-function runPlan(week: number, day: number): SessionPlan {
-  const runIndex = Math.max(0, RUN_DAYS.indexOf(day))
-  const c25kWeek = Math.min(week, 9)
-  const iv = c25kWorkout(week, runIndex)
-  const graduated = week > 9
+// Running is owned by Runna — the app just tracks it. A run day is a simple slot
+// that auto-fills from Strava once Runna syncs the run (no in-app plan/timer).
+// (The C25K interval machinery below stays available but is no longer prescribed.)
+function runPlan(): SessionPlan {
   return {
     type: 'run',
-    title: graduated ? 'Easy Run' : `C25K · Week ${c25kWeek} · Run ${runIndex + 1}`,
-    scheme: graduated ? '30 min easy' : undefined,
-    detail: graduated
-      ? "You've finished Couch-to-5K 🎉 — hold a 30-min easy run, or ask Claude to set up an advanced running plan."
-      : intervalSummary(iv),
-    intervals: iv,
+    title: 'Run',
+    detail:
+      'Your run for today — follow your Runna plan. It logs here automatically once it syncs from Strava, or tap Mark complete.',
     exercises: [],
   }
 }
 
 export function beginnerSessionFor(week: number, day: number, settings: Settings): SessionPlan {
   if (LIFT_DAYS.includes(day)) return liftPlan(week, day, settings)
-  if (RUN_DAYS.includes(day)) return runPlan(week, day)
+  if (RUN_DAYS.includes(day)) return runPlan()
   return { type: 'rest', title: 'Rest', detail: 'Recovery is training too.', exercises: [] }
 }
 

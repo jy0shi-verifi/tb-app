@@ -59,6 +59,40 @@ export const EXERCISE_INFO: Record<string, ExerciseInfo> = {
     ],
   },
 
+  // --- Beginner-mode Linear Progression lifts (Day A / Day B) ---
+  'Goblet / Front-rack Squat': {
+    targets: ['quads', 'glutes', 'core'],
+    video: 'k_EhLGvM8TQ', // Buff Dudes — Goblet Squat
+    videoStart: 17,
+    howTo: [
+      'Hold one dumbbell vertically against your chest like a goblet (both hands cupping the top head). If you prefer, hold a dumbbell at each shoulder in the "front rack" instead — same legs.',
+      'Feet about shoulder-width, toes turned slightly out.',
+      'Brace your core, push your hips back and bend your knees, pushing your knees out (don’t let them cave in).',
+      'Go down to about parallel — thighs level with the floor — chest up, heels down.',
+      'Drive up through your heels. Breathe out as you stand.',
+    ],
+  },
+  'DB Reverse Lunge': {
+    targets: ['quads', 'glutes', 'hamstrings'],
+    howTo: [
+      'Stand tall with a dumbbell in each hand by your sides.',
+      'Step one foot back and lower until both knees are about 90° — front thigh roughly parallel, back knee near the floor.',
+      'Keep your torso upright and your weight through the front heel.',
+      'Drive through the front foot to step back to standing.',
+      'Alternate legs (or do all reps on one side then switch). Reverse lunges are kinder on the knees than forward ones.',
+    ],
+  },
+  'DB Overhead Press': {
+    targets: ['shoulders', 'triceps', 'core'],
+    howTo: [
+      'Stand tall, a dumbbell in each hand at shoulder height, palms facing forward (or slightly in).',
+      'Brace your core and squeeze your glutes so you don’t lean back.',
+      'Press both dumbbells straight overhead until your arms are locked out, bringing them together at the top.',
+      'Lower under control back to your shoulders. Breathe out as you press.',
+      'If your lower back arches, drop the weight or do it seated against a bench.',
+    ],
+  },
+
   // --- Base Building SE circuit moves ---
   'Push-ups': {
     targets: ['chest', 'shoulders', 'triceps', 'core'],
@@ -126,4 +160,33 @@ export const EXERCISE_INFO: Record<string, ExerciseInfo> = {
       'Keep breathing throughout. Prefer a plank? Hold a straight-body plank for time instead.',
     ],
   },
+}
+
+/** Display labels for the muscle keys used by BodyDiagram / exercise `targets`. */
+export const MUSCLE_LABEL: Record<string, string> = {
+  chest: 'Chest',
+  shoulders: 'Shoulders',
+  triceps: 'Triceps',
+  back: 'Back',
+  biceps: 'Biceps',
+  core: 'Core',
+  quads: 'Quads',
+  glutes: 'Glutes',
+  hamstrings: 'Hamstrings',
+  calves: 'Calves',
+}
+
+/** Unique muscles worked across a list of exercise names, in first-seen order, as labels. */
+export function musclesForExercises(names: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const n of names) {
+    for (const key of EXERCISE_INFO[n]?.targets ?? []) {
+      if (!seen.has(key)) {
+        seen.add(key)
+        out.push(MUSCLE_LABEL[key] ?? key)
+      }
+    }
+  }
+  return out
 }

@@ -73,6 +73,34 @@ export function bestEst1RM(sessions: SessionLog[], liftName: string, excludeDate
   return best
 }
 
+/**
+ * The most recent prior logged performance of a named lift (before `beforeDate`):
+ * the reps of each logged set and the weight used. Powers the beginner "last time"
+ * cue and the double-progression rep pre-fill.
+ */
+export function lastPerformance(
+  sessions: SessionLog[],
+  liftName: string,
+  beforeDate: string,
+): { weight?: number; reps: number[]; date: string } | null {
+  const prior = sessions
+    .filter((s) => s.type === 'lift' && s.date < beforeDate)
+    .sort((a, b) => (a.date < b.date ? 1 : -1)) // newest first
+  for (const s of prior) {
+    const ex = s.exercises.find((e) => e.name === liftName)
+    if (!ex) continue
+    const logged = ex.sets.filter((set) => set.reps > 0)
+    if (!logged.length) continue
+    const weighted = logged.filter((set) => set.weight != null && set.weight > 0)
+    return {
+      weight: weighted.length ? weighted[weighted.length - 1].weight : undefined,
+      reps: logged.map((set) => set.reps),
+      date: s.date,
+    }
+  }
+  return null
+}
+
 /** Volume load for one lift session = Σ weight × reps over done sets (kg, relative trend metric). */
 export function sessionVolume(s: SessionLog): number {
   if (s.type !== 'lift') return 0

@@ -290,7 +290,7 @@ export default function Today() {
   const plan = sessionFor(pos.phaseId, pos.week, pos.day, mm, settings)
   const meta = SESSION_META[plan.type]
   const isBeginner = settings.programMode === 'beginner'
-  // beginner C25K runs open the session (for the interval timer); TB runs mark-complete on Today
+  // lifts/circuits open the session logger; runs (Runna-owned) mark-complete on Today
   const isLoggable = plan.type === 'lift' || plan.type === 'se' || (plan.intervals?.length ?? 0) > 0
   const isTestDay = plan.title === 'Test Day'
   const needsMaxes = plan.type === 'lift' && pos.phaseId === 'operator' && maxes.length === 0
@@ -382,7 +382,7 @@ export default function Today() {
         </div>
         {isBeginner ? (
           <p className="text-[11px] text-muted mt-2">
-            Linear Progression + Couch-to-5K. Add weight when you earn it; the runs build the engine.
+            Linear Progression, plus your own running from Runna. Add weight when you earn it; the runs build the engine.
           </p>
         ) : (
           <>
