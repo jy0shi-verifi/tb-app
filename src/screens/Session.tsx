@@ -9,7 +9,7 @@ import ExerciseDetail from '../components/ExerciseDetail'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
 import { db, DEFAULT_SETTINGS, saveSettings } from '../db'
 import IntervalTimer from '../components/IntervalTimer'
-import { applyBeginnerProgress, beginnerDayLetter, REP_HI } from '../beginner'
+import { applyBeginnerProgress, beginnerDayLetter, beginnerLiftId, beginnerStall, REP_HI } from '../beginner'
 import { estimate1RM } from '../lib/calc'
 import { bestEst1RM, lastPerformance } from '../lib/stats'
 import { Button, Card, SegmentedPicker, SetCheck, SessionIcon } from '../components/ui'
@@ -358,6 +358,15 @@ export default function Session() {
       ),
     )
   }
+  // Deload a stalled beginner lift: drop this session's sets to the lighter weight AND
+  // persist it as the new working weight, so LP resumes building from there.
+  const applyDeload = (ei: number, liftId: string, toKg: number) => {
+    touched.current = true
+    setEx((prev) =>
+      prev!.map((e, i) => (i === ei ? { ...e, sets: e.sets.map((s) => ({ ...s, weight: String(toKg) })) } : e)),
+    )
+    saveSettings({ beginner: { lifts: { ...(settings.beginner?.lifts ?? {}), [liftId]: toKg } } })
+  }
   const startRest = () => {
     primeAudio() // unlock audio within this tap so the end-beep can sound
     const end = Date.now() + restSec * 1000
@@ -586,29 +595,47 @@ export default function Session() {
             {beginnerLift &&
               (() => {
                 const last = lastPerformance(allSessions, e.name, iso)
+                const liftId = beginnerLiftId(e.name)
+                const working = liftId ? settings.beginner?.lifts?.[liftId] ?? 0 : 0
+                const stall = liftId ? beginnerStall(allSessions, e.name, working, inc, iso) : null
                 const atTop = e.sets.filter((s) => s.done && Number(s.reps) >= REP_HI).length
                 const need = e.sets.length - atTop
                 return (
-                  <div className="-mt-1 mb-2 flex flex-wrap items-center gap-2">
+                  <div className="-mt-1 mb-2 space-y-1.5">
                     {last && (
-                      <span className="text-xs text-muted">
+                      <p className="text-xs text-muted">
                         Last time:{' '}
                         <b className="text-ink font-semibold">
                           {last.weight != null ? `${last.weight}kg × ` : ''}
                           {last.reps.join(', ')}
                         </b>{' '}
-                        — aim higher
+                        {stall ? '' : '— aim higher'}
+                      </p>
+                    )}
+                    {stall ? (
+                      <div className="rounded-field bg-warm border border-warm-edge/40 p-2.5 flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-ink flex-1 min-w-[60%]">
+                          ⚠ Stalled — stuck at {working}kg for {stall.count} sessions. Drop to{' '}
+                          <b>{stall.deloadTo}kg</b> and build back up.
+                        </span>
+                        <button
+                          onClick={() => applyDeload(ei, liftId!, stall.deloadTo)}
+                          className="ml-auto rounded-pill bg-brand/10 text-brand-ink text-[11px] font-bold px-3 min-h-9 active:bg-brand/20"
+                        >
+                          Deload to {stall.deloadTo}kg
+                        </button>
+                      </div>
+                    ) : (
+                      <span
+                        className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-pill ${
+                          need <= 0 ? 'bg-load-soft text-load' : 'bg-[var(--color-surface-sunk)] text-muted'
+                        }`}
+                      >
+                        {need <= 0
+                          ? '✓ +2 kg next session'
+                          : `${need} more ${need === 1 ? 'set' : 'sets'} at ${REP_HI} → +2 kg`}
                       </span>
                     )}
-                    <span
-                      className={`text-[11px] font-bold px-2 py-0.5 rounded-pill ${
-                        need <= 0 ? 'bg-load-soft text-load' : 'bg-[var(--color-surface-sunk)] text-muted'
-                      }`}
-                    >
-                      {need <= 0
-                        ? '✓ +2 kg next session'
-                        : `${need} more ${need === 1 ? 'set' : 'sets'} at ${REP_HI} → +2 kg`}
-                    </span>
                   </div>
                 )
               })()}

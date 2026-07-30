@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Check, Flame, Footprints, Trash2 } from 'lucide-react'
 import { useSessions, useSettings } from '../hooks'
 import { OPERATOR_LIFTS, PHASES } from '../program'
+import { beginnerProgress } from '../beginner'
 import { estimate1RM } from '../lib/calc'
 import { badges, computeStreak, liftRecords, runStats, weekSummary } from '../lib/stats'
 import { db, deleteSession } from '../db'
@@ -124,6 +125,9 @@ export default function History() {
   if (!sessions.length)
     return <EmptyState title="No sessions logged yet" sub="Log your first session and it lands here." />
 
+  const isBeginner = settings.programMode === 'beginner'
+  const prog = isBeginner ? beginnerProgress(sessions, settings) : []
+  const totalAdded = Math.round(prog.reduce((n, p) => n + Math.max(0, p.delta), 0) * 10) / 10
   const streak = computeStreak(sessions)
   const summary = weekSummary(sessions)
   const week = summary.lifts + summary.runs
@@ -255,8 +259,43 @@ export default function History() {
         </div>
       )}
 
+      {/* beginner progress — start → current working weight per LP lift */}
+      {isBeginner && (
+        <Card>
+          <p className="eyebrow text-muted mb-3">Your lifts</p>
+          <div className="space-y-2.5">
+            {prog.map((p) => (
+              <div key={p.id} className="flex items-center justify-between gap-2">
+                <span className="font-medium text-ink text-[15px] min-w-0 truncate">{p.name}</span>
+                <span className="text-sm text-right num-display shrink-0">
+                  {p.start === p.current ? (
+                    <b className="text-ink">{p.current} kg</b>
+                  ) : (
+                    <>
+                      <span className="text-muted">{p.start} → </span>
+                      <b className="text-load">{p.current} kg</b>
+                    </>
+                  )}
+                  {p.delta > 0 && <span className="text-load font-semibold"> +{p.delta}</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted text-center mt-3">
+            {totalAdded > 0 ? (
+              <>
+                <b className="text-load">+{totalAdded} kg/DB</b> added across your lifts since you started. Slow and
+                steady wins.
+              </>
+            ) : (
+              'Add reps each session; once you hit 3×12, the weight goes up. This is where it shows.'
+            )}
+          </p>
+        </Card>
+      )}
+
       {/* strength chart */}
-      {chartData.length >= 2 && (
+      {!isBeginner && chartData.length >= 2 && (
         <Card>
           <p className="eyebrow text-muted">Strength trend</p>
           <p className="text-xs text-muted mt-1 mb-3">best estimated 1RM to date · kg per dumbbell</p>
@@ -289,7 +328,7 @@ export default function History() {
       )}
 
       {/* records */}
-      {records.some((r) => r.heaviest > 0) && (
+      {!isBeginner && records.some((r) => r.heaviest > 0) && (
         <Card>
           <p className="eyebrow text-muted mb-3">Personal records</p>
           <div className="space-y-2.5">

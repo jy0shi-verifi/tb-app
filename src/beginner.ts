@@ -1,7 +1,7 @@
 // Beginner Mode — a proven novice on-ramp: dumbbell Linear Progression (double
 // progression, StrengthLog-style A/B full body) + Couch-to-5K (canonical Josh Clark
 // 9-week schedule). Runs are time-based intervals (no watch needed).
-import type { LoggedExercise, Settings } from './types'
+import type { LoggedExercise, Settings, SessionLog } from './types'
 import type { PlannedExercise, SessionPlan } from './program'
 
 export interface BeginnerLift {
@@ -126,6 +126,84 @@ export function beginnerSessionFor(week: number, day: number, settings: Settings
   if (LIFT_DAYS.includes(day)) return liftPlan(week, day, settings)
   if (RUN_DAYS.includes(day)) return runPlan()
   return { type: 'rest', title: 'Rest', detail: 'Recovery is training too.', exercises: [] }
+}
+
+/** The beginner-lift id for an exercise name (or undefined if it isn't an LP lift). */
+export function beginnerLiftId(name: string): string | undefined {
+  return ALL_BEGINNER_LIFTS.find((l) => l.name === name)?.id
+}
+
+/** Per-set summary (weight used + best reps) of a logged exercise, newest-first. */
+function liftHistory(sessions: SessionLog[], liftName: string, before?: string) {
+  return sessions
+    .filter((s) => s.type === 'lift' && (before ? s.date < before : true))
+    .slice()
+    .sort((a, b) => (a.date < b.date ? 1 : -1)) // newest first
+    .map((s) => s.exercises.find((e) => e.name === liftName))
+    .filter((e): e is LoggedExercise => !!e)
+    .map((e) => {
+      const done = e.sets.filter((x) => x.reps > 0)
+      return {
+        weight: Math.max(0, ...done.map((x) => x.weight ?? 0)),
+        bestReps: Math.max(0, ...done.map((x) => x.reps)),
+      }
+    })
+    .filter((r) => r.weight > 0)
+}
+
+/**
+ * A beginner lift has STALLED when its last `window` logged sessions were all at the
+ * current working weight and the top-set reps stopped improving (and never reached the
+ * top of the range, which would instead earn a +2 kg bump). Returns a suggested deload
+ * weight (~10% off, rounded to the DB increment, ≥ one increment), or null. The other
+ * half of double progression: when you can't go up, drop back and rebuild.
+ */
+export function beginnerStall(
+  sessions: SessionLog[],
+  liftName: string,
+  workingKg: number,
+  inc: number,
+  before?: string,
+  window = 3,
+): { count: number; deloadTo: number } | null {
+  if (workingKg <= 0) return null
+  const hist = liftHistory(sessions, liftName, before)
+  if (hist.length < window) return null
+  const win = hist.slice(0, window)
+  if (!win.every((r) => r.weight === workingKg)) return null // not a clean run at this weight
+  if (win[0].bestReps > win[window - 1].bestReps) return null // still adding reps → not stalled
+  if (win[0].bestReps >= REP_HI) return null // at the top → it bumps, not stalls
+  const drop = Math.max(inc, Math.round((workingKg * 0.1) / inc) * inc)
+  const deloadTo = Math.max(inc, workingKg - drop)
+  if (deloadTo >= workingKg) return null
+  return { count: window, deloadTo }
+}
+
+export interface BeginnerLiftProgress {
+  id: string
+  short: string
+  name: string
+  start: number
+  current: number
+  delta: number
+}
+
+/** Start → current working weight (+delta) per LP lift, for the beginner progress view. */
+export function beginnerProgress(sessions: SessionLog[], settings: Settings): BeginnerLiftProgress[] {
+  const lifts = sessions.filter((s) => s.type === 'lift').slice().sort((a, b) => (a.date < b.date ? -1 : 1))
+  return ALL_BEGINNER_LIFTS.map((l) => {
+    const current = settings.beginner?.lifts?.[l.id] ?? l.startKg
+    let start = current // fall back to current (delta 0) until there's a logged session
+    for (const s of lifts) {
+      const ex = s.exercises.find((e) => e.name === l.name)
+      const weights = ex?.sets.map((x) => x.weight ?? 0).filter((x) => x > 0)
+      if (weights && weights.length) {
+        start = Math.max(...weights)
+        break
+      }
+    }
+    return { id: l.id, short: l.short, name: l.name, start, current, delta: Math.round((current - start) * 10) / 10 }
+  })
 }
 
 /**

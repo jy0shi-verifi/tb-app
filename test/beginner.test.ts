@@ -3,10 +3,12 @@ import {
   c25kWorkout,
   beginnerDayLetter,
   applyBeginnerProgress,
+  beginnerStall,
+  beginnerProgress,
   defaultBeginnerWeights,
   LP_A,
 } from '../src/beginner'
-import type { Settings } from '../src/types'
+import type { Settings, SessionLog } from '../src/types'
 
 const base: Settings = {
   id: 'app',
@@ -64,5 +66,53 @@ describe('LP double progression', () => {
   it('adopts the weight actually used (self-calibrates on edits)', () => {
     const next = applyBeginnerProgress(base, 'A', loggedAt(8, () => 14))
     expect(next?.[LP_A[0].id]).toBe(14)
+  })
+})
+
+describe('LP stall → deload', () => {
+  const sess = (date: string, reps: number, weight = 10): SessionLog => ({
+    date,
+    phaseId: 'beginner',
+    week: 1,
+    day: 0,
+    type: 'lift',
+    title: 'Strength — Day A',
+    done: true,
+    createdAt: 1,
+    exercises: [{ name: 'Goblet / Front-rack Squat', sets: [{ weight, reps, done: true }, { weight, reps, done: true }, { weight, reps, done: true }] }],
+  })
+
+  it('flags a stall after 3 sessions with no rep progress at the same weight', () => {
+    const hist = [sess('2026-07-01', 9), sess('2026-07-04', 9), sess('2026-07-08', 9)]
+    const s = beginnerStall(hist, 'Goblet / Front-rack Squat', 10, 2)
+    expect(s).toEqual({ count: 3, deloadTo: 8 }) // 10 - max(2, round(1/2)*2)=2 → 8
+  })
+  it('does NOT flag while reps are still improving', () => {
+    const hist = [sess('2026-07-08', 11), sess('2026-07-04', 10), sess('2026-07-01', 9)]
+    expect(beginnerStall(hist, 'Goblet / Front-rack Squat', 10, 2)).toBeNull()
+  })
+  it('does NOT flag when the top of the range is reached (that bumps instead)', () => {
+    const hist = [sess('2026-07-01', 12), sess('2026-07-04', 12), sess('2026-07-08', 12)]
+    expect(beginnerStall(hist, 'Goblet / Front-rack Squat', 10, 2)).toBeNull()
+  })
+  it('needs at least 3 sessions before judging a stall', () => {
+    expect(beginnerStall([sess('2026-07-01', 9), sess('2026-07-04', 9)], 'Goblet / Front-rack Squat', 10, 2)).toBeNull()
+  })
+})
+
+describe('beginnerProgress', () => {
+  const settings: Settings = { ...base, beginner: { lifts: { ...defaultBeginnerWeights(), bg_squat: 14 } } }
+  const first: SessionLog = {
+    date: '2026-07-01', phaseId: 'beginner', week: 1, day: 0, type: 'lift', title: 'Strength — Day A',
+    done: true, createdAt: 1,
+    exercises: [{ name: 'Goblet / Front-rack Squat', sets: [{ weight: 10, reps: 12, done: true }] }],
+  }
+  it('reports start (first logged) → current (working) weight + delta', () => {
+    const squat = beginnerProgress([first], settings).find((p) => p.id === 'bg_squat')!
+    expect(squat).toMatchObject({ start: 10, current: 14, delta: 4 })
+  })
+  it('shows delta 0 for a lift never logged (start = current default)', () => {
+    const ohp = beginnerProgress([first], settings).find((p) => p.id === 'bg_ohp')!
+    expect(ohp.delta).toBe(0)
   })
 })

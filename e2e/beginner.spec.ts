@@ -53,3 +53,52 @@ test('beginner run day is a plain Runna-owned slot (no C25K interval timer)', as
   await expect(page.getByText(/Runna/i)).toBeVisible()
   await expect(page.getByText(/JOG|WALK/)).toHaveCount(0) // interval timer is gone
 })
+
+test('a stalled beginner lift shows a deload suggestion', async ({ page }) => {
+  const mon = mondayOffset(0) // this Monday = Day A (includes Goblet Squat)
+  const squat = (date: string, reps: number) => ({
+    date,
+    phaseId: 'beginner',
+    week: 1,
+    day: 0,
+    type: 'lift',
+    title: 'Strength — Day A',
+    done: true,
+    createdAt: 1,
+    exercises: [{ name: 'Goblet / Front-rack Squat', sets: [{ weight: 10, reps, done: true }, { weight: 10, reps, done: true }, { weight: 10, reps, done: true }] }],
+  })
+  await seedState(page, {
+    settings: { currentPhaseId: 'beginner', programMode: 'beginner', phaseStartDate: mon, beginner: { lifts: BEGINNER_WEIGHTS } },
+    sessions: [squat(plusDays(mon, -14), 9), squat(plusDays(mon, -11), 9), squat(plusDays(mon, -7), 9)],
+  })
+
+  await page.goto(`/session/${mon}`)
+  await expect(page.getByText(/Stalled/)).toBeVisible()
+  await expect(page.getByRole('button', { name: /Deload to 8kg/ })).toBeVisible()
+})
+
+test('History shows the beginner progress view (start → current per lift)', async ({ page }) => {
+  const mon = mondayOffset(0)
+  await seedState(page, {
+    settings: { currentPhaseId: 'beginner', programMode: 'beginner', phaseStartDate: mon, beginner: { lifts: { ...BEGINNER_WEIGHTS, bg_squat: 14 } } },
+    sessions: [
+      {
+        date: plusDays(mon, -7),
+        phaseId: 'beginner',
+        week: 1,
+        day: 0,
+        type: 'lift',
+        title: 'Strength — Day A',
+        done: true,
+        createdAt: 1,
+        exercises: [{ name: 'Goblet / Front-rack Squat', sets: [{ weight: 10, reps: 12, done: true }] }],
+      },
+    ],
+  })
+
+  await page.goto('/history')
+  await expect(page.getByText('Your lifts', { exact: true })).toBeVisible()
+  await expect(page.getByText(/Goblet \/ Front-rack Squat/)).toBeVisible()
+  await expect(page.getByText(/14 kg/).first()).toBeVisible()
+  await expect(page.getByText(/\+4/).first()).toBeVisible()
+})
