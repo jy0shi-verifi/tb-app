@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, saveSettings } from './db'
@@ -6,6 +6,7 @@ import { handleStravaRedirect } from './lib/strava'
 import { syncStrava } from './lib/stravaSync'
 import Layout from './components/Layout'
 import UpdatePrompt from './components/UpdatePrompt'
+import IntroSplash, { shouldPlayIntro } from './components/IntroSplash'
 import Onboarding from './screens/Onboarding'
 import Today from './screens/Today'
 import Session from './screens/Session'
@@ -34,6 +35,8 @@ async function runSync(): Promise<void> {
 
 export default function App() {
   const settings = useLiveQuery(async () => (await db.settings.get('app')) ?? null, [])
+  // Cold-open reveille: "Be a fucking pro" overlay, once per launch (see IntroSplash).
+  const [showSplash, setShowSplash] = useState(shouldPlayIntro)
 
   // On load: handle the Strava OAuth callback (?code=…) then sync; otherwise
   // auto-sync in the background for an already-connected user (throttled, so
@@ -50,24 +53,33 @@ export default function App() {
       .catch(() => {})
   }, [])
 
-  if (settings === undefined || settings === null) return null // loading / seeding
-  if (settings.onboarded === false) return <Onboarding />
+  let content: ReactNode
+  if (settings === undefined || settings === null)
+    content = null // loading / seeding
+  else if (settings.onboarded === false) content = <Onboarding />
+  else
+    content = (
+      <>
+        <Routes>
+          <Route element={<Layout />}>
+            <Route path="/" element={<Today />} />
+            <Route path="/session" element={<Session />} />
+            <Route path="/session/:date" element={<Session />} />
+            <Route path="/program" element={<Program />} />
+            <Route path="/history" element={<History />} />
+            <Route path="/maxes" element={<Maxes />} />
+            <Route path="/guide" element={<Guide />} />
+            <Route path="/settings" element={<Settings />} />
+          </Route>
+        </Routes>
+        <UpdatePrompt />
+      </>
+    )
 
   return (
     <>
-      <Routes>
-        <Route element={<Layout />}>
-          <Route path="/" element={<Today />} />
-          <Route path="/session" element={<Session />} />
-          <Route path="/session/:date" element={<Session />} />
-          <Route path="/program" element={<Program />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/maxes" element={<Maxes />} />
-          <Route path="/guide" element={<Guide />} />
-          <Route path="/settings" element={<Settings />} />
-        </Route>
-      </Routes>
-      <UpdatePrompt />
+      {content}
+      {showSplash && <IntroSplash onDone={() => setShowSplash(false)} />}
     </>
   )
 }

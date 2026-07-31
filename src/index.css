@@ -519,6 +519,95 @@
   animation: scrim-in 0.3s var(--ease-standard);
 }
 
+/* ---- INTRO SPLASH — "The Strike" (cold-open reveille) ---- */
+@keyframes splash-strike {
+  0% {
+    transform: scale(2.1);
+    opacity: 0;
+    filter: blur(7px);
+  }
+  55% {
+    transform: scale(0.94);
+    opacity: 1;
+    filter: blur(0);
+  }
+  73% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+.splash-strike {
+  animation: splash-strike 0.42s var(--ease-out-soft) both;
+}
+@keyframes splash-shake {
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  20% {
+    transform: translate(-3px, 2px);
+  }
+  40% {
+    transform: translate(4px, -2px);
+  }
+  60% {
+    transform: translate(-3px, 1px);
+  }
+  80% {
+    transform: translate(2px, -1px);
+  }
+}
+.splash-shake {
+  animation: splash-shake 0.34s var(--ease-standard) both;
+}
+@keyframes splash-flash {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  18% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+.splash-flash {
+  animation: splash-flash 0.7s var(--ease-out-soft) both;
+}
+@keyframes splash-bar {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+.splash-bar {
+  transform-origin: left center;
+  animation: splash-bar 0.5s var(--ease-out-soft) both;
+}
+@keyframes splash-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+}
+.splash-out {
+  animation: splash-out 0.36s var(--ease-standard) both;
+}
+
 /* staggered entrance for a screen's top-level sections */
 .stagger > * {
   animation: card-in var(--dur-enter) var(--ease-out-soft) both;

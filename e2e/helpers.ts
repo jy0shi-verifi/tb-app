@@ -14,14 +14,28 @@ const BENIGN = [
  * uncaught exception during the test — the class of runtime bug static review
  * misses. `errors` is exposed so a test can additionally assert on it.
  */
-export const test = base.extend<{ errors: string[] }>({
-  errors: async ({ page }, use) => {
+export const test = base.extend<{ errors: string[]; _noSplash: void }>({
+  // Auto: suppress the cold-open intro splash so it never covers the app under test.
+  _noSplash: [
+    async ({ page }, provide) => {
+      await page.addInitScript(() => {
+        try {
+          localStorage.setItem('tb-no-splash', '1')
+        } catch {
+          /* no-op */
+        }
+      })
+      await provide()
+    },
+    { auto: true },
+  ],
+  errors: async ({ page }, provide) => {
     const errors: string[] = []
     page.on('console', (m) => {
       if (m.type() === 'error' && !BENIGN.some((r) => r.test(m.text()))) errors.push(m.text())
     })
     page.on('pageerror', (e) => errors.push(`PAGEERROR: ${e.message}`))
-    await use(errors)
+    await provide(errors)
     expect(errors, `console errors / crashes:\n${errors.join('\n')}`).toEqual([])
   },
 })
