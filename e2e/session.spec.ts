@@ -1,7 +1,7 @@
-import { test, expect, setupOperator } from './helpers'
+import { test, expect, setupLiftWeek } from './helpers'
 
 test('rest timer survives a page refresh (regression)', async ({ page }) => {
-  const mon = await setupOperator(page)
+  const mon = await setupLiftWeek(page)
   await page.goto(`/session/${mon}`)
 
   const firstDone = page.getByLabel('Mark set done').first()
@@ -17,7 +17,7 @@ test('rest timer survives a page refresh (regression)', async ({ page }) => {
 })
 
 test('skipping the rest clears it (and stays cleared on reload)', async ({ page }) => {
-  const mon = await setupOperator(page)
+  const mon = await setupLiftWeek(page)
   await page.goto(`/session/${mon}`)
   await page.getByLabel('Mark set done').first().click()
   await page.getByLabel('Skip rest').click()
@@ -27,7 +27,7 @@ test('skipping the rest clears it (and stays cleared on reload)', async ({ page 
 })
 
 test('direct weight entry + feel/notes journaling persists to History', async ({ page }) => {
-  const mon = await setupOperator(page)
+  const mon = await setupLiftWeek(page)
   await page.goto(`/session/${mon}`)
 
   const weight = page.getByLabel('Weight per dumbbell').first()

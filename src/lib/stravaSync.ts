@@ -1,39 +1,21 @@
 import { db, saveSettings } from '../db'
-import { maxesMap, programSessionName, resolvePosition, sessionFor } from '../program'
+import { programSessionName, resolvePosition } from '../program'
 import {
   fetchStravaActivities,
   getStravaAccessToken,
   stravaCanWrite,
   updateStravaActivityName,
 } from './strava'
-import { estimate1RM } from './calc'
-import { sessionVolume } from './stats'
 import { parseISO } from './date'
 import { musclesForExercises } from '../exerciseInfo'
-import type { LoggedExercise, MaxEntry, Settings, SessionLog } from '../types'
+import type { LoggedExercise, SessionLog } from '../types'
 
-// Strava activity types we treat as a run/HIC (the plan decides run vs HIC by day).
+// Strava activity types we treat as a run.
 const RUN_TYPES = new Set(['Run', 'TrailRun', 'VirtualRun', 'Walk', 'Hike'])
-// Strava types we treat as a strength/circuit session (matched to a logged lift/SE).
+// Strava types we treat as a strength session (matched to a logged lift).
 const LIFT_TYPES = new Set(['WeightTraining', 'Workout', 'Crossfit'])
 
-/** One logged-exercise line for a Strava description, e.g. "DB Bench Press — 18kg per DB × 5/5/5  (~21kg est. 1RM)". */
-function liftLine(ex: LoggedExercise): string {
-  const done = ex.sets.filter((s) => s.done)
-  if (!done.length) return ''
-  const reps = done.map((s) => s.reps).join('/')
-  const weighted = done.filter((s): s is typeof s & { weight: number } => s.weight != null && s.weight > 0)
-  if (!weighted.length) return `${ex.name} — ${reps}` // bodyweight move
-  const unit = /row/i.test(ex.name) ? 'per arm' : 'per DB'
-  const best1rm = Math.round(Math.max(...weighted.map((s) => estimate1RM(s.weight, s.reps))))
-  const e1rm = best1rm > 0 ? `  (~${best1rm}kg est. 1RM)` : ''
-  const allSame = weighted.length === done.length && weighted.every((s) => s.weight === weighted[0].weight)
-  if (allSame) return `${ex.name} — ${weighted[0].weight}kg ${unit} × ${reps}${e1rm}`
-  const perSet = done.map((s) => (s.weight ? `${s.weight}×${s.reps}` : `${s.reps}`)).join(', ')
-  return `${ex.name} — ${perSet} ${unit}${e1rm}`
-}
-
-/** A weight-free line for a beginner lift (Josh shares reps only), e.g. "DB Bench Press — 8, 9, 8". */
+/** A weight-free line for a logged lift (reps only), e.g. "DB Bench Press — 8, 9, 8". */
 function beginnerLiftLine(ex: LoggedExercise): string {
   const done = ex.sets.filter((s) => s.done && s.reps > 0)
   if (!done.length) return ''
@@ -41,31 +23,16 @@ function beginnerLiftLine(ex: LoggedExercise): string {
 }
 
 /**
- * Compose the Strava activity description for a logged lift/SE session. Beginner
- * mode shares sets/reps only (no weight) + the muscles worked; TB mode adds the
- * weight-per-DB × reps + est. 1RM lines and a volume/scheme footer. A "Muscles:"
- * line (from each exercise's targets) stands in for Strava's native muscle map,
- * which the public API can't populate.
+ * Compose the Strava activity description for a logged lift session: sets/reps
+ * only (no weight) plus the muscles worked. The "Muscles:" line stands in for
+ * Strava's native muscle map, which the public API can't populate.
  */
-export function liftDescription(
-  s: SessionLog,
-  maxes: Record<string, MaxEntry>,
-  settings: Settings,
-): string {
-  const beginner = s.phaseId === 'beginner' || settings.programMode === 'beginner'
-  const lines = s.exercises.map((e) => (beginner ? beginnerLiftLine(e) : liftLine(e))).filter(Boolean)
+export function liftDescription(s: SessionLog): string {
+  const lines = s.exercises.map(beginnerLiftLine).filter(Boolean)
   const muscles = musclesForExercises(s.exercises.map((e) => e.name))
   const out = [...lines]
   if (muscles.length) out.push(`Muscles: ${muscles.join(' · ')}`)
-  const footer: string[] = []
-  if (!beginner) {
-    const vol = sessionVolume(s)
-    if (vol > 0) footer.push(`Volume ${vol.toLocaleString()} kg`)
-    const scheme = sessionFor(s.phaseId, s.week, s.day, maxes, settings).scheme
-    if (scheme) footer.push(scheme)
-  }
-  footer.push('via Tactical Barbell')
-  out.push(footer.join(' · '))
+  out.push('via Tactical Barbell')
   return out.join('\n')
 }
 
@@ -90,7 +57,6 @@ export async function syncStrava(): Promise<number> {
   const afterEpoch = Math.min(Math.floor(start.getTime() / 1000) - 86400, nowEpoch - 86400)
   const activities = await fetchStravaActivities(token, afterEpoch)
 
-  const maxes = maxesMap(await db.maxes.toArray())
   const byDate = new Map((await db.sessions.toArray()).map((s) => [s.date, s]))
   const canWrite = stravaCanWrite(settings)
 
@@ -124,7 +90,7 @@ export async function syncStrava(): Promise<number> {
       // linked and named (so auto-sync on every app open doesn't re-hit Strava).
       const name = programSessionName(logged.phaseId, logged.week, logged.day, logged.type, settings)
       if (canWrite && !(logged.stravaId === a.id && a.name === name)) {
-        const desc = liftDescription(logged, maxes, settings)
+        const desc = liftDescription(logged)
         try {
           await updateStravaActivityName(token, a.id, name, desc)
         } catch {
@@ -144,20 +110,10 @@ export async function syncStrava(): Promise<number> {
     if (prev?.stravaId) continue // already synced this day
     if (prev && (prev.type === 'lift' || prev.type === 'se')) continue // don't clobber a logged lift
 
-    // Beginner mode: running is owned by Runna. Log ANY run (whatever day it lands
-    // on) and keep Runna's own activity name — never rename it on Strava. TB mode:
-    // only auto-tick a scheduled run/HIC day and name it by where it lands.
-    const beginnerRun = settings.programMode === 'beginner' || pos.phaseId === 'beginner'
-    let recType: 'run' | 'hic' = 'run'
-    let name: string
-    if (beginnerRun) {
-      name = a.name?.trim() || 'Run'
-    } else {
-      const plan = sessionFor(pos.phaseId, pos.week, pos.day, maxes, settings)
-      if (plan.type !== 'run' && plan.type !== 'hic') continue
-      recType = plan.type
-      name = programSessionName(pos.phaseId, pos.week, pos.day, plan.type, settings)
-    }
+    // Running is owned by Runna: log ANY run (whatever day it lands on) and keep
+    // Runna's own activity name — never rename it on Strava.
+    const recType: 'run' | 'hic' = 'run'
+    const name = a.name?.trim() || 'Run'
 
     const rec: SessionLog = {
       ...(prev?.id ? { id: prev.id } : {}),
@@ -178,15 +134,7 @@ export async function syncStrava(): Promise<number> {
     await db.sessions.put(rec)
     byDate.set(date, rec)
     synced++
-
-    // Push the programme name back onto Strava (TB only; never overwrite Runna's names).
-    if (!beginnerRun && canWrite && a.name !== name) {
-      try {
-        await updateStravaActivityName(token, a.id, name)
-      } catch {
-        /* leave the Strava-side name as-is; the local log is already correct */
-      }
-    }
+    // Never rename a run on Strava — Runna owns those names.
   }
   await saveSettings({ lastStravaSyncAt: Date.now() })
   return synced
@@ -232,39 +180,4 @@ export async function importStravaHistory(): Promise<number> {
   }
   if (toAdd.length) await db.sessions.bulkAdd(toAdd)
   return toAdd.length
-}
-
-/**
- * DEV-only: take your latest Strava-linked activity (e.g. the newest imported
- * C25K run) and re-tag it AS IF it were an Operator easy-run day — exercising
- * the program-day naming (#1) and the write-back to Strava (#2) end-to-end,
- * without waiting for a real programmed run. Returns a human-readable result.
- */
-export async function devTagLatestAsOperatorRun(): Promise<string> {
-  const settings = await db.settings.get('app')
-  if (!settings?.strava) return 'Connect Strava first.'
-  const token = await getStravaAccessToken(settings)
-  if (!token) return 'No Strava token — reconnect.'
-
-  const target = (await db.sessions.toArray())
-    .filter((s) => s.stravaId != null)
-    .sort((a, b) => (a.date < b.date ? 1 : -1))[0]
-  if (!target?.id || target.stravaId == null)
-    return 'No Strava-linked activity found — import your past runs first.'
-
-  // Pretend it's an Operator Wk2 Thu easy-run day.
-  const name = programSessionName('operator', 2, 3, 'run', settings)
-  const was = target.title
-  await db.sessions.update(target.id, { title: name })
-
-  if (!stravaCanWrite(settings))
-    return `Renamed “${was}” → “${name}” locally. Reconnect Strava (grant write) to push it there.`
-  try {
-    const ok = await updateStravaActivityName(token, target.stravaId, name)
-    return ok
-      ? `Renamed “${was}” → “${name}” and pushed to Strava.`
-      : `Renamed locally → “${name}”, but Strava refused it — reconnect to grant write.`
-  } catch (e) {
-    return `Renamed locally → “${name}”; Strava write failed: ${(e as Error).message}`
-  }
 }

@@ -1,56 +1,39 @@
-import { test, expect, seedState, isoOffset, OP_MAXES } from './helpers'
+import { test, expect, seedState, isoOffset } from './helpers'
 
-test('before the phase starts: BB countdown + first-week hint', async ({ page }) => {
+test('before the phase starts: countdown + first-week hint', async ({ page }) => {
   await seedState(page, {
-    settings: { currentPhaseId: 'base-building', phaseStartDate: isoOffset(7) },
+    settings: { currentPhaseId: 'beginner', phaseStartDate: isoOffset(7) },
   })
-  await expect(page.getByText(/Base Building starts in/i)).toBeVisible()
+  await expect(page.getByText(/Beginner starts in/i)).toBeVisible()
   await expect(page.getByText(/Your first week/i)).toBeVisible()
 })
 
-test('day 0 of the phase is active — Operator week 1', async ({ page }) => {
+test('day 0 of the phase is active — week 1', async ({ page }) => {
   await seedState(page, {
-    settings: { currentPhaseId: 'operator', phaseStartDate: isoOffset(0), operatorBlock: 1 },
-    maxes: OP_MAXES,
+    settings: { currentPhaseId: 'beginner', phaseStartDate: isoOffset(0) },
   })
-  await expect(page.getByText(/Wk 1\/6/)).toBeVisible()
+  await expect(page.getByRole('main').getByText(/Beginner · Wk 1/)).toBeVisible()
 })
 
-test('day 41 is still active — the final Operator week', async ({ page }) => {
+test('week rolls over on the 7-day boundary', async ({ page }) => {
   await seedState(page, {
-    settings: {
-      currentPhaseId: 'operator',
-      phaseStartDate: isoOffset(-41),
-      operatorBlock: 1,
-      operatorFirstRunDone: true,
-    },
-    maxes: OP_MAXES,
+    settings: { currentPhaseId: 'beginner', phaseStartDate: isoOffset(-7) },
   })
-  await expect(page.getByText(/Wk 6\/6/)).toBeVisible()
+  await expect(page.getByRole('main').getByText(/Beginner · Wk 2/)).toBeVisible()
 })
 
-test('day 42 flips to phase-complete (when not lapsed)', async ({ page }) => {
+test('a long-running programme keeps counting — beginner never "completes"', async ({ page }) => {
   await seedState(page, {
-    settings: {
-      currentPhaseId: 'operator',
-      phaseStartDate: isoOffset(-42),
-      operatorBlock: 1,
-      operatorFirstRunDone: true,
-    },
-    maxes: OP_MAXES,
-    sessions: [
-      {
-        date: isoOffset(-1),
-        phaseId: 'operator',
-        week: 6,
-        day: 4,
-        type: 'lift',
-        title: 'Operator — Week 6',
-        exercises: [],
-        done: true,
-        createdAt: 1,
-      },
-    ],
+    settings: { currentPhaseId: 'beginner', phaseStartDate: isoOffset(-42) },
   })
-  await expect(page.getByText(/Operator block done/i)).toBeVisible()
+  await expect(page.getByRole('main').getByText(/Beginner · Wk 7/)).toBeVisible()
+})
+
+// A restored backup (or an install from before the Tactical Barbell programme was
+// removed) can still carry a TB phase id. It must resolve, not blank the app.
+test('an unknown stored phase falls back rather than blanking the app', async ({ page }) => {
+  await seedState(page, {
+    settings: { currentPhaseId: 'operator', phaseStartDate: isoOffset(0) },
+  })
+  await expect(page.getByRole('main').getByText(/Beginner · Wk 1/)).toBeVisible()
 })

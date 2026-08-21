@@ -1,7 +1,7 @@
-import { test, expect, setupOperator } from './helpers'
+import { test, expect, setupLiftWeek } from './helpers'
 
 test('export produces a backup download', async ({ page }) => {
-  await setupOperator(page)
+  await setupLiftWeek(page)
   await page.goto('/settings')
   const [download] = await Promise.all([
     page.waitForEvent('download'),
@@ -11,7 +11,7 @@ test('export produces a backup download', async ({ page }) => {
 })
 
 test('a malformed backup import is rejected, not applied', async ({ page }) => {
-  await setupOperator(page)
+  await setupLiftWeek(page)
   await page.goto('/settings')
   await page.locator('input[type="file"]').setInputFiles({
     name: 'not-a-backup.json',

@@ -3,6 +3,29 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+// The in-progress rebuild deploys to its own origin (tb2.joshua-birch.co.uk) so the
+// live app is never disturbed. Set APP_VARIANT=v2 for that build: it renames the PWA
+// and the tab so two installed copies are tellable apart on the home screen.
+const isV2 = process.env.APP_VARIANT === 'v2'
+const APP_NAME = isV2 ? 'Tactical Barbell v2' : 'Tactical Barbell'
+const SHORT_NAME = isV2 ? 'TB v2' : 'TB'
+
+/** Retitle the document for the v2 build (index.html is otherwise static). */
+function variantTitle() {
+  return {
+    name: 'variant-title',
+    transformIndexHtml(html: string) {
+      if (!isV2) return html
+      return html
+        .replace(/<title>[^<]*<\/title>/, `<title>${APP_NAME}</title>`)
+        .replace(
+          /(<meta name="apple-mobile-web-app-title" content=")[^"]*(")/,
+          `$1${APP_NAME}$2`,
+        )
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   server: {
@@ -13,14 +36,15 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    variantTitle(),
     VitePWA({
       // 'prompt' (not autoUpdate): a new build waits until the user taps "reload"
       // so it can't hot-swap chunks under a live 6am session (see UpdatePrompt).
       registerType: 'prompt',
       includeAssets: ['icons/apple-touch-icon.png'],
       manifest: {
-        name: 'Tactical Barbell',
-        short_name: 'TB',
+        name: APP_NAME,
+        short_name: SHORT_NAME,
         description: "Josh's personal Tactical Barbell trainer",
         theme_color: '#0b0c0e',
         background_color: '#0b0c0e',

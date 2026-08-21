@@ -31,7 +31,7 @@ export async function autoCompleteRestDays(): Promise<void> {
     if (logged.has(iso)) continue
     const p = resolvePosition(settings, d)
     if (p.status !== 'active') continue
-    const plan = sessionFor(p.phaseId, p.week, p.day, {}, settings)
+    const plan = sessionFor(p.phaseId, p.week, p.day, settings)
     if (plan.type !== 'rest') continue
     const isPast = iso < nowIso
     const isTodayLate = iso === nowIso && past2355

@@ -69,8 +69,8 @@ export default function Onboarding() {
               </h1>
             </div>
             <p className="text-muted mt-3 leading-relaxed">
-              This app runs your Tactical Barbell plan for you — it tells you exactly what to do each
-              morning and works out every weight. You just show up.
+              This app runs your training for you — it tells you exactly what to do each morning
+              and tracks every weight. You just show up.
             </p>
 
             <div className="space-y-3 mt-6">
@@ -79,10 +79,10 @@ export default function Onboarding() {
                   <Footprints size={20} />
                 </span>
                 <div>
-                  <p className="font-semibold text-ink">First: Base Building</p>
+                  <p className="font-semibold text-ink">Running: your own plan</p>
                   <p className="text-sm text-muted">
-                    8 weeks of easy runs and light circuits to rebuild your engine — before we load
-                    the bar.
+                    Follow your Runna plan — runs log themselves here automatically once they sync
+                    from Strava.
                   </p>
                 </div>
               </Card>
@@ -91,10 +91,10 @@ export default function Onboarding() {
                   <Dumbbell size={20} />
                 </span>
                 <div>
-                  <p className="font-semibold text-ink">Then: lifting (called "Operator")</p>
+                  <p className="font-semibold text-ink">Lifting: three days a week</p>
                   <p className="text-sm text-muted">
-                    At the end you'll do a Test Day, pop in your numbers, and the app works out every
-                    weight for you — no thinking required.
+                    Two dumbbell sessions that alternate, 3 sets of 8–12. Clear all three sets at 12
+                    and the app adds weight for you — no thinking required.
                   </p>
                 </div>
               </Card>

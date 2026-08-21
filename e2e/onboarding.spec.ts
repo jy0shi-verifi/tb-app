@@ -14,7 +14,7 @@ test('completing onboarding lands on Today and never returns', async ({ page }) 
 
 test('a legacy settings row without onboarded skips onboarding', async ({ page }) => {
   await seedState(page, {
-    settings: { onboarded: undefined, currentPhaseId: 'base-building', phaseStartDate: '2026-06-01' },
+    settings: { onboarded: undefined, currentPhaseId: 'beginner', phaseStartDate: '2026-06-01' },
   })
   await expect(page.getByRole('heading', { name: /handled/i })).toHaveCount(0)
 })

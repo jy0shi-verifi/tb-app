@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createPortal } from 'react-dom'
 import { Check, Timer, X, Plus, Minus, Smile, Meh, Frown, ChevronDown } from 'lucide-react'
-import { maxesMap, resolvePosition, sessionFor, type SessionPlan } from '../program'
+import { resolvePosition, sessionFor, type SessionPlan } from '../program'
 import { EXERCISE_INFO } from '../exerciseInfo'
 import ExerciseDetail from '../components/ExerciseDetail'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
@@ -35,12 +35,9 @@ interface MetaState {
   notes: string
 }
 
-function restSeconds(plan: SessionPlan, week: number, override?: number): number {
+function restSeconds(plan: SessionPlan, override?: number): number {
   if (override && override > 0) return override // user-set rest (Settings)
   if (plan.type === 'se') return 120 // between rounds
-  if (plan.type === 'lift' && plan.title.startsWith('Operator')) {
-    return week === 3 || week === 6 ? 240 : 150
-  }
   return 120
 }
 
@@ -195,13 +192,13 @@ export default function Session() {
 
   const ready = settings !== undefined && maxes !== undefined && logged !== undefined
   const pos = ready ? resolvePosition(settings, when) : null
-  const plan = ready && pos ? sessionFor(pos.phaseId, pos.week, pos.day, maxesMap(maxes), settings) : null
+  const plan = ready && pos ? sessionFor(pos.phaseId, pos.week, pos.day, settings) : null
 
   // hydrate once from an existing log or the plan
   useEffect(() => {
     if (!ready || !plan || ex !== null) return
     const fromLog = logged && logged.exercises.length > 0
-    const beginnerLift = settings.programMode === 'beginner' && plan.type === 'lift'
+    const beginnerLift = plan.type === 'lift'
     setEx(
       plan.exercises.map((e, i) => {
         const saved = fromLog ? logged!.exercises[i] : undefined
@@ -346,9 +343,9 @@ export default function Session() {
   const isLifting = plan.exercises.length > 0
   const isRest = plan.type === 'rest'
   const isSE = plan.type === 'se'
-  const restSec = restSeconds(plan, pos.week, settings.restSec)
+  const restSec = restSeconds(plan, settings.restSec)
   const inc = settings.dbIncrement
-  const beginnerLift = settings.programMode === 'beginner' && plan.type === 'lift'
+  const beginnerLift = plan.type === 'lift'
 
   const setSet = (ei: number, si: number, patch: Partial<SetState>) => {
     touched.current = true
@@ -421,10 +418,10 @@ export default function Session() {
     setMeta((m) => ({ ...m, ...patch }))
   }
 
-  // Leaving a session: in Beginner mode, run the LP double-progression off what was
-  // actually logged (bump a lift 2 kg once all 3 sets hit 12), then go back.
+  // Leaving a session: run the LP double-progression off what was actually
+  // logged (bump a lift 2 kg once all 3 sets hit 12), then go back.
   async function finish() {
-    if (settings?.programMode === 'beginner' && plan?.type === 'lift' && pos && ex) {
+    if (settings && plan?.type === 'lift' && pos && ex) {
       const loggedEx = ex.map((e) => ({
         name: e.name,
         sets: e.sets.map((s) => ({

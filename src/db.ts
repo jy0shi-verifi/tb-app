@@ -22,9 +22,8 @@ export const db = new TBDatabase()
 export const DEFAULT_SETTINGS: Settings = {
   id: 'app',
   dbIncrement: 2,
-  loadBasis: 'tm',
-  currentPhaseId: 'base-building',
-  phaseStartDate: '2026-07-13', // Monday of Base Building week 1 (overridden to next Monday at first launch)
+  currentPhaseId: 'beginner',
+  phaseStartDate: '2026-07-13', // overridden to next Monday at first launch
   theme: 'system',
 }
 
@@ -40,7 +39,17 @@ export function applyTheme(mode: Settings['theme']): void {
 export async function ensureSeeded(): Promise<void> {
   const s = await db.settings.get('app')
   // first launch: start = upcoming Monday (never a hardcoded past date), and show onboarding
-  if (!s) await db.settings.put({ ...DEFAULT_SETTINGS, phaseStartDate: nextMonday(), onboarded: false })
+  if (!s) {
+    await db.settings.put({ ...DEFAULT_SETTINGS, phaseStartDate: nextMonday(), onboarded: false })
+    return
+  }
+  // Existing installs (and restored backups) may still carry a Tactical Barbell
+  // phase id from before that programme was removed. There is no plan generator
+  // for those any more, so coerce to the only phase that exists — otherwise
+  // resolvePosition falls back and every screen renders the wrong week.
+  if (s.currentPhaseId !== 'beginner') {
+    await db.settings.put({ ...s, currentPhaseId: 'beginner' })
+  }
 }
 
 /**
@@ -66,12 +75,6 @@ export async function saveSettings(patch: Partial<Settings>): Promise<void> {
 
 export async function deleteSession(id: number): Promise<void> {
   await db.sessions.delete(id)
-}
-
-/** Zero all accumulated forced-progression bumps (used when retesting fresh). */
-export async function clearProgression(): Promise<void> {
-  const all = await db.maxes.toArray()
-  await db.maxes.bulkPut(all.map((m) => ({ ...m, bumpKg: 0 })))
 }
 
 // ---- backup ----
@@ -134,8 +137,13 @@ export async function importBackup(json: string): Promise<void> {
   try {
     await db.transaction('rw', db.settings, db.maxes, db.sessions, async () => {
       await Promise.all([db.settings.clear(), db.maxes.clear(), db.sessions.clear()])
+      // A v1 backup may have been taken while the old Tactical Barbell programme
+      // was active. Its phase ids no longer resolve, so normalise on the way in —
+      // the sessions themselves keep their original phaseId for history.
       const settings = data.settings.map((s) =>
-        s.id === 'app' ? { ...s, strava: currentStrava ?? s.strava } : s,
+        s.id === 'app'
+          ? { ...s, strava: currentStrava ?? s.strava, currentPhaseId: 'beginner' }
+          : s,
       )
       await db.settings.bulkPut(settings)
       if (data.maxes.length) await db.maxes.bulkPut(data.maxes)

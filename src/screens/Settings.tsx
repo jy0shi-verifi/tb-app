@@ -3,14 +3,11 @@ import { Download, Upload } from 'lucide-react'
 import { useSettings } from '../hooks'
 import { applyTheme, importBackup, parseBackup, saveSettings } from '../db'
 import { downloadBackup } from '../lib/backup'
-import { PHASES } from '../program'
-import { defaultBeginnerWeights } from '../beginner'
-import { isoDate, today, addDays, mondayIndex } from '../lib/date'
 import { Button, Card, SegmentedPicker } from '../components/ui'
 import { beginStravaAuth, disconnectStrava, stravaCanWrite, stravaConfigured } from '../lib/strava'
-import { syncStrava, importStravaHistory, devTagLatestAsOperatorRun } from '../lib/stravaSync'
+import { syncStrava, importStravaHistory } from '../lib/stravaSync'
 import { APP_VERSION } from '../version'
-import type { DbIncrement, LoadBasis, ThemeMode } from '../types'
+import type { DbIncrement, ThemeMode } from '../types'
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -55,52 +52,11 @@ export default function Settings() {
   const fieldCls =
     'rounded-field border border-[var(--color-field-border)] bg-[var(--color-surface-sunk)] text-ink px-3.5 py-2.5 font-semibold min-h-[2.75rem]'
 
-  const isBeginner = s.programMode === 'beginner'
-  async function switchToBeginner() {
-    if (
-      !window.confirm(
-        'Switch to Beginner mode?\n\nThis swaps your plan to Linear Progression + Couch-to-5K — a gentler on-ramp. Your Tactical Barbell setup is kept; you can switch back any time.',
-      )
-    )
-      return
-    const mon = isoDate(addDays(today(), -mondayIndex(today())))
-    await saveSettings({
-      programMode: 'beginner',
-      currentPhaseId: 'beginner',
-      phaseStartDate: mon,
-      beginner: { lifts: defaultBeginnerWeights() },
-    })
-    setMsg('Beginner mode on — Linear Progression + Couch-to-5K.')
-  }
-  async function switchToTB() {
-    if (!window.confirm('Switch back to Tactical Barbell (Base Building → Operator)?')) return
-    await saveSettings({ programMode: 'tb', currentPhaseId: 'base-building' })
-    setMsg('Tactical Barbell mode.')
-  }
-
   return (
     <div className="stagger space-y-4">
       <Card elev="hero" className="topo-hero text-white border-white/10">
         <p className="eyebrow hero-text text-gold-hi">Tactical Barbell</p>
         <p className="display-hero text-3xl text-white mt-1">SETTINGS</p>
-      </Card>
-
-      <Card>
-        <p className="eyebrow text-muted mb-2">Program mode</p>
-        <p className="text-xs text-muted mb-3 leading-relaxed">
-          {isBeginner
-            ? 'You’re on Beginner mode — Linear Progression (dumbbell A/B) + Couch-to-5K. Build a base, then step up to Tactical Barbell.'
-            : 'Tactical Barbell (Base Building → Operator). New to training? Beginner mode is a gentler on-ramp.'}
-        </p>
-        {isBeginner ? (
-          <Button variant="secondary" className="w-full" onClick={switchToTB}>
-            Switch to Tactical Barbell
-          </Button>
-        ) : (
-          <Button className="w-full" onClick={switchToBeginner}>
-            Switch to Beginner mode (LP + C25K)
-          </Button>
-        )}
       </Card>
 
       <Card>
@@ -121,7 +77,7 @@ export default function Settings() {
               }}
             />
           </Row>
-          <Row label="Dumbbell increment" hint="Smallest jump your adjustable DBs allow. Loads floor-round to this.">
+          <Row label="Dumbbell increment" hint="Smallest jump your adjustable DBs allow.">
             <SegmentedPicker<string>
               label="Dumbbell increment"
               value={String(s.dbIncrement)}
@@ -134,7 +90,7 @@ export default function Settings() {
           </Row>
           <Row
             label="Rest timer"
-            hint="Time the between-set timer counts down. Auto uses the book's rests (longer on the heavy weeks) — recommended on a cut. 10 sec is for testing the beep."
+            hint="Time the between-set timer counts down. 10 sec is for testing the beep."
           >
             <select
               aria-label="Rest timer"
@@ -142,7 +98,7 @@ export default function Settings() {
               onChange={(e) => saveSettings({ restSec: Number(e.target.value) || undefined })}
               className={fieldCls}
             >
-              <option value={0}>Auto (book)</option>
+              <option value={0}>Auto</option>
               <option value={180}>3 min</option>
               <option value={150}>2½ min</option>
               <option value={120}>2 min</option>
@@ -157,34 +113,6 @@ export default function Settings() {
       <Card>
         <p className="eyebrow text-muted mb-2">Program</p>
         <div className="divide-y divide-line/60">
-          <Row
-            label="Load basis"
-            hint="How every weight is worked out. K. Black recommends the 90% Training Max for high-frequency templates like Operator — you grease the groove and can hit every session, even on a bad day. True 1RM is heavier, for advanced lifters who find the TM too light."
-          >
-            <SegmentedPicker<LoadBasis>
-              label="Load basis"
-              value={s.loadBasis}
-              options={[
-                { v: 'tm', label: 'Training Max (90%)' },
-                { v: '1rm', label: 'True 1RM' },
-              ]}
-              onChange={(v) => {
-                if (v !== s.loadBasis && window.confirm('Change how every weight is worked out? This rescales all your loads.'))
-                  saveSettings({ loadBasis: v })
-              }}
-            />
-          </Row>
-          <Row label="Current phase" hint="Advanced — the app normally moves you between phases at the right time.">
-            <SegmentedPicker<string>
-              label="Current phase"
-              value={s.currentPhaseId}
-              options={Object.values(PHASES).map((p) => ({ v: p.id, label: p.name }))}
-              onChange={(v) => {
-                if (v !== s.currentPhaseId && window.confirm('Switch phase? This changes your plan and where you are in it.'))
-                  saveSettings({ currentPhaseId: v })
-              }}
-            />
-          </Row>
           <Row label="Phase start date" hint="The Monday your current phase's week 1 began.">
             <input
               type="date"
@@ -247,17 +175,6 @@ export default function Settings() {
             {!stravaCanWrite(s) && (
               <button onClick={beginStravaAuth} className="w-full text-xs text-muted py-1">
                 Reconnect to let the app name your runs on Strava →
-              </button>
-            )}
-            {import.meta.env.DEV && (
-              <button
-                onClick={async () => {
-                  setMsg('Tagging latest run…')
-                  setMsg(await devTagLatestAsOperatorRun())
-                }}
-                className="w-full text-xs text-brand-ink py-1"
-              >
-                Test: tag my latest run as an Operator run day →
               </button>
             )}
           </div>

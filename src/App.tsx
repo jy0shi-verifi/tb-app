@@ -12,7 +12,6 @@ import Today from './screens/Today'
 import Session from './screens/Session'
 import Program from './screens/Program'
 import History from './screens/History'
-import Maxes from './screens/Maxes'
 import Settings from './screens/Settings'
 import Guide from './screens/Guide'
 
@@ -67,9 +66,12 @@ export default function App() {
             <Route path="/session/:date" element={<Session />} />
             <Route path="/program" element={<Program />} />
             <Route path="/history" element={<History />} />
-            <Route path="/maxes" element={<Maxes />} />
             <Route path="/guide" element={<Guide />} />
             <Route path="/settings" element={<Settings />} />
+            {/* Anything else (a bookmarked /maxes from before it was removed, a
+                stale PWA deep-link, a typo) lands on Today rather than rendering
+                an empty page with no navigation. */}
+            <Route path="*" element={<Today />} />
           </Route>
         </Routes>
         <UpdatePrompt />

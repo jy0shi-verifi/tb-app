@@ -1,9 +1,9 @@
-import { test, expect, seedState, isoOffset, OP_MAXES } from './helpers'
+import { test, expect, seedState, isoOffset } from './helpers'
 
-const OP = { currentPhaseId: 'operator', phaseStartDate: isoOffset(0), operatorBlock: 1 }
+const OP = { currentPhaseId: 'beginner', phaseStartDate: isoOffset(0) }
 
 test('History shows the empty state when nothing is logged', async ({ page }) => {
-  await seedState(page, { settings: OP, maxes: OP_MAXES })
+  await seedState(page, { settings: OP })
   await page.goto('/history')
   await expect(page.getByText(/No sessions logged yet/i)).toBeVisible()
 })
@@ -11,11 +11,10 @@ test('History shows the empty state when nothing is logged', async ({ page }) =>
 test('deleting a session from History removes it and persists', async ({ page }) => {
   await seedState(page, {
     settings: OP,
-    maxes: OP_MAXES,
     sessions: [
       {
         date: isoOffset(-1),
-        phaseId: 'operator',
+        phaseId: 'beginner',
         week: 1,
         day: 0,
         type: 'lift',

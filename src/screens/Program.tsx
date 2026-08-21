@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useMaxes, useSettings, useSessions } from '../hooks'
-import { maxesMap, OPERATOR_LIFTS, PHASES, resolvePosition, sessionFor } from '../program'
+import { useSettings, useSessions } from '../hooks'
+import { PHASES, resolvePosition, sessionFor } from '../program'
 import { addDays, DAY_NAMES, isoDate, parseISO, today } from '../lib/date'
 import { Card, Pill, SegmentedPicker, SessionIcon, SESSION_META } from '../components/ui'
 
@@ -10,12 +10,10 @@ const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 export default function Program() {
   const settings = useSettings()
-  const maxes = useMaxes()
   const sessions = useSessions()
   const nav = useNavigate()
 
-  const phase = PHASES[settings.currentPhaseId]
-  const mm = maxesMap(maxes)
+  const phase = PHASES[settings.currentPhaseId] ?? PHASES.beginner
   const now = today()
   const todayIso = isoDate(now)
   const pos = resolvePosition(settings, now)
@@ -27,17 +25,14 @@ export default function Program() {
 
   const doneDates = new Set(sessions.filter((s) => s.done).map((s) => s.date))
   const loggedDates = new Set(sessions.map((s) => s.date))
-  const wavePct = (w: number) => (phase.wave ? phase.wave[(w - 1) % phase.wave.length].pct : null)
-  const feelWord = (pct: number | null) =>
-    pct == null ? '' : pct >= 90 ? 'heavy' : pct >= 80 ? 'building' : 'lighter'
+  // Beginner is open-ended (lengthWeeks 999), so the block view shows a rolling
+  // window around where you are rather than every week to the horizon.
+  const blockWeeks = Math.min(phase.lengthWeeks, Math.max(12, pos.week + 4))
 
   function loadsLine(plan: ReturnType<typeof sessionFor>): string | null {
     const parts = plan.exercises
       .filter((e) => e.loaded && e.sets[0]?.weight != null)
-      .map((e) => {
-        const short = OPERATOR_LIFTS.find((l) => l.name === e.name)?.short ?? e.name
-        return `${short} ${e.sets[0].weight}`
-      })
+      .map((e) => `${e.name.replace(/^DB /, '')} ${e.sets[0].weight}`)
     return parts.length ? parts.join(' · ') + ' kg' : null
   }
 
@@ -69,15 +64,10 @@ export default function Program() {
             <div className="text-center">
               <p className="eyebrow text-muted">{phase.name}</p>
               <p className="num-display text-xl text-ink leading-tight">Week {week}</p>
-              {wavePct(week) != null && (
-                <p className="text-xs font-bold text-load">
-                  {feelWord(wavePct(week))} · {wavePct(week)}%
-                </p>
-              )}
             </div>
             <button
-              onClick={() => setWeek((w) => Math.min(phase.lengthWeeks, w + 1))}
-              disabled={week >= phase.lengthWeeks}
+              onClick={() => setWeek((w) => Math.min(blockWeeks, w + 1))}
+              disabled={week >= blockWeeks}
               aria-label="Next week"
               className="w-11 h-11 grid place-items-center rounded-field text-brand-ink disabled:opacity-30 active:scale-90 transition"
             >
@@ -89,7 +79,7 @@ export default function Program() {
             {DAY_NAMES.map((dn, day) => {
               const date = addDays(parseISO(settings.phaseStartDate), (week - 1) * 7 + day)
               const iso = isoDate(date)
-              const plan = sessionFor(settings.currentPhaseId, week, day, mm, settings)
+              const plan = sessionFor(settings.currentPhaseId, week, day, settings)
               const isToday = iso === todayIso
               const loads = loadsLine(plan)
               return (
@@ -127,7 +117,7 @@ export default function Program() {
         <>
           <div className="px-1">
             <p className="eyebrow text-muted">{phase.name}</p>
-            <p className="text-xs text-muted">{phase.lengthWeeks} weeks · the whole block at a glance</p>
+            <p className="text-xs text-muted">{blockWeeks} weeks · your programme at a glance</p>
           </div>
           <Card className="p-2">
             <div className="grid grid-cols-[2.4rem_repeat(7,1fr)] gap-1 mb-1">
@@ -139,10 +129,9 @@ export default function Program() {
               ))}
             </div>
             <div className="space-y-1">
-              {Array.from({ length: phase.lengthWeeks }, (_, wi) => {
+              {Array.from({ length: blockWeeks }, (_, wi) => {
                 const w = wi + 1
                 const weekStart = addDays(parseISO(settings.phaseStartDate), wi * 7)
-                const pct = wavePct(w)
                 return (
                   <div key={w} className="grid grid-cols-[2.4rem_repeat(7,1fr)] gap-1 items-stretch">
                     <button
@@ -153,12 +142,11 @@ export default function Program() {
                       className="flex flex-col items-center justify-center active:scale-90 transition"
                     >
                       <span className="num-display text-[13px] text-brand-ink leading-none">W{w}</span>
-                      {pct != null && <span className="num-display text-[10px] text-load leading-tight">{pct}%</span>}
                     </button>
                     {Array.from({ length: 7 }, (_, day) => {
                       const date = addDays(weekStart, day)
                       const iso = isoDate(date)
-                      const plan = sessionFor(settings.currentPhaseId, w, day, mm, settings)
+                      const plan = sessionFor(settings.currentPhaseId, w, day, settings)
                       const meta = SESSION_META[plan.type]
                       const Icon = meta.icon
                       const isToday = iso === todayIso

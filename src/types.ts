@@ -1,28 +1,21 @@
 // ---- shared domain types ----
 
-export type LoadBasis = 'tm' | '1rm'
 export type DbIncrement = 2 | 1
+/**
+ * 'se' and 'hic' are retained for backward compatibility only: sessions logged
+ * under the old Tactical Barbell programme still carry them, and backup files
+ * must round-trip unchanged. Nothing generates them any more.
+ */
 export type SessionType = 'lift' | 'se' | 'run' | 'hic' | 'rest'
 
-/** A single lift in a phase's cluster. Loads are per-dumbbell. */
-export interface Lift {
-  id: string
-  name: string
-  short: string
-  /** forced-progression step added to the 1RM on a stall/block (kg): upper ~2.5, lower ~5 */
-  progressStep?: number
-}
-
-/** Per-week prescription for a wave-based lifting phase (e.g. Operator). */
-export interface WaveWeek {
-  week: number
-  pct: number
-  sets: number
-  reps: number
-  note?: string
-}
-
-/** A tested max for one lift: weight-per-DB x reps, from Test Day. */
+/**
+ * A tested max for one lift: weight-per-DB x reps.
+ *
+ * Retained as part of the backup contract — the `maxes` table still round-trips
+ * through export/import so v1 backup files stay readable. Nothing writes new
+ * entries; the Tactical Barbell max calculator that produced them was removed
+ * pending a rebuild from the books.
+ */
 export interface MaxEntry {
   liftId: string
   testWeight: number // kg per dumbbell
@@ -70,19 +63,13 @@ export type ThemeMode = 'system' | 'light' | 'dark'
 export interface Settings {
   id: 'app'
   dbIncrement: DbIncrement
-  loadBasis: LoadBasis
+  /** always 'beginner' — coerced at startup. Kept so stored rows and backups round-trip. */
   currentPhaseId: string
   phaseStartDate: string // ISO yyyy-mm-dd (Monday of week 1)
   theme?: ThemeMode
   onboarded?: boolean
-  /** 'tb' = Tactical Barbell (default); 'beginner' = the LP + C25K on-ramp */
-  programMode?: 'tb' | 'beginner'
-  /** Beginner-mode linear-progression state: current working weight (kg/DB) per lift id */
+  /** Beginner linear-progression state: current working weight (kg/DB) per lift id */
   beginner?: { lifts: Record<string, number> }
-  /** which 6-week Operator block since the last retest (1-based); first run = 12 wks before retest */
-  operatorBlock?: number
-  /** true once the first 12-week Operator run has been retested — after which retest every 6 wks (TB1 p.108) */
-  operatorFirstRunDone?: boolean
   /** epoch ms of the last successful Strava sync — throttles auto-sync on app open */
   lastStravaSyncAt?: number
   /** epoch ms of the last data export (backup) — drives the "back up your data" nudge */
@@ -91,11 +78,8 @@ export interface Settings {
   stravaSyncError?: string
   /** true when a Strava call failed auth (revoked/expired) — prompt a reconnect */
   stravaNeedsReconnect?: boolean
-  /** rest-timer seconds override; undefined/0 = Auto (book values by session/week) */
+  /** rest-timer seconds override; undefined/0 = Auto */
   restSec?: number
-  /** per-lift est-1RM (liftId → kg) snapshotted at each retest — powers the
-   *  "a lift's retests are stalling, move to the next rung" warning */
-  maxHistory?: { date: string; lifts: Record<string, number> }[]
   /** Strava OAuth tokens (on-device only); set after "Connect Strava". */
   strava?: {
     accessToken: string

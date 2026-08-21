@@ -1,13 +1,11 @@
-import { test, expect, seedState, readSessions, mondayOffset, plusDays, OP_MAXES } from './helpers'
+import { test, expect, seedState, readSessions, mondayOffset, plusDays } from './helpers'
 
 const FAR_FUTURE = 4102444800 // epoch seconds ~year 2100 (token still valid)
 
 function stravaSettings(extra: Record<string, unknown> = {}) {
   return {
-    currentPhaseId: 'operator',
+    currentPhaseId: 'beginner',
     phaseStartDate: mondayOffset(0),
-    operatorBlock: 2,
-    operatorFirstRunDone: true,
     strava: {
       accessToken: 'tok',
       refreshToken: 'ref',
@@ -36,7 +34,7 @@ test('a Strava run auto-ticks the matching run day on open', async ({ page }) =>
   )
   await page.route('**/api/strava/update', (r) => r.fulfill({ json: {} }))
 
-  await seedState(page, { settings: stravaSettings(), maxes: OP_MAXES })
+  await seedState(page, { settings: stravaSettings() })
 
   await expect
     .poll(async () => (await readSessions(page)).some((s) => s.stravaId === 555 && s.done === true))
@@ -58,15 +56,14 @@ test('a logged lift gets its set breakdown written back to Strava', async ({ pag
 
   await seedState(page, {
     settings: stravaSettings(),
-    maxes: OP_MAXES,
     sessions: [
       {
         date: mon,
-        phaseId: 'operator',
+        phaseId: 'beginner',
         week: 1,
         day: 0,
         type: 'lift',
-        title: 'Operator lift',
+        title: 'Strength — Day A',
         done: true,
         createdAt: 1,
         exercises: [
@@ -83,14 +80,14 @@ test('a logged lift gets its set breakdown written back to Strava', async ({ pag
   })
 
   await expect.poll(() => updateBody !== null).toBe(true)
-  expect(updateBody!.name).toMatch(/Operator .* Lift 1/)
+  expect(updateBody!.name).toMatch(/Beginner · Wk1 · Lift 1/)
   expect(updateBody!.description).toMatch(/DB Bench Press/)
   expect(updateBody!.description).toMatch(/via Tactical Barbell/)
 })
 
 test('a Strava sync failure surfaces a "couldn\'t reach Strava" banner', async ({ page }) => {
   await page.route('**/api/strava/activities', (r) => r.fulfill({ status: 500, json: { error: 'boom' } }))
-  await seedState(page, { settings: stravaSettings(), maxes: OP_MAXES })
+  await seedState(page, { settings: stravaSettings() })
   await expect(page.getByText(/Couldn.t reach Strava/i)).toBeVisible()
 })
 
@@ -98,7 +95,6 @@ test('a revoked Strava token surfaces a reconnect banner', async ({ page }) => {
   await page.route('**/api/strava/token', (r) => r.fulfill({ status: 401, json: { error: 'invalid' } }))
   await seedState(page, {
     settings: stravaSettings({ strava: { accessToken: 'tok', refreshToken: 'ref', expiresAt: 100, scope: 'activity:read_all' } }),
-    maxes: OP_MAXES,
   })
   await expect(page.getByText(/Strava needs reconnecting/i)).toBeVisible()
 })

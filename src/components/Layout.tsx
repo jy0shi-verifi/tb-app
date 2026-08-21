@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { Home, CalendarDays, History as HistoryIcon, Calculator, BookOpen, Settings as SettingsIcon } from 'lucide-react'
+import { Home, CalendarDays, History as HistoryIcon, BookOpen, Settings as SettingsIcon } from 'lucide-react'
 import { useSettings } from '../hooks'
 import { PHASES, resolvePosition } from '../program'
 import { today } from '../lib/date'
@@ -10,7 +10,6 @@ const NAV = [
   { to: '/', label: 'Today', icon: Home, end: true },
   { to: '/program', label: 'Program', icon: CalendarDays },
   { to: '/history', label: 'History', icon: HistoryIcon },
-  { to: '/maxes', label: 'Maxes', icon: Calculator },
   { to: '/guide', label: 'Guide', icon: BookOpen },
   { to: '/settings', label: 'Settings', icon: SettingsIcon },
 ]
@@ -30,7 +29,9 @@ export default function Layout() {
   const pageTitle = NAV.find((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to)))?.label ?? 'Tactical Barbell'
 
   const pos = resolvePosition(settings, today())
-  const phase = PHASES[settings.currentPhaseId]
+  // resolvePosition already falls back to a real phase, so this cannot be undefined
+  // for a stored id that no longer exists.
+  const phase = PHASES[pos.phaseId]
   const context =
     pos.status === 'active' ? `${phase.name} · Wk ${pos.week}` : (phase?.name ?? 'Tactical Barbell')
 
@@ -71,7 +72,11 @@ export default function Layout() {
 
       {/* floating glass tab bar with an ember active pill */}
       <nav className="fixed bottom-0 inset-x-0 z-10 safe-bottom bg-surface/85 backdrop-blur-xl border-t border-line/60 shadow-[0_-8px_28px_-18px_color-mix(in_srgb,var(--color-brand)_45%,transparent)]">
-        <div className="max-w-xl mx-auto grid grid-cols-6">
+        {/* column count follows NAV so adding/removing a tab can't break the bar */}
+        <div
+          className="max-w-xl mx-auto grid"
+          style={{ gridTemplateColumns: `repeat(${NAV.length}, minmax(0, 1fr))` }}
+        >
           {NAV.map((n) => {
             const Icon = n.icon
             return (

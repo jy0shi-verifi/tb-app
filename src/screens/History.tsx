@@ -2,18 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Check, Flame, Footprints, Trash2 } from 'lucide-react'
 import { useSessions, useSettings } from '../hooks'
-import { OPERATOR_LIFTS, PHASES } from '../program'
 import { beginnerProgress } from '../beginner'
-import { estimate1RM } from '../lib/calc'
-import { badges, computeStreak, liftRecords, runStats, weekSummary } from '../lib/stats'
+import { badges, computeStreak, runStats, weekSummary } from '../lib/stats'
 import { db, deleteSession } from '../db'
 import { Card, EmptyState, SessionIcon, SESSION_META } from '../components/ui'
-import { CoinBadge, PaceTrend, ProgressRing, StrengthTrend } from '../components/dataviz'
-import { parseISO, diffDays, today } from '../lib/date'
-
-const SERIES_COLORS = ['var(--color-brand)', 'var(--color-load)', 'var(--color-accent)']
-// second (non-colour) channel so the three lift lines are distinguishable for colour-vision deficiency
-const SERIES_DASH = ['', '5 3', '1.5 2.5']
+import { CoinBadge, PaceTrend } from '../components/dataviz'
+import { parseISO } from '../lib/date'
 
 /** Coin tier for an earned badge key. */
 function tierFor(key: string): 'bronze' | 'steel' | 'gold' | 'black' {
@@ -83,37 +77,6 @@ export default function History() {
     [sessions],
   )
 
-  const chartData = useMemo(() => {
-    const rows: Record<string, number | string>[] = []
-    const lifts = sessions
-      .filter((s) => s.type === 'lift')
-      .slice()
-      .sort((a, b) => (a.date < b.date ? -1 : 1))
-    const best: Record<string, number> = {}
-    for (const s of lifts) {
-      const row: Record<string, number | string> = {
-        date: parseISO(s.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-      }
-      let any = false
-      for (const l of OPERATOR_LIFTS) {
-        const ex = s.exercises.find((e) => e.name === l.name)
-        if (ex) {
-          const b = Math.max(
-            0,
-            ...ex.sets.filter((x) => x.weight && x.reps > 0).map((x) => estimate1RM(x.weight!, x.reps)),
-          )
-          if (b > (best[l.short] ?? 0)) best[l.short] = b
-        }
-        if (best[l.short]) {
-          row[l.short] = Math.round(best[l.short] * 10) / 10
-          any = true
-        }
-      }
-      if (any) rows.push(row)
-    }
-    return rows
-  }, [sessions])
-
   if (loading)
     return (
       <div className="space-y-4" aria-busy="true" aria-label="Loading history">
@@ -125,8 +88,7 @@ export default function History() {
   if (!sessions.length)
     return <EmptyState title="No sessions logged yet" sub="Log your first session and it lands here." />
 
-  const isBeginner = settings.programMode === 'beginner'
-  const prog = isBeginner ? beginnerProgress(sessions, settings) : []
+  const prog = beginnerProgress(sessions, settings)
   const totalAdded = Math.round(prog.reduce((n, p) => n + Math.max(0, p.delta), 0) * 10) / 10
   const streak = computeStreak(sessions)
   const summary = weekSummary(sessions)
@@ -134,40 +96,7 @@ export default function History() {
   const done = sessions.filter((s) => s.done).length
   const earned = badges(sessions)
   const runs = runStats(sessions)
-  const records = liftRecords(sessions, OPERATOR_LIFTS)
-  const cutWeeks = Math.round(
-    sessions.filter((s) => s.phaseId === 'operator' && s.type === 'lift' && s.done).length / 3,
-  )
   const nextMs = [10, 25, 50, 100, 200].find((m) => done < m)
-  // Operator "hold" progress — a moving metric while the strength chart is
-  // deliberately flat across the 12-week hold (banked sessions = the real win).
-  const opTargetLifts = PHASES.operator.lengthWeeks * 3
-  const opProgress =
-    settings.currentPhaseId === 'operator'
-      ? {
-          block: settings.operatorBlock ?? 1,
-          lifts: sessions.filter(
-            (s) => s.type === 'lift' && s.done && s.date >= settings.phaseStartDate,
-          ).length,
-          week: Math.min(
-            PHASES.operator.lengthWeeks,
-            Math.max(1, Math.floor(diffDays(today(), parseISO(settings.phaseStartDate)) / 7) + 1),
-          ),
-        }
-      : null
-
-  // strength trend — one line per Operator lift, sharing the date axis
-  const labels = chartData.map((r) => String(r.date))
-  const series = OPERATOR_LIFTS.map((l, idx) => ({
-    key: l.short,
-    label: l.short,
-    color: SERIES_COLORS[idx],
-    dash: SERIES_DASH[idx],
-    points: chartData
-      .map((r, i) => (r[l.short] != null ? { i, v: Number(r[l.short]) } : null))
-      .filter((p): p is { i: number; v: number } => p !== null),
-  }))
-
   return (
     <div className="space-y-4 stagger">
       {/* headline stats */}
@@ -211,27 +140,6 @@ export default function History() {
         </div>
       </Card>
 
-      {/* operator hold progress — the ONE hero card */}
-      {opProgress && (
-        <Card elev="hero" pad="lg" className="topo-hero text-white text-center border-white/10">
-          <div className="flex items-center justify-between mb-2">
-            <p className="eyebrow hero-text text-gold-hi">
-              Operator · Block {opProgress.block}
-            </p>
-            <span className="text-xs text-white/80">
-              week {opProgress.week}/{PHASES.operator.lengthWeeks}
-            </span>
-          </div>
-          <div className="flex justify-center my-3">
-            <ProgressRing value={opProgress.lifts} target={opTargetLifts} label="banked" />
-          </div>
-          <p className="text-xs text-white/85">
-            <b className="num-display text-gold-hi">{opProgress.lifts}</b> / {opTargetLifts} lift sessions banked
-            this block — holding your numbers through a cut is the win.
-          </p>
-        </Card>
-      )}
-
       {/* badges → challenge-coin shelf */}
       {(earned.length > 0 || nextMs) && (
         <div>
@@ -260,7 +168,7 @@ export default function History() {
       )}
 
       {/* beginner progress — start → current working weight per LP lift */}
-      {isBeginner && (
+      {prog.length > 0 && (
         <Card>
           <p className="eyebrow text-muted mb-3">Your lifts</p>
           <div className="space-y-2.5">
@@ -291,63 +199,6 @@ export default function History() {
               'Add reps each session; once you hit 3×12, the weight goes up. This is where it shows.'
             )}
           </p>
-        </Card>
-      )}
-
-      {/* strength chart */}
-      {!isBeginner && chartData.length >= 2 && (
-        <Card>
-          <p className="eyebrow text-muted">Strength trend</p>
-          <p className="text-xs text-muted mt-1 mb-3">best estimated 1RM to date · kg per dumbbell</p>
-          <StrengthTrend labels={labels} series={series} />
-          <div className="flex justify-center gap-4 mt-2">
-            {OPERATOR_LIFTS.map((l, idx) => (
-              <span key={l.short} className="flex items-center gap-1 text-xs text-muted">
-                <svg width="16" height="6" aria-hidden="true">
-                  <line
-                    x1="0"
-                    y1="3"
-                    x2="16"
-                    y2="3"
-                    stroke={SERIES_COLORS[idx]}
-                    strokeWidth="2.5"
-                    strokeDasharray={SERIES_DASH[idx] || undefined}
-                    strokeLinecap="round"
-                  />
-                </svg>
-                {l.short}
-              </span>
-            ))}
-          </div>
-          <p className="text-xs text-muted mt-3 text-center">
-            {cutWeeks >= 2
-              ? `You've held your lifts across ~${cutWeeks} weeks of cutting — that's the win. Any climb is a bonus.`
-              : 'On a cut, holding your lifts is a win — any climb is a bonus.'}
-          </p>
-        </Card>
-      )}
-
-      {/* records */}
-      {!isBeginner && records.some((r) => r.heaviest > 0) && (
-        <Card>
-          <p className="eyebrow text-muted mb-3">Personal records</p>
-          <div className="space-y-2.5">
-            {records
-              .filter((r) => r.heaviest > 0)
-              .map((r) => {
-                const delta = Math.round((r.latestWeight - r.startWeight) * 10) / 10
-                return (
-                  <div key={r.short} className="flex items-center justify-between">
-                    <span className="font-medium text-ink text-[15px]">{r.name}</span>
-                    <span className="text-sm text-right">
-                      <b className="num-display text-load">{r.heaviest} kg</b>
-                      <span className="text-muted"> · ~{r.bestE1RM.toFixed(0)} 1RM</span>
-                      {delta > 0 && <span className="text-load font-semibold"> · +{delta} since start</span>}
-                    </span>
-                  </div>
-                )
-              })}
-          </div>
         </Card>
       )}
 

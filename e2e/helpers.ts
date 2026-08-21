@@ -59,29 +59,6 @@ export function mondayOffset(weeks: number): string {
   return iso(d)
 }
 
-/** Seeded Operator test maxes (per-DB test weight x reps). */
-export const OP_MAXES = [
-  { liftId: 'op_bench', testWeight: 22, testReps: 5, bumpKg: 0 },
-  { liftId: 'op_squat', testWeight: 28, testReps: 5, bumpKg: 0 },
-  { liftId: 'op_row', testWeight: 18, testReps: 5, bumpKg: 0 },
-]
-
-/** Lift sessions in weeks 3, 6, 6 → makes blockCompleted() true for a -42d start. */
-export function completedBlockSessions() {
-  const lift = (date: string, week: number, day: number, createdAt: number) => ({
-    date,
-    phaseId: 'operator',
-    week,
-    day,
-    type: 'lift',
-    title: `Operator — Week ${week}`,
-    exercises: [],
-    done: true,
-    createdAt,
-  })
-  return [lift(isoOffset(-27), 3, 0, 1), lift(isoOffset(-6), 6, 0, 2), lift(isoOffset(-4), 6, 2, 3)]
-}
-
 type SeedState = {
   settings?: Record<string, unknown>
   sessions?: Record<string, unknown>[]
@@ -105,8 +82,7 @@ export async function seedState(page: Page, state: SeedState): Promise<void> {
           tx.objectStore('settings').put({
             id: 'app',
             dbIncrement: 2,
-            loadBasis: 'tm',
-            currentPhaseId: 'base-building',
+            currentPhaseId: 'beginner',
             phaseStartDate: '2026-01-05',
             onboarded: true,
             theme: 'light',
@@ -178,10 +154,11 @@ async function waitForDb(page: Page) {
 }
 
 /**
- * Put the app into an active Operator week whose Monday is a lift day, robust to
- * whatever "today" is. Returns that Monday's ISO date (an unlogged lift session).
+ * Put the app into an active week whose Monday is a strength day (Beginner runs
+ * Mon/Wed/Fri), robust to whatever "today" is. Returns that Monday's ISO date —
+ * an unlogged lift session.
  */
-export async function setupOperator(page: Page): Promise<string> {
+export async function setupLiftWeek(page: Page): Promise<string> {
   await page.goto('/')
   await waitForDb(page)
   const monIso = await page.evaluate(
@@ -197,24 +174,15 @@ export async function setupOperator(page: Page): Promise<string> {
           const db = open.result
           const tx = db.transaction(['settings', 'sessions', 'maxes'], 'readwrite')
           tx.objectStore('sessions').clear()
+          tx.objectStore('maxes').clear()
           tx.objectStore('settings').put({
             id: 'app',
             dbIncrement: 2,
-            loadBasis: 'tm',
-            currentPhaseId: 'operator',
+            currentPhaseId: 'beginner',
             phaseStartDate: iso,
-            operatorBlock: 2,
-            operatorFirstRunDone: true,
             theme: 'light',
             onboarded: true,
           })
-          for (const [liftId, w] of [
-            ['op_bench', 22],
-            ['op_squat', 28],
-            ['op_row', 18],
-          ] as const) {
-            tx.objectStore('maxes').put({ liftId, testWeight: w, testReps: 5, bumpKg: 0 })
-          }
           tx.oncomplete = () => res(iso)
           tx.onerror = () => rej(tx.error)
         }

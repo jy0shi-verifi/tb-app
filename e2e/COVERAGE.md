@@ -1,17 +1,23 @@
 # TB App — E2E Coverage Backlog
 
-## ✅ Implemented (41 tests, all green — `npm run test:e2e`)
-- **Core/originals:** rest-timer survives refresh + skip-clears; onboarding shows; every screen renders (no crash/blank/ErrorBoundary, zero console errors); direct weight entry + feel/notes → History; rest-timer & theme persist; backup export downloads; malformed import rejected.
-- **Dates/phase:** before-countdown; day-0 active; day-41 active; day-42 complete.
-- **Today:** lapse-guard Welcome-back (not an unearned Test Day); missed-session nudge + dismissal persists across reload; backup nudge.
-- **Session:** in-progress lift logging survives reload; partial "you showed up" (done=false); autosave does NOT clobber Strava enrichment (asserts Dexie row); SE circuit rests only on a full round.
+## ✅ Implemented (39 tests, all green — `npm run test:e2e`)
+
+> **Updated 2026-08-21** after the Tactical Barbell strip. The Maxes calculator,
+> Operator/Base Building programme and load math were removed pending a rebuild
+> from the books, so `maxes.spec.ts`, `progression.spec.ts`, `progression2.spec.ts`
+> and `settings2.spec.ts` (load basis) were deleted along with the SE-circuit test.
+> This file previously claimed 41 tests and omitted `beginner.spec.ts` and
+> `splash.spec.ts` — both are listed below now.
+
+- **Core/originals:** rest-timer survives refresh + skip-clears; onboarding shows; every screen renders (no crash/blank/ErrorBoundary, zero console errors); a removed/unknown route falls back to Today; direct weight entry + feel/notes → History; rest-timer & theme persist; backup export downloads; malformed import rejected.
+- **Dates/phase:** before-countdown; day-0 active; 7-day week rollover; long-running programme keeps counting; an unknown stored phase id falls back instead of blanking.
+- **Today:** lapse-guard Welcome-back + resume-the-right-week; missed-session nudge + dismissal persists across reload; backup nudge.
+- **Session:** in-progress lift logging survives reload; partial "you showed up" (done=false); autosave does NOT clobber Strava enrichment (asserts Dexie row).
+- **Beginner:** "Last time" + `+2 kg` chip; Runna-owned run slot; stall → deload button; History progress view.
 - **Onboarding:** completes → Today & never returns; legacy no-`onboarded` row skips.
-- **Progression:** block-complete branches (first-run hold / post-first-run retest / unfinished repeat); force-progress bumps each max by its step (asserts bumpKg deltas).
-- **Maxes:** BB "nothing to do"; Operator wave table; 60kg-ceiling ⚠ flag.
-- **Settings:** load-basis confirm — cancel is a no-op / accept persists.
+- **Splash:** cold-open motto auto-clears; tap-to-skip.
 - **Backup:** rejects missing-tables / newer-version / no-app-row; a valid backup restores after confirmation.
-- **History:** empty state; delete-from-list removes + persists.
-- **Strava (mocked `/api/strava/*`):** run auto-ticks the matching day on open; lift write-back PUTs name+description (breakdown); sync-failure banner; revoked-token reconnect banner.
+- **Strava (mocked):** run auto-ticks the day; lift write-back PUTs name + description; sync-failure banner; revoked-token reconnect banner.
 
 ## ⏭ Deliberately left (better as unit tests or need extra scaffolding)
 - **Backup snapshot-rollback on a mid-import write failure (#9)** — needs an injected failure hook; hard to trigger black-box.

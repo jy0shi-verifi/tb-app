@@ -1,37 +1,46 @@
 // Dev-only: generate a realistic training history so the UI can be reviewed with data.
-// Reuses the real program/load logic so seeded sessions match what the app would produce.
+// Reuses the real program logic so seeded sessions match what the app would produce.
 import { db } from '../db'
 import { sessionFor } from '../program'
+import { ALL_BEGINNER_LIFTS, beginnerDayLetter, LP_A, LP_B, REP_LO, REP_HI } from '../beginner'
 import { addDays, diffDays, isoDate, nextMonday, parseISO, today } from '../lib/date'
-import type { MaxEntry, SessionLog, Settings } from '../types'
+import type { SessionLog, Settings } from '../types'
 
 const rand = () => Math.random()
 
-function baseSettings(phaseId: string, startIso: string): Settings {
+function baseSettings(startIso: string, lifts?: Record<string, number>): Settings {
   return {
     id: 'app',
     dbIncrement: 2,
-    loadBasis: 'tm',
-    currentPhaseId: phaseId,
+    currentPhaseId: 'beginner',
     phaseStartDate: startIso,
+    ...(lifts ? { beginner: { lifts } } : {}),
   }
 }
 
 function makeLog(
   date: Date,
-  phaseId: string,
   week: number,
   day: number,
   plan: ReturnType<typeof sessionFor>,
+  weights: Record<string, number>,
+  reps: number,
 ): SessionLog {
-  const exercises = plan.exercises.map((ex) => ({
-    name: ex.name,
-    sets: ex.sets.map((s) => {
-      let reps = s.reps
-      if (reps > 2 && rand() < 0.08) reps -= 1 // occasional missed rep
-      return { weight: s.weight, reps, done: true }
-    }),
-  }))
+  const letter = beginnerDayLetter(week, day)
+  const lifts = letter === 'A' ? LP_A : LP_B
+  const exercises = plan.exercises.map((ex, i) => {
+    const lift = lifts[i]
+    const w = lift ? weights[lift.id] : ex.sets[0]?.weight
+    return {
+      name: ex.name,
+      sets: ex.sets.map(() => {
+        let r = reps
+        if (r > REP_LO && rand() < 0.12) r -= 1 // occasional missed rep on the last sets
+        return { weight: w, reps: r, done: true }
+      }),
+    }
+  })
+
   let durationMin: number | undefined
   let distanceKm: number | undefined
   let avgHr: number | undefined
@@ -44,22 +53,15 @@ function makeLog(
     avgHr = 132 + Math.floor(rand() * 16)
     feel = 'easy'
     if (rand() < 0.3) notes = pick(['Legs felt fresh', 'Kept it easy, nose-breathing', 'Cold one, good pace'])
-  } else if (plan.type === 'hic') {
-    durationMin = 20 + Math.floor(rand() * 10)
-    distanceKm = Math.round((durationMin / 6) * 10) / 10
-    avgHr = 158 + Math.floor(rand() * 20)
-    feel = rand() < 0.6 ? 'hard' : 'ok'
-    if (rand() < 0.35) notes = pick(['Hill sprints — brutal', '600m resets, hung on', 'Fast-5 tempo, redlined'])
-  } else if (plan.type === 'se') {
-    durationMin = 30 + Math.floor(rand() * 12)
-    feel = rand() < 0.5 ? 'ok' : 'hard'
   } else if (plan.type === 'lift') {
     feel = rand() < 0.65 ? 'ok' : rand() < 0.5 ? 'easy' : 'hard'
-    if (rand() < 0.3) notes = pick(['Bench moving well', 'Grip gave out last set', 'Strong session', 'Legs heavy but got it', 'New rep PR feel'])
+    if (rand() < 0.3)
+      notes = pick(['Bench moving well', 'Grip gave out last set', 'Strong session', 'Legs heavy but got it'])
   }
+
   return {
     date: isoDate(date),
-    phaseId,
+    phaseId: 'beginner',
     week,
     day,
     type: plan.type,
@@ -75,97 +77,80 @@ function makeLog(
   }
 }
 
-function genSegment(
-  phaseId: string,
-  startIso: string,
-  weeks: number,
-  maxes: Record<string, MaxEntry>,
-  stopBefore?: Date,
-): SessionLog[] {
-  const settings = baseSettings(phaseId, startIso)
-  const start = parseISO(startIso)
-  const out: SessionLog[] = []
-  for (let w = 0; w < weeks; w++) {
-    for (let d = 0; d < 7; d++) {
-      const date = addDays(start, w * 7 + d)
-      if (stopBefore && diffDays(date, stopBefore) >= 0) return out // leave today+future open
-      const plan = sessionFor(phaseId, w + 1, d, maxes, settings)
-      if (plan.type === 'rest') continue
-      const optional = plan.title.startsWith('Optional')
-      const attend = optional ? rand() < 0.4 : rand() < 0.93
-      if (!attend) continue
-      out.push(makeLog(date, phaseId, w + 1, d, plan))
-    }
-  }
-  return out
-}
-
-const mx = (liftId: string, w: number, r: number, bump = 0): MaxEntry => ({
-  liftId,
-  testWeight: w,
-  testReps: r,
-  bumpKg: bump,
-})
-
 /**
- * Seed ~4 months of history ending mid-way through a second Operator block:
- * Base Building (8wk) done → Operator block 1 (6wk) done → Operator block 2 (in progress).
+ * Seed ~10 weeks of beginner history ending today, walking the working weights up
+ * through double progression exactly as the app would: climb 8 → 12 reps, then add
+ * the lift's step and drop back to 8.
  */
 export async function seedFakeData(): Promise<string> {
   const now = today()
+  const weeks = 10
+  const start = addDays(now, -(weeks * 7 - 1))
+  // anchor to a Monday so week/day line up with the template
+  const startIso = isoDate(addDays(start, -((start.getDay() + 6) % 7)))
 
-  // current Operator block (block 2): start so today ≈ week 4
-  const block2Start = '2026-06-15'
-  const block1Start = isoDate(addDays(parseISO(block2Start), -42)) // 6 wks earlier
-  const bbStart = isoDate(addDays(parseISO(block1Start), -56)) // 8 wks earlier
+  // current reps-in-range and working weight per lift, advanced as we generate
+  const weights: Record<string, number> = Object.fromEntries(
+    ALL_BEGINNER_LIFTS.map((l) => [l.id, l.startKg]),
+  )
+  const repState: Record<string, number> = Object.fromEntries(
+    ALL_BEGINNER_LIFTS.map((l) => [l.id, REP_LO]),
+  )
 
-  // tested at end of Base Building
-  const testBench = 22,
-    testSquat = 28,
-    testRow = 18
-  const block1Maxes = {
-    op_bench: mx('op_bench', testBench, 5, 0),
-    op_squat: mx('op_squat', testSquat, 5, 0),
-    op_row: mx('op_row', testRow, 5, 0),
+  const sessions: SessionLog[] = []
+  const startDate = parseISO(startIso)
+  for (let w = 0; w < weeks; w++) {
+    for (let d = 0; d < 7; d++) {
+      const date = addDays(startDate, w * 7 + d)
+      if (diffDays(date, now) > 0) break // leave the future open
+      const week = w + 1
+      const settings = baseSettings(startIso, weights)
+      const plan = sessionFor('beginner', week, d, settings)
+      if (plan.type === 'rest') continue
+      if (rand() > 0.93) continue // the odd missed session
+
+      if (plan.type === 'lift') {
+        const letter = beginnerDayLetter(week, d)
+        const lifts = letter === 'A' ? LP_A : LP_B
+        const reps = repState[lifts[0].id]
+        sessions.push(makeLog(date, week, d, plan, weights, reps))
+        // double progression: hit the top of the range → +step, back to the bottom
+        for (const l of lifts) {
+          if (repState[l.id] >= REP_HI) {
+            weights[l.id] += l.step
+            repState[l.id] = REP_LO
+          } else {
+            repState[l.id] += 1
+          }
+        }
+      } else {
+        sessions.push(makeLog(date, week, d, plan, weights, 0))
+      }
+    }
   }
-  // one forced-progression bump applied at block1→block2
-  const block2Maxes = {
-    op_bench: mx('op_bench', testBench, 5, 2.5),
-    op_squat: mx('op_squat', testSquat, 5, 5),
-    op_row: mx('op_row', testRow, 5, 2.5),
-  }
-
-  const sessions: SessionLog[] = [
-    ...genSegment('base-building', bbStart, 8, {}),
-    ...genSegment('operator', block1Start, 6, block1Maxes),
-    ...genSegment('operator', block2Start, 6, block2Maxes, now),
-  ]
 
   await db.transaction('rw', db.settings, db.maxes, db.sessions, async () => {
     await db.sessions.clear()
     await db.maxes.clear()
     await db.sessions.bulkAdd(sessions)
-    await db.maxes.bulkPut(Object.values(block2Maxes))
     await db.settings.put({
-      ...baseSettings('operator', block2Start),
-      operatorBlock: 2,
-      operatorFirstRunDone: true,
+      ...baseSettings(startIso, weights),
       onboarded: true, // skip the welcome flow for a clean demo
       lastBackupAt: now.getTime(), // suppress the "back up your data" nudge
     })
   })
 
-  return `seeded ${sessions.length} sessions (BB done → Op block 1 done → mid Op block 2)`
+  return `seeded ${sessions.length} sessions across ${weeks} weeks of linear progression`
 }
 
 export async function clearAll(): Promise<string> {
   await db.transaction('rw', db.settings, db.maxes, db.sessions, async () => {
     await db.sessions.clear()
     await db.maxes.clear()
-    await db.settings.put(baseSettings('base-building', nextMonday()))
+    await db.settings.put(baseSettings(nextMonday()))
   })
   // also reset one-shot reward flags so a clean reset re-arms first-time celebrations
-  for (const k of ['tb-testday-celebrated', 'tb-seen-coins', 'tb-dismiss-missed', 'tb-rest-end']) {
+  for (const k of ['tb-testday-celebrated', 'tb-seen-coins', 'tb-dismiss-missed', 'tb-rest-end', 'tb-no-splash']) {
     try {
       localStorage.removeItem(k)
     } catch {
