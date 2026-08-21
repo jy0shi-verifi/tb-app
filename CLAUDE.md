@@ -21,8 +21,14 @@ A single-user, offline-first training PWA. Josh uses it **every morning** to run
 
 1. **Strip out the existing Tactical Barbell code** *(done — see Status below).*
 2. Build the new/improved app **on a separate subdomain**, so Josh keeps using the current app uninterrupted while development happens.
-3. Rebuild Tactical Barbell **from the books**, from scratch. Likely a **MASS** protocol, not Operator/Black.
+3. Rebuild Tactical Barbell **from the books**, from scratch — the **MASS** protocol (confirmed), not Operator/Black. MASS is **barbell**-based; assume Josh has a barbell and rack even though he hasn't bought them yet.
 4. When it's ready, Josh migrates: exports from the current app, imports into the new one, switches over.
+
+### The fidelity rule
+
+**The book wins, always.** Whatever the book says to do, the app does. Where the book offers options, follow its own recommendation — don't substitute judgement or quietly "improve" a prescription. Every claim extracted from a book carries a **page reference**; no page number, no claim. The book's printed tables become **test fixtures** (see `test/calc.test.ts` — it asserts against the author's printed worked examples and explicitly asserts the result isn't the wrong formula; that test is why a real bug got caught).
+
+Outside research is a **second pass, not an input**: cross-reference a finished plan against what others do, and research specific points the book leaves unclear — but never let a forum post reshape an extraction before the book has been read.
 
 ### Two hard constraints
 
@@ -110,6 +116,7 @@ sessions: '++id, date, phaseId'
 
 - **Dates are local time, never UTC.** `YYYY-MM-DD` strings, Monday-based weeks (`day` 0=Mon…6=Sun). Use `src/lib/date.ts` — never `Date.parse` on a date string.
 - **`strava.expiresAt` is epoch seconds. Every other timestamp is milliseconds.**
+- **There is no barbell plate math in this codebase.** All load handling is per-dumbbell (`perDumbbell: true`, a 4–60 kg clamp, 1/2 kg increments). The MASS rebuild needs bar weight, plate pairs, loadable-weight rounding and a per-side breakdown built from scratch — and `PlannedSet` needs to express barbell, dumbbell and bodyweight loading, because the existing beginner history is all per-dumbbell and must keep rendering.
 - **Exercises are keyed by display-name string**, not id. Renaming an exercise string silently breaks historical progress calculations. Josh's logged history still contains old TB exercise names, and several collide with the beginner lifts (`'DB Bench Press'`, `'1-Arm DB Row'`, `'DB Romanian Deadlift'`) — a rebuilt TB protocol that reuses those names will feed the beginner stall detector, and vice-versa. Scope any new lookup by phase, not just by `type === 'lift'`.
 - **`SetRow` in `Session.tsx` is hoisted to module scope on purpose.** Inlining it remounts and blurs the inputs 4×/sec while the rest timer ticks. The comment at `Session.tsx:95-99` explains it. Don't "tidy" it.
 - **Session writes re-read the freshest row before saving** (`Session.tsx:300`) so a background Strava sync isn't clobbered, and **refuse to delete a Strava-linked row** — they un-tick `done` instead. Preserve both behaviours.

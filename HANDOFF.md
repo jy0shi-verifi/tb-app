@@ -32,20 +32,42 @@ Josh's intent, in his words: *"we literally put the MASS book into our app, the 
 
 **This is the right shape.** The step that made the last implementation untrustworthy was going straight from "roughly remember the programme" to code. An extraction document he can actually check, before any code exists, is the fix.
 
-### How fidelity must be enforced
+### How fidelity must be enforced — DECIDED
 
-A prose summary is not enough on its own — the previous implementation *also* looked plausible. Two mechanisms make "by the book" real, and both are cheap:
+**The book wins, always.** Josh's rule (2026-08-21): *"whatever he says in the book to do, we do."* Where the book offers options, follow the book's own recommendation; do not substitute judgement, and do not quietly "improve" a prescription.
+
+Two mechanisms make that real, and both are cheap:
 
 - **Every claim in the extraction doc carries a page reference.** No page number, no claim.
 - **The printed tables become test fixtures.** `test/calc.test.ts` is the model to copy: it asserts the estimated-1RM formula against K. Black's own printed worked examples *and* explicitly asserts the result is not the wrong formula. That test is why the Brzycki bug got caught. Do the same for every MASS percentage table and set/rep scheme — assert the app reproduces the book's printed numbers cell for cell.
 
+**Outside research is a second pass, not an input.** Once a plan is extracted from the book, cross-reference it online to see whether others run it the same way — and if something in the book is genuinely unclear, research that specific question (it has probably been answered before). But the extraction itself comes from the book alone. Never let a forum post reshape the extraction before the book has been read.
+
 `docs/book-fidelity-audit-2026-07-12.md` is the standard for what a real audit looks like (it read the rendered template tables rather than working from notes, and cited chapter and page throughout).
 
-### Open questions to resolve before designing
+### Equipment — DECIDED: barbell
 
-1. **Barbell or dumbbells?** This is the big one. The MASS protocols are barbell programmes, but the app has only ever done dumbbell math — `perDumbbell: true` on every loaded set, a 4–60 kg per-dumbbell clamp, 1/2 kg increments, and **no plate math anywhere in the codebase**. If Josh is running MASS with a barbell, plate rounding has to be built from scratch and the load-display model changes. Ask before designing.
-2. **Which template(s)?** Extract all of them so he can choose, but the one he'll actually run determines what gets built first.
-3. **Where does Beginner mode go?** Kept as-is, retired once MASS starts, or selectable? Affects whether the protocol switch comes back as a first-class concept.
+MASS is a **barbell** programme. Josh won't run any TB programming until he has a barbell and a rack; **for the app, assume he has one.**
+
+This is the single biggest technical consequence of the rebuild:
+
+- The app has only ever done dumbbell math — `perDumbbell: true` on every loaded set, a 4–60 kg per-dumbbell clamp, 1/2 kg increments, and **no plate math anywhere in the codebase**.
+- **Barbell plate math has to be built from scratch**: bar weight, available plate pairs, rounding a percentage target to a loadable weight, and showing the per-side plate breakdown. Follow the book's own rounding rule — the previous audit established that TB floor-rounds ("rounds down on the weights if necessary", TB1 p113); confirm what MASS says rather than assuming it carries over.
+- `PlannedSet` currently carries `perDumbbell`. The model needs to express barbell, dumbbell **and** bodyweight loading, because Josh's existing beginner history is all per-dumbbell and must keep rendering correctly.
+
+### Programme structure — Josh's reading, TO VERIFY against the book
+
+Josh understands MASS as two phases. **Treat this as a hypothesis to confirm from the source, not as settled fact** — confirming or correcting it is one of the first jobs of the extraction:
+
+- **General Mass** — the TB part. Heavy barbell compounds and bodyweight work. This is the phase that needs the percentage tables, clusters and progression rules extracted precisely.
+- **Specificity** — isolation work, where the book is deliberately permissive ("you can do whatever you want").
+
+If that holds, the two phases want quite different data models: General Mass is prescriptive and percentage-driven, Specificity is a flexible user-defined slot. Don't force them into one shape.
+
+### Still open
+
+1. **Which template(s)?** Extract all of them so Josh can choose, but the one he actually runs determines what gets built first.
+2. **Where does Beginner mode go?** Kept as-is, retired once MASS starts, or selectable? Affects whether a protocol switch comes back as a first-class concept. **Ask Josh — not yet decided.**
 
 ### Design traps to avoid (learned from the old implementation)
 
