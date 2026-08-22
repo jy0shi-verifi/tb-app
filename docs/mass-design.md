@@ -3,8 +3,10 @@
 **Written:** 2026-08-22 · **Branch:** `mass-extraction` · **Status:** design only, no code written yet.
 
 Source of truth for the programme is `docs/MASS/MASS-extraction.md`. Every programme rule below carries
-the PDF page reference from that document. Where this design departs from the book — and it does in
-three places — it is labelled **DEVIATION** and says why.
+the PDF page reference from that document. Where this design departs from the book, it is labelled
+**DEVIATION** and says why. There are six such departures, all listed in the decision table in §1:
+rounding, microplates, skipping Base Building, below-bar handling, fractional bodyweight reps, and
+(if it ever happens) moving Grey Man's lifting days.
 
 Read `docs/codebase-map.md` §8 alongside this: it lists what in the current code resists a second
 protocol, and this design is largely a set of answers to that list.
