@@ -456,8 +456,15 @@ Each step ends green and demonstrable on `tb2`.
    heaviest-first, because greedy fails on an irregular set (20 kg per side from 15s and 10s), and the
    per-side target is deliberately not snapped to the unit grid before the nearest/ties-down comparison —
    snapping it first silently converts a round-down into a round-up.
-2. **Dexie v2 + `oneRm` table + `BACKUP_VERSION` 2 + migration tests**, including the real 23-session
-   round-trip. Schema work before anything depends on it.
+2. ~~**Dexie v2 + `oneRm` table + `BACKUP_VERSION` 2 + migration tests.**~~ **DONE (2026-08-22).**
+   The migration adds one store and touches nothing else. `test/migration.test.ts` builds a genuine v1
+   IndexedDB (via `fake-indexeddb`), fills it, then opens the app's real `TBDatabase` over the top and
+   asserts every session survives byte for byte, the settings row keeps even the keys the app no longer
+   reads (`loadBasis`, `programMode`), and the indexes still resolve. `test/backup.test.ts` covers the
+   v1-tolerant parse. The **real 23-session backup is exercised too** whenever it is present on the
+   machine — it ran and passed. A committed synthetic fixture mirrors its exact shape (same keys, same
+   session count, same exercise names, synthetic numbers) so the test is repeatable without shipping
+   personal data.
 3. **Protocol registry** — `Protocol`, `Cluster`, `Prescription`, `Loading`; move `beginner` into it
    unchanged and prove nothing regressed.
 4. **Grey Man protocol definition + `sessionFor`**, with the book-fixture tests from §7.

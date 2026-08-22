@@ -1,11 +1,12 @@
 import Dexie, { type Table } from 'dexie'
-import type { MaxEntry, SessionLog, Settings } from './types'
+import type { MaxEntry, OneRmEntry, SessionLog, Settings } from './types'
 import { nextMonday } from './lib/date'
 
 export class TBDatabase extends Dexie {
   settings!: Table<Settings, string>
   maxes!: Table<MaxEntry, string>
   sessions!: Table<SessionLog, number>
+  oneRm!: Table<OneRmEntry, [string, string]>
 
   constructor() {
     super('tb-app')
@@ -13,6 +14,18 @@ export class TBDatabase extends Dexie {
       settings: 'id',
       maxes: 'liftId',
       sessions: '++id, date, phaseId',
+    })
+    // v2 (MASS rebuild): add `oneRm`. This is the first migration this project
+    // has ever had, and the data it sits next to is irreplaceable, so it is kept
+    // as small as a migration can be — ADD ONE STORE, TOUCH NOTHING ELSE.
+    //
+    // Only the new store is listed on purpose. Dexie treats `.stores()` on a new
+    // version as a delta and inherits everything unlisted, so re-declaring the
+    // existing three would buy nothing and risks a typo silently redefining a
+    // live index. `maxes` in particular must keep its exact v1 shape: nothing
+    // writes it any more, but v1 backups still round-trip through it.
+    this.version(2).stores({
+      oneRm: '[protocolId+exerciseId]',
     })
   }
 }
@@ -78,7 +91,19 @@ export async function deleteSession(id: number): Promise<void> {
 }
 
 // ---- backup ----
-export const BACKUP_VERSION = 1
+/**
+ * v1 → v2 adds `oneRm` (the MASS rebuild's protocol-scoped maxes).
+ *
+ * Reading a v1 file MUST keep working: `parseBackup` fills a missing `oneRm`
+ * with `[]`, which is exactly right — a v1 file predates MASS and has no 1RMs to
+ * carry. Nothing about v1's `settings`/`maxes`/`sessions` is reinterpreted.
+ *
+ * Note the migration only runs one way: a v2 file will NOT load into the live
+ * app at tb.joshua-birch.co.uk, because its `parseBackup` refuses
+ * `version > BACKUP_VERSION`. That is intended — the two apps are separate
+ * origins — but it means taking a fresh v1 export before switching over.
+ */
+export const BACKUP_VERSION = 2
 
 export interface Backup {
   app: 'tb-app'
@@ -87,6 +112,8 @@ export interface Backup {
   settings: Settings[]
   maxes: MaxEntry[]
   sessions: SessionLog[]
+  /** Added in v2. Absent in v1 files; normalised to `[]` by `parseBackup`. */
+  oneRm: OneRmEntry[]
 }
 
 /** A quick shape check used by both import and the pre-import confirmation. */
@@ -104,14 +131,20 @@ export function parseBackup(json: string): Backup {
     throw new Error('Backup is missing its data tables — it may be truncated.')
   if (!data.settings.some((s) => s?.id === 'app'))
     throw new Error('Backup has no app settings row — it may be corrupt.')
+  // Upgrade path for v1 files: the table simply did not exist yet. A present but
+  // non-array `oneRm` is corruption, not an old file, so it is rejected.
+  if (data.oneRm === undefined) data.oneRm = []
+  else if (!Array.isArray(data.oneRm))
+    throw new Error('Backup’s 1RM table is malformed — it may be corrupt.')
   return data as Backup
 }
 
 export async function exportBackup(): Promise<string> {
-  const [settings, maxes, sessions] = await Promise.all([
+  const [settings, maxes, sessions, oneRm] = await Promise.all([
     db.settings.toArray(),
     db.maxes.toArray(),
     db.sessions.toArray(),
+    db.oneRm.toArray(),
   ])
   const backup: Backup = {
     app: 'tb-app',
@@ -122,6 +155,7 @@ export async function exportBackup(): Promise<string> {
     settings: settings.map((s) => ({ ...s, strava: undefined })),
     maxes,
     sessions,
+    oneRm,
   }
   return JSON.stringify(backup, null, 2)
 }
@@ -135,11 +169,18 @@ export async function importBackup(json: string): Promise<void> {
   const snapshot = await exportBackup()
 
   try {
-    await db.transaction('rw', db.settings, db.maxes, db.sessions, async () => {
-      await Promise.all([db.settings.clear(), db.maxes.clear(), db.sessions.clear()])
+    await db.transaction('rw', db.settings, db.maxes, db.sessions, db.oneRm, async () => {
+      await Promise.all([
+        db.settings.clear(),
+        db.maxes.clear(),
+        db.sessions.clear(),
+        db.oneRm.clear(),
+      ])
       // A v1 backup may have been taken while the old Tactical Barbell programme
       // was active. Its phase ids no longer resolve, so normalise on the way in —
       // the sessions themselves keep their original phaseId for history.
+      // TODO(mass): once MASS protocols are registered, this must coerce to a
+      // phase that EXISTS rather than always to 'beginner'. See docs/mass-design.md §3.3.
       const settings = data.settings.map((s) =>
         s.id === 'app'
           ? { ...s, strava: currentStrava ?? s.strava, currentPhaseId: 'beginner' }
@@ -148,15 +189,22 @@ export async function importBackup(json: string): Promise<void> {
       await db.settings.bulkPut(settings)
       if (data.maxes.length) await db.maxes.bulkPut(data.maxes)
       if (data.sessions.length) await db.sessions.bulkPut(data.sessions)
+      if (data.oneRm.length) await db.oneRm.bulkPut(data.oneRm)
     })
   } catch (err) {
     // Roll back to the snapshot so a failed restore never leaves him with less.
     const snap = JSON.parse(snapshot) as Backup
-    await db.transaction('rw', db.settings, db.maxes, db.sessions, async () => {
-      await Promise.all([db.settings.clear(), db.maxes.clear(), db.sessions.clear()])
+    await db.transaction('rw', db.settings, db.maxes, db.sessions, db.oneRm, async () => {
+      await Promise.all([
+        db.settings.clear(),
+        db.maxes.clear(),
+        db.sessions.clear(),
+        db.oneRm.clear(),
+      ])
       await db.settings.bulkPut(snap.settings.map((s) => (s.id === 'app' ? { ...s, strava: currentStrava } : s)))
       await db.maxes.bulkPut(snap.maxes)
       await db.sessions.bulkPut(snap.sessions)
+      await db.oneRm.bulkPut(snap.oneRm ?? [])
     })
     throw new Error(`Restore failed — kept your existing data. (${(err as Error).message})`)
   }

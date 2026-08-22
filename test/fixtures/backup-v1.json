@@ -1,0 +1,998 @@
+{
+  "app": "tb-app",
+  "version": 1,
+  "exportedAt": "2026-08-19T07:00:00.000Z",
+  "settings": [
+    {
+      "id": "app",
+      "dbIncrement": 2,
+      "loadBasis": "tm",
+      "currentPhaseId": "beginner",
+      "phaseStartDate": "2026-07-27",
+      "programMode": "beginner",
+      "beginner": {
+        "lifts": {
+          "bg_squat": 20,
+          "bg_bench": 16,
+          "bg_row": 18,
+          "bg_rdl": 18,
+          "bg_lunge": 16,
+          "bg_ohp": 8
+        }
+      },
+      "lastStravaSyncAt": 1755500000000,
+      "stravaNeedsReconnect": false,
+      "lastBackupAt": 1755500000000,
+      "theme": "system"
+    }
+  ],
+  "maxes": [],
+  "sessions": [
+    {
+      "id": 537,
+      "date": "2026-07-29",
+      "phaseId": "beginner",
+      "week": 1,
+      "day": 2,
+      "type": "lift",
+      "title": "Strength \u2014 Day B",
+      "exercises": [
+        {
+          "name": "DB Romanian Deadlift",
+          "sets": [
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Reverse Lunge",
+          "sets": [
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Overhead Press",
+          "sets": [
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        }
+      ],
+      "done": true,
+      "feel": "ok",
+      "notes": "",
+      "createdAt": 1753000000000
+    },
+    {
+      "date": "2026-07-28",
+      "phaseId": "beginner",
+      "week": 1,
+      "day": 1,
+      "type": "run",
+      "title": "Beginner \u00b7 Wk1 \u00b7 Run 1",
+      "exercises": [],
+      "done": true,
+      "durationMin": 30,
+      "distanceKm": 3.7,
+      "avgHr": 148,
+      "stravaId": 19495230788,
+      "createdAt": 1753086400000,
+      "id": 538,
+      "notes": null
+    },
+    {
+      "date": "2026-07-30",
+      "phaseId": "beginner",
+      "week": 1,
+      "day": 3,
+      "type": "run",
+      "title": "Beginner \u00b7 Wk1 \u00b7 Run 2",
+      "exercises": [],
+      "done": true,
+      "durationMin": 35,
+      "distanceKm": 4.3,
+      "avgHr": 153,
+      "stravaId": 19524519185,
+      "createdAt": 1753172800000,
+      "id": 539,
+      "notes": null
+    },
+    {
+      "id": 540,
+      "date": "2026-07-31",
+      "phaseId": "beginner",
+      "week": 1,
+      "day": 4,
+      "type": "lift",
+      "title": "Strength \u2014 Day A",
+      "exercises": [
+        {
+          "name": "Goblet / Front-rack Squat",
+          "sets": [
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Bench Press",
+          "sets": [
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "1-Arm DB Row",
+          "sets": [
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        }
+      ],
+      "done": true,
+      "feel": "ok",
+      "notes": "",
+      "createdAt": 1753259200000
+    },
+    {
+      "date": "2026-08-01",
+      "phaseId": "beginner",
+      "week": 1,
+      "day": 5,
+      "type": "run",
+      "title": "Morning Run",
+      "exercises": [],
+      "done": true,
+      "durationMin": 45,
+      "distanceKm": 5,
+      "avgHr": 136,
+      "stravaId": 19551049062,
+      "createdAt": 1753345600000,
+      "id": 541,
+      "notes": null
+    },
+    {
+      "date": "2026-08-02",
+      "phaseId": "beginner",
+      "week": 1,
+      "day": 6,
+      "type": "run",
+      "title": "Rest Day Walk",
+      "exercises": [],
+      "done": true,
+      "durationMin": 86,
+      "distanceKm": 7.2,
+      "avgHr": 124,
+      "stravaId": 19571801826,
+      "createdAt": 1753432000000,
+      "id": 542,
+      "notes": null
+    },
+    {
+      "id": 543,
+      "date": "2026-08-03",
+      "phaseId": "beginner",
+      "week": 2,
+      "day": 0,
+      "type": "lift",
+      "title": "Strength \u2014 Day B",
+      "exercises": [
+        {
+          "name": "DB Romanian Deadlift",
+          "sets": [
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Reverse Lunge",
+          "sets": [
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Overhead Press",
+          "sets": [
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        }
+      ],
+      "done": true,
+      "feel": "ok",
+      "createdAt": 1753518400000,
+      "notes": null
+    },
+    {
+      "date": "2026-08-04",
+      "phaseId": "beginner",
+      "week": 2,
+      "day": 1,
+      "type": "run",
+      "title": "Morning Run",
+      "exercises": [],
+      "done": true,
+      "durationMin": 16,
+      "distanceKm": 1.8,
+      "avgHr": 127,
+      "stravaId": 19592378391,
+      "createdAt": 1753604800000,
+      "id": 544,
+      "notes": null
+    },
+    {
+      "id": 545,
+      "date": "2026-08-05",
+      "phaseId": "beginner",
+      "week": 2,
+      "day": 2,
+      "type": "lift",
+      "title": "Strength \u2014 Day A",
+      "exercises": [
+        {
+          "name": "Goblet / Front-rack Squat",
+          "sets": [
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Bench Press",
+          "sets": [
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "1-Arm DB Row",
+          "sets": [
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        }
+      ],
+      "done": true,
+      "feel": "ok",
+      "createdAt": 1753691200000,
+      "notes": null
+    },
+    {
+      "date": "2026-08-06",
+      "phaseId": "beginner",
+      "week": 2,
+      "day": 3,
+      "type": "run",
+      "title": "Morning Run",
+      "exercises": [],
+      "done": true,
+      "durationMin": 30,
+      "distanceKm": 3.5,
+      "avgHr": 135,
+      "stravaId": 19622363372,
+      "createdAt": 1753777600000,
+      "id": 546,
+      "notes": null
+    },
+    {
+      "id": 547,
+      "date": "2026-08-07",
+      "phaseId": "beginner",
+      "week": 2,
+      "day": 4,
+      "type": "lift",
+      "title": "Strength \u2014 Day B",
+      "exercises": [
+        {
+          "name": "DB Romanian Deadlift",
+          "sets": [
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Reverse Lunge",
+          "sets": [
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Overhead Press",
+          "sets": [
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        }
+      ],
+      "done": true,
+      "createdAt": 1753864000000,
+      "notes": null
+    },
+    {
+      "date": "2026-08-08",
+      "phaseId": "beginner",
+      "week": 2,
+      "day": 5,
+      "type": "run",
+      "title": "Afternoon Run",
+      "exercises": [],
+      "done": true,
+      "durationMin": 32,
+      "distanceKm": 4.3,
+      "avgHr": 158,
+      "stravaId": 19656112798,
+      "createdAt": 1753950400000,
+      "id": 548,
+      "notes": null
+    },
+    {
+      "date": "2026-08-09",
+      "phaseId": "beginner",
+      "week": 2,
+      "day": 6,
+      "type": "run",
+      "title": "Morning Hike",
+      "exercises": [],
+      "done": true,
+      "durationMin": 62,
+      "distanceKm": 5.1,
+      "avgHr": 117,
+      "stravaId": 19665510893,
+      "createdAt": 1754036800000,
+      "id": 549,
+      "notes": null
+    },
+    {
+      "id": 550,
+      "date": "2026-08-10",
+      "phaseId": "beginner",
+      "week": 3,
+      "day": 0,
+      "type": "lift",
+      "title": "Strength \u2014 Day A",
+      "exercises": [
+        {
+          "name": "Goblet / Front-rack Squat",
+          "sets": [
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Bench Press",
+          "sets": [
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "1-Arm DB Row",
+          "sets": [
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        }
+      ],
+      "done": true,
+      "feel": "ok",
+      "createdAt": 1754123200000,
+      "notes": null
+    },
+    {
+      "date": "2026-08-11",
+      "phaseId": "beginner",
+      "week": 3,
+      "day": 1,
+      "type": "run",
+      "title": "Evening Run",
+      "exercises": [],
+      "done": true,
+      "durationMin": 22,
+      "distanceKm": 2.8,
+      "avgHr": 148,
+      "stravaId": 19699224566,
+      "createdAt": 1754209600000,
+      "id": 551,
+      "notes": null
+    },
+    {
+      "id": 552,
+      "date": "2026-08-12",
+      "phaseId": "beginner",
+      "week": 3,
+      "day": 2,
+      "type": "lift",
+      "title": "Strength \u2014 Day B",
+      "exercises": [
+        {
+          "name": "DB Romanian Deadlift",
+          "sets": [
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Reverse Lunge",
+          "sets": [
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Overhead Press",
+          "sets": [
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        }
+      ],
+      "done": true,
+      "feel": "ok",
+      "createdAt": 1754296000000,
+      "notes": null
+    },
+    {
+      "date": "2026-08-13",
+      "phaseId": "beginner",
+      "week": 3,
+      "day": 3,
+      "type": "run",
+      "title": "Morning Run",
+      "exercises": [],
+      "done": true,
+      "durationMin": 40,
+      "distanceKm": 5.2,
+      "avgHr": 141,
+      "stravaId": 19720770551,
+      "createdAt": 1754382400000,
+      "id": 553,
+      "notes": null
+    },
+    {
+      "id": 555,
+      "date": "2026-08-14",
+      "phaseId": "beginner",
+      "week": 3,
+      "day": 4,
+      "type": "lift",
+      "title": "Strength \u2014 Day A",
+      "exercises": [
+        {
+          "name": "Goblet / Front-rack Squat",
+          "sets": [
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Bench Press",
+          "sets": [
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "1-Arm DB Row",
+          "sets": [
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        }
+      ],
+      "done": true,
+      "feel": "ok",
+      "createdAt": 1754468800000,
+      "notes": null
+    },
+    {
+      "date": "2026-08-16",
+      "phaseId": "beginner",
+      "week": 3,
+      "day": 6,
+      "type": "rest",
+      "title": "Rest",
+      "exercises": [],
+      "done": true,
+      "createdAt": 1754555200000,
+      "id": 556,
+      "notes": null
+    },
+    {
+      "date": "2026-08-15",
+      "phaseId": "beginner",
+      "week": 3,
+      "day": 5,
+      "type": "run",
+      "title": "Evening Run",
+      "exercises": [],
+      "done": true,
+      "durationMin": 36,
+      "distanceKm": 5,
+      "avgHr": 148,
+      "stravaId": 19756542356,
+      "createdAt": 1754641600000,
+      "id": 557,
+      "notes": null
+    },
+    {
+      "id": 558,
+      "date": "2026-08-17",
+      "phaseId": "beginner",
+      "week": 4,
+      "day": 0,
+      "type": "lift",
+      "title": "Strength \u2014 Day B",
+      "exercises": [
+        {
+          "name": "DB Romanian Deadlift",
+          "sets": [
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Reverse Lunge",
+          "sets": [
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Overhead Press",
+          "sets": [
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        }
+      ],
+      "done": true,
+      "feel": "ok",
+      "createdAt": 1754728000000,
+      "notes": null
+    },
+    {
+      "date": "2026-08-18",
+      "phaseId": "beginner",
+      "week": 4,
+      "day": 1,
+      "type": "run",
+      "title": "Morning Run",
+      "exercises": [],
+      "done": true,
+      "durationMin": 25,
+      "distanceKm": 3.1,
+      "avgHr": 130,
+      "stravaId": 19789162788,
+      "createdAt": 1754814400000,
+      "id": 559,
+      "notes": null
+    },
+    {
+      "id": 560,
+      "date": "2026-08-19",
+      "phaseId": "beginner",
+      "week": 4,
+      "day": 2,
+      "type": "lift",
+      "title": "Strength \u2014 Day A",
+      "exercises": [
+        {
+          "name": "Goblet / Front-rack Squat",
+          "sets": [
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 10,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "DB Bench Press",
+          "sets": [
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 11,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        },
+        {
+          "name": "1-Arm DB Row",
+          "sets": [
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            },
+            {
+              "weight": 12,
+              "reps": 10,
+              "done": true
+            }
+          ]
+        }
+      ],
+      "done": true,
+      "feel": "ok",
+      "createdAt": 1754900800000,
+      "notes": null
+    }
+  ]
+}

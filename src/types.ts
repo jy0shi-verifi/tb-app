@@ -24,6 +24,50 @@ export interface MaxEntry {
   bumpKg?: number
 }
 
+/**
+ * A one-rep max for one exercise under one protocol.
+ *
+ * Replaces `MaxEntry` for everything new. `MaxEntry` could not be reused: its
+ * `testWeight` is kilos *per dumbbell*, which cannot express a barbell load, and
+ * it is keyed by `liftId` alone with no protocol scope — so a rebuilt protocol
+ * reusing an old id would silently inherit stale progression state
+ * (docs/codebase-map.md §8.5). `MaxEntry` is now frozen and read only for backup
+ * round-tripping.
+ *
+ * The scope matters more than it looks. Beginner mode is being kept as a
+ * fallback, and its lifts share display names with logged Tactical Barbell
+ * history ('DB Bench Press', '1-Arm DB Row', 'DB Romanian Deadlift'). Keying on
+ * `(protocolId, exerciseId)` is what stops one protocol's progress feeding
+ * another's. See docs/mass-design.md §3.4 and §3.5.
+ */
+export interface OneRmEntry {
+  protocolId: string
+  exerciseId: string
+  /** Display name at the time of entry — for history, never for lookup. */
+  exerciseName: string
+  /** Total on the bar, or per-dumbbell — see `unit`. */
+  kg: number
+  unit: 'total' | 'perDumbbell'
+  /**
+   * 'tested' = an actual 1RM. 'estimated' = derived from a 2RM/3RM, which the
+   * book explicitly sanctions: "no need to test a true 1RM with this protocol"
+   * (MASS p.90).
+   */
+  source: 'tested' | 'estimated'
+  /**
+   * Bodyweight movements have no load — max reps stands in for the 1RM
+   * (MASS p.90). When set, `kg` is 0 and this drives the prescription instead.
+   */
+  maxReps?: number
+  /** ISO yyyy-mm-dd of the test this was derived from. */
+  testedAt: string
+  /**
+   * Cumulative Forced Progression added since that test, in kg. Lets the app
+   * show "tested 100, now 105" and lets a retest reset the drift cleanly.
+   */
+  progressedKg: number
+}
+
 /** One logged set the user actually performed. */
 export interface LoggedSet {
   weight?: number // kg per dumbbell (undefined for bodyweight)
