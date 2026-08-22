@@ -1,7 +1,7 @@
 # Tactical Barbell: Mass Protocol — book extraction
 
 **Extracted:** 2026-08-21/22 · **Source:** `docs/MASS/Tactical Barbell_ Mass Protocol - K. Black.pdf`
-**Status:** extraction complete. No application code written. Two decisions have since been taken by
+**Status:** extraction complete. No application code written. Three decisions have since been taken by
 Josh and are marked inline as DECIDED; everything else is left open.
 
 ---
@@ -251,8 +251,45 @@ Specificity.
 
 Rounding is therefore an equipment question before it is a book question: the granularity available is
 whatever the plate set allows (with standard kg plates down to 1.25 kg, the smallest jump is 2.5 kg on
-the bar). **Josh's decision (2026-08-22): do whatever is needed to be accurate.** The specific rule is
-still to be chosen, and must be documented as a deviation from the source.
+the bar).
+
+#### The rule — DECIDED (Josh, 2026-08-22), as a documented deviation
+
+**Round the computed target to the nearest weight loadable on the bar with the plates available. On an
+exact tie, round down. Always display the exact target alongside the loaded weight, together with the
+per-side plate breakdown.**
+
+This is **not** sourced from the book — the book has no rule — so it is recorded here as a deviation.
+It comes from the second pass permitted by the fidelity rule: outside research after the extraction was
+complete. The r/tacticalbarbell thread "Inconvenient 1RM percentages" is the clearest statement of
+community practice, and its two most-upvoted answers compose into the rule above:
+
+- "Just look at the percentages as indications not strict rules and get the closest weight you can get
+  with the equipment at your disposal" (19 votes) → round to **nearest**.
+- "When in doubt always round down. There is a reason it's called sub maximal lifting" (18 votes) →
+  break ties **downward**.
+
+Nearest rather than always-down is deliberate. Always-down is unbiased-looking but systematically
+under-loads: at a 32 kg target on a 2.5 kg grid it gives 30 kg, 6% light on every set. Nearest bounds
+the error at half an increment and does not accumulate.
+
+The display requirement is the substantive half of the decision. Because the rounding is ours and not
+the book's, it must be **visible rather than hidden** — the screen shows the exact percentage target,
+the weight actually loaded, and the plates per side, so the deviation is always auditable against the
+book.
+
+#### Two consequences that move the numbers more than the rule does
+
+1. **Plate granularity.** With 1.25 kg as the smallest plate, the bar moves in 2.5 kg steps. A pair of
+   0.5 kg microplates takes that to 1 kg and makes rounding nearly moot. It also matters for Forced
+   Progression: "add 5-10lbs" is 2.3–4.5 kg, which does not land on a 2.5 kg grid either. **Open: does
+   Josh buy microplates?** The app's plate inventory must be configurable regardless.
+2. **Bar weight is a hard floor.** A 20 kg bar cannot go lighter than 20 kg. The book addresses this
+   only for Base Building SE — "go ahead and use the empty bar", and if the empty bar is still too much,
+   "switch to dumbbells or another exercise" (p.31). It says nothing for General Mass or Specificity,
+   where week-1 loads are 55–65% of 1RM. Given the existing training history is all dumbbell work, some
+   early barbell 1RMs may put 55% under 20 kg. **Open: warn, substitute dumbbells, or display "empty
+   bar"?**
 
 ### 5. Units: the book is in pounds, throughout
 
