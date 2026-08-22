@@ -280,10 +280,18 @@ book.
 
 #### Two consequences that move the numbers more than the rule does
 
-1. **Plate granularity.** With 1.25 kg as the smallest plate, the bar moves in 2.5 kg steps. A pair of
-   0.5 kg microplates takes that to 1 kg and makes rounding nearly moot. It also matters for Forced
-   Progression: "add 5-10lbs" is 2.3–4.5 kg, which does not land on a 2.5 kg grid either. **Open: does
-   Josh buy microplates?** The app's plate inventory must be configurable regardless.
+1. **Plate granularity — DECIDED (Josh, 2026-08-22): microplates optional, not required.** With 1.25 kg
+   as the smallest plate the bar moves in 2.5 kg steps, so the rounding error is bounded at 1.25 kg,
+   roughly 1.5–3% of a typical working weight. A pair of 0.5 kg microplates halves that but changes
+   nothing structural.
+
+   *Correction to an earlier note in this file:* plate granularity does **not** constrain Forced
+   Progression. "Add 5-10lbs to 1RMs" (p.90) applies to the **stored 1RM**, not to the loaded bar — the
+   1RM is never itself lifted, so it need not be a loadable number. Only the recalculated working weight
+   is rounded.
+
+   The app's plate inventory must be user-configurable regardless, so microplates can be added later
+   without a code change.
 2. **Bar weight is a hard floor.** A 20 kg bar cannot go lighter than 20 kg. The book addresses this
    only for Base Building SE — "go ahead and use the empty bar", and if the empty bar is still too much,
    "switch to dumbbells or another exercise" (p.31). It says nothing for General Mass or Specificity,
