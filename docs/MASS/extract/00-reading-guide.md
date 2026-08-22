@@ -1,7 +1,8 @@
 # Tactical Barbell: Mass Protocol — book extraction
 
 **Extracted:** 2026-08-21/22 · **Source:** `docs/MASS/Tactical Barbell_ Mass Protocol - K. Black.pdf`
-**Status:** extraction only. No design decisions taken, no application code written.
+**Status:** extraction complete. No application code written. Two decisions have since been taken by
+Josh and are marked inline as DECIDED; everything else is left open.
 
 ---
 
@@ -34,9 +35,14 @@ rather than tidied, so that a later reader can tell a book inconsistency from a 
 
 ### What is deliberately *not* here
 
-No decisions. Where the book offers a choice, this document records the choice and — separately, and
-labelled — the author's own recommendation, if he gives one. Where the book is silent or contradicts
-itself, that is recorded as unresolved. Each section ends with its own "Ambiguities and choices" list.
+The nine section files take no decisions at all. Where the book offers a choice, they record the choice
+and — separately, and labelled — the author's own recommendation, if he gives one. Where the book is
+silent or contradicts itself, that is recorded as unresolved. Each section ends with its own
+"Ambiguities and choices" list.
+
+The reconciliation below is the only part of this document that goes beyond the book, and it says so
+explicitly at each point: `DECIDED` marks a call Josh has made, `RESOLVED BY THE BOOK` marks a conflict
+that dissolves once two chapters are read together, and anything else is still open.
 
 ---
 
@@ -87,11 +93,22 @@ Two further structural facts that were not in the original assumption:
 
 Nine agents reading nine ranges independently surfaced a set of conflicts that only appear when the
 sections are put side by side. These are the things that must be settled before any code is written,
-because each one changes the data model or the arithmetic. **None of them is resolved here.**
+because each one changes the data model or the arithmetic.
 
-### 1. How long is a General Mass block? — the biggest open question
+Two are now settled (§1 by Josh, §2 by the book itself). The rest remain open.
 
-The book states it two ways and never reconciles them.
+### 1. How long is a General Mass block? — DECIDED (Josh, 2026-08-22)
+
+**Decision: blocks are 3 weeks throughout. A phase runs any multiple of 3 weeks.** So "General 6 Weeks"
+in the Standard Cycle is two 3-week General blocks, and a longer General stint is simply more of them —
+e.g. 4 × 3-week General blocks followed by 1 × 3-week Specificity block.
+
+This matches the book's own explicit statement (p.40, "Both General and Specificity consist of 3-week
+blocks"), matches every printed template grid, and is corroborated by community practice. It leaves
+p.140's "6 Weeks" as loose wording for two blocks rather than a different block length.
+
+*Evidence that produced the question, kept for the record — the book states it two ways and never
+reconciles them:*
 
 | Source | Says |
 |---|---|
@@ -113,9 +130,46 @@ the implementation without a decision from you.
 **This single question determines the entire scheduling model** — how many weeks a phase runs, when the
 wave restarts, and when 1RMs move.
 
-### 2. Does the 1RM get incremented, or re-tested?
+### 2. Does the 1RM get incremented, or re-tested? — RESOLVED BY THE BOOK (p.90, p.93)
 
-Both rules are printed, in different chapters, and never reconciled.
+**Not a contradiction.** The two mechanisms operate at different times, and the book says so plainly in
+two places that sit outside the template chapters where the increment rule is printed:
+
+> "There's no need to regularly test your 1 rep maximums with this protocol. **Test as required when
+> changing phases or incorporating new exercises. From there on progression simply consists of adding
+> weight to your 1 rep maximum and recalculating from block to block.** Also referred to as Forced
+> Progression in the Tactical Barbell system." (p.90)
+
+> "When it comes to this program, **testing is only required once before you start the protocol, and
+> maybe before your first Specificity block.** If no 1RM testing is required than Test Days become Rest
+> Days." (p.93)
+
+So the rule is:
+
+| Event | Mechanism | Source |
+|---|---|---|
+| Starting the protocol | Test 1RMs | pp.90, 93, 147 |
+| Changing phase (General → Specificity) or adding a new exercise to a cluster | Test 1RMs, "as required" | pp.90, 93 |
+| Block to block, otherwise | **Forced Progression** — add 5–10 lbs to the stored 1RM and recalculate | pp.47, 53, 57, 62, 77, 83, 90 |
+| Struggling / repeatedly failing sets | Drop the stored 1RM by 5–10% and recalculate | pp.45, 152 (Grey Man says 10% flat, p.53) |
+
+The Consolidation checklist (p.147) is consistent with this — it is the start-up sequence, and its three
+test points are all "before you start" or "changing phase" events, not a recurring cadence.
+
+Two things this settles for the app:
+
+- **The stored 1RM is a mutable number that drifts upward**, not a test result that is periodically
+  refreshed. "Forced Progression" is the book's own name for it, and it is the default path.
+- **A true 1RM never has to be lifted.** "There's also no need to test a true 1RM with this protocol.
+  It's acceptable to perform a 2 or 3RM and determine 1RM using one of the many free online calculators"
+  (p.90). This directly validates keeping `estimate1RM` (Brzycki) — the book explicitly sanctions
+  estimating the 1RM from a low-rep set, though it names no specific formula.
+
+**One genuinely new ambiguity falls out of this**, where it meets the training max (§3 below): if a
+cluster is using a TM, does Forced Progression add 5–10 lbs to the **true 1RM** (with the TM re-derived
+as 90% of it) or to the **TM** itself? The book never says. Only affects the Bulgarian cluster.
+
+*Evidence that produced the original question, kept for the record:*
 
 - **Increment.** "Every 3 to 6 weeks, add 5-10lbs to 1RMs. Recalculate and repeat. Don't force
   progression for exercises you struggled with." Repeated verbatim in six places (pp.47, 53, 57, 62, 77,
@@ -143,9 +197,33 @@ recommend using a training maximum in place of a 1 Rep Max for both MS and MH cl
 maximum or TM is 90% of your True/or 1 Rep Max. The TM is used instead of the 1RM to calculate your
 weekly loads."*
 
-It is a recommendation, scoped to one optional cluster, applying to both cluster types within it. So TM
-is a **per-cluster flag**, not a phase-level or global setting. Modelling it at the wrong level would
-silently change every load in the app.
+**What a training max is.** A deliberately understated 1RM. Instead of running percentages off what you
+can actually lift once, you run them off 90% of it, so every prescribed weight comes out ~10% lighter.
+With a 100 kg squat 1RM, an Alpha week-1 MS set at 75% is 75 kg off the true 1RM but 67.5 kg off a 90 kg
+TM. Same programme, same percentages, permanently lighter bar.
+
+**Why the book introduces it only here.** The Bulgarian is 3 lifts in MS and the same 3 in H — "a high
+frequency template that revolves around the big 3", "the nuclear option", "a serious cluster for
+experienced lifters that have a realistic understanding of their work capacity" (p.88). You hit the big
+three twice a week heavy *and* twice a week for volume. At true-1RM percentages that buries most people,
+so the TM is the safety valve for that one cluster's frequency. It is a recommendation ("I highly
+recommend"), not a rule, and it appears nowhere else in the book.
+
+**Why the level matters for the app.** The loading basis has to be a property of the **cluster the user
+selected**, resolved per session — not a field on settings, not a field on the phase, not a global
+toggle:
+
+- If TM lived on settings or on the Specificity phase, picking the Bulgarian would drop the loads on
+  every other cluster too — or turning it on would quietly lighten General Mass as well.
+- If it were baked into the stored max, switching clusters would leave the previous cluster's basis
+  behind on the number.
+
+This is the same shape of bug the old implementation had: `MaxEntry` was keyed by `liftId` with no
+protocol scope, so a rebuilt protocol reusing an old id inherited stale progression state
+(`docs/codebase-map.md` §8.5). The fix is the same — scope the basis to the thing that owns it.
+
+Concretely: `basis: '1rm' | 'tm90'` belongs on the cluster definition, and the load calculation reads it
+from the resolved session, never from user settings.
 
 *(Note: `MH cluster` is used on pp.86 and 88 but never defined anywhere in the book.)*
 
@@ -163,6 +241,18 @@ not sourced.
 Related silences: no bar weight, no plate inventory, no per-side math, and no rule for what to do when a
 computed load falls below the empty bar (Base Building alone addresses that — "use the empty bar",
 p.31).
+
+**And the one passage that looks like a rounding philosophy does not apply here.** Base Building says
+"No need to get ultra-precise with your calculations. Get within the ballpark. If in doubt, always err on
+the side of lighter" (p.31) — but it prefaces that with "Strength-Endurance training is about reps first,
+NOT LOAD. **This isn't maximal-strength training**" (p.31). The leniency is explicitly scoped to SE and
+explicitly contrasted with the precision expected elsewhere. It cannot be carried into General Mass or
+Specificity.
+
+Rounding is therefore an equipment question before it is a book question: the granularity available is
+whatever the plate set allows (with standard kg plates down to 1.25 kg, the smallest jump is 2.5 kg on
+the bar). **Josh's decision (2026-08-22): do whatever is needed to be accurate.** The specific rule is
+still to be chosen, and must be documented as a deviation from the source.
 
 ### 5. Units: the book is in pounds, throughout
 
@@ -213,10 +303,11 @@ Recorded in full in the section files; listed here because they will each need a
 
 ### 8. What the book never says at all
 
-No rule anywhere for: **missed sessions**, **weight rounding**, a **mandatory deload**, or a **named
-1RM-estimation formula** (the book defers to "free online calculators"). The FAQs (pp.151–156) — the
-usual home for exactly these edge cases — do not cover them either. Each is an app decision that must be
-documented as a deviation from the source.
+No rule anywhere for: **missed sessions**, **weight rounding**, or a **mandatory deload** (Bridge Week is
+recommended every 2–3 months, never required — p.93). The book also names **no specific 1RM-estimation
+formula**, deferring to "free online calculators" (p.90), while explicitly permitting estimation from a
+2RM or 3RM. The FAQs (pp.151–156) — the usual home for exactly these edge cases — do not cover them
+either. Each is an app decision that must be documented as a deviation from the source.
 
 ---
 
