@@ -198,10 +198,34 @@ export type ProtocolFamily = 'general' | 'specificity' | 'base' | 'legacy'
  */
 export type ConditioningColour = 'green' | 'black' | 'none'
 
+/**
+ * Everything a protocol needs to turn a prescription into a real load.
+ *
+ * `maxes` is keyed by `exerciseId` and has ALREADY been narrowed to this
+ * protocol's `maxScope` by the caller — a protocol never sees another's maxes.
+ */
+export interface ProtocolContext {
+  settings: import('./types').Settings
+  maxes: Record<string, import('./types').OneRmEntry>
+}
+
 export interface Protocol {
   id: string
   name: string
   family: ProtocolFamily
+  /**
+   * Namespace for stored 1RMs — the `protocolId` half of the `oneRm` compound
+   * key. NOT the same as `id`.
+   *
+   * All the MASS general templates share `'mass'`, because a bench 1RM is a
+   * bench 1RM whether you are running Grey Man or Fighter HT, and the book only
+   * asks you to retest "when changing phases or incorporating new exercises"
+   * (p.90) — not when swapping template. What the scope really separates is
+   * incompatible loading conventions: Beginner's maxes are kilos per dumbbell,
+   * MASS's are total on the bar, and letting those two meet would be a silent
+   * factor-of-two error on every set.
+   */
+  maxScope: string
   /**
    * Length of one block in weeks. Grey Man is 3 ("Both General and Specificity
    * consist of 3-week blocks", p.40). Beginner is open-ended.
@@ -216,7 +240,7 @@ export interface Protocol {
    * `sessionFor()` ignored its phase argument entirely and always delegated to
    * the one programme that existed.
    */
-  sessionFor(pos: BlockPosition, settings: import('./types').Settings): SessionPlan
+  sessionFor(pos: BlockPosition, ctx: ProtocolContext): SessionPlan
 }
 
 /** Every exercise this protocol can prescribe, across all its clusters. */

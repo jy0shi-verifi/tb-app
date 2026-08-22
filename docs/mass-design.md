@@ -474,7 +474,15 @@ Each step ends green and demonstrable on `tb2`.
    `beginner ⇄ program` import cycle. `liftingOrdinalFor()` lands here too — Grey Man's A/B selector —
    with tests asserting it is neither day-of-week nor week parity. 20 new tests, including a
    week×day matrix proving Beginner's plan is byte-identical through the new dispatch.
-4. **Grey Man protocol definition + `sessionFor`**, with the book-fixture tests from §7.
+4. ~~**Grey Man protocol definition + `sessionFor`.**~~ **DONE (2026-08-22).**
+   `src/protocols/greyman.ts` holds the p.51 grid as data, the fixed main cluster (p.48), the book's
+   example S cluster (p.49) and the A/B resolution. Loads resolve through `src/lib/barbell.ts`, with
+   dumbbell, bodyweight-reps and weighted-bodyweight all handled. A missing 1RM produces an honest
+   "Set your 1RM" note rather than a fabricated weight. 32 book fixtures in `test/greyman.test.ts`.
+   `Protocol.maxScope` was added so all MASS templates share one set of maxes (`'mass'`) while Beginner
+   keeps its own — the scope separates incompatible loading conventions (kg-per-dumbbell vs total on the
+   bar), not templates. **Not yet reachable in the UI**: needs the 1RM entry screen (step 5) and the
+   Session-screen load display (step 6), which still hardcodes a "kg/DB" label at `Session.tsx:135`.
 5. **1RM entry / estimation screen** (resolves open question 4).
 6. **Session screen** rendering barbell sets with plate breakdown, preserving the `SetRow` hoisting and
    the Strava-safe write behaviour CLAUDE.md calls out.

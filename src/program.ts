@@ -1,7 +1,9 @@
 import type { Settings, SessionType } from './types'
 import { diffDays, parseISO } from './lib/date'
 import { BEGINNER_PROTOCOL } from './beginner'
-import type { BlockPosition, Protocol, SessionPlan } from './protocol'
+import { GREY_MAN_PROTOCOL } from './protocols/greyman'
+import type { BlockPosition, Protocol, ProtocolContext, SessionPlan } from './protocol'
+import type { OneRmEntry } from './types'
 
 // The resolved plan shapes now live in ./protocol so the protocol layer does not
 // depend on any one programme. Re-exported here because screens import them from
@@ -22,6 +24,7 @@ export type { PlannedSet, PlannedExercise, SessionPlan, Protocol } from './proto
 // ---------------------------------------------------------------------------
 export const PROTOCOLS: Record<string, Protocol> = {
   beginner: BEGINNER_PROTOCOL,
+  gm: GREY_MAN_PROTOCOL,
 }
 
 export const DEFAULT_PHASE_ID = 'beginner'
@@ -102,16 +105,42 @@ export function programSessionName(
   return parts.join(' · ')
 }
 
-/** The session plan for a given phase/week/day. */
+/**
+ * The session plan for a given phase/week/day.
+ *
+ * `maxes` is optional so the many existing call sites keep working: a protocol
+ * that prescribes percentages (Grey Man) renders honest "set your 1RM" gaps when
+ * it is absent, rather than inventing a load. Beginner ignores it entirely — its
+ * loads are a linear progression held in `settings.beginner.lifts`.
+ *
+ * Callers pass the maxes for the protocol's OWN `maxScope`; `narrowMaxes` does
+ * that narrowing.
+ */
 export function sessionFor(
   phaseId: string,
   week: number,
   day: number,
   settings: Settings,
+  maxes: Record<string, OneRmEntry> = {},
 ): SessionPlan {
   const protocol = protocolFor(phaseId)
+  const ctx: ProtocolContext = { settings, maxes }
   return protocol.sessionFor(
     { week, day, liftingOrdinal: liftingOrdinalFor(protocol, week, day) },
-    settings,
+    ctx,
   )
+}
+
+/**
+ * Narrow a flat list of stored 1RMs to one protocol's scope, keyed by exercise
+ * id — the shape `sessionFor` wants.
+ *
+ * This is where the protocol scoping is actually enforced. Beginner's maxes are
+ * kilos per dumbbell and MASS's are total on the bar; handing one to the other
+ * would be a silent factor-of-two error on every set.
+ */
+export function narrowMaxes(rows: OneRmEntry[], protocol: Protocol): Record<string, OneRmEntry> {
+  const out: Record<string, OneRmEntry> = {}
+  for (const r of rows) if (r.protocolId === protocol.maxScope) out[r.exerciseId] = r
+  return out
 }

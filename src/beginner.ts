@@ -257,6 +257,9 @@ export const BEGINNER_PROTOCOL: Protocol = {
   id: 'beginner',
   name: 'Beginner',
   family: 'legacy',
+  // Beginner's maxes are kilos PER DUMBBELL; MASS's are total on the bar.
+  // Separate scopes is what stops those two ever meeting.
+  maxScope: 'beginner',
   // Open-ended on-ramp: it never "completes", so it has no real block length.
   blockWeeks: 999,
   liftingDays: LIFT_DAYS,
@@ -265,5 +268,8 @@ export const BEGINNER_PROTOCOL: Protocol = {
     a: { id: 'a', label: 'Workout A', exercises: LP_A.map(toClusterExercise), editable: false },
     b: { id: 'b', label: 'Workout B', exercises: LP_B.map(toClusterExercise), editable: false },
   },
-  sessionFor: (pos, settings) => beginnerSessionFor(pos.week, pos.day, settings),
+  // Beginner keeps its own per-lift progression in `settings.beginner.lifts`
+  // and does not read `ctx.maxes` — its loads are a linear progression, not a
+  // percentage of a 1RM.
+  sessionFor: (pos, ctx) => beginnerSessionFor(pos.week, pos.day, ctx.settings),
 }

@@ -114,6 +114,17 @@ export interface Interval {
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 
+/**
+ * A user-chosen exercise stored in settings. Mirrors `ClusterExercise` in
+ * `protocol.ts` but declared here so `Settings` stays free of protocol imports.
+ */
+export interface ClusterExerciseRef {
+  id: string
+  name: string
+  short?: string
+  defaultLoading: 'barbell' | 'dumbbell' | 'bodyweightReps' | 'weightedBodyweight' | 'unloaded'
+}
+
 export interface Settings {
   id: 'app'
   dbIncrement: DbIncrement
@@ -134,6 +145,18 @@ export interface Settings {
   stravaNeedsReconnect?: boolean
   /** rest-timer seconds override; undefined/0 = Auto */
   restSec?: number
+  /** Bodyweight in kg. Needed for weighted-bodyweight loads (MASS p.90). */
+  bodyweightKg?: number
+  /**
+   * The bar and plates available. Defaults to a 20 kg bar with standard kg
+   * plates (see `DEFAULT_BAR_SETUP`); `platePairsKg` is a list of pair
+   * denominations, so adding 0.5 is all microplates need.
+   */
+  bar?: { barKg: number; platePairsKg: number[] }
+  /** MASS state. `sCluster` is the user-built Grey Man supplementary cluster (p.49). */
+  mass?: {
+    sCluster?: { s1?: ClusterExerciseRef[]; s2?: ClusterExerciseRef[] }
+  }
   /** Strava OAuth tokens (on-device only); set after "Connect Strava". */
   strava?: {
     accessToken: string
