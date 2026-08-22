@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Home, CalendarDays, History as HistoryIcon, BookOpen, Settings as SettingsIcon } from 'lucide-react'
 import { useSettings } from '../hooks'
-import { PHASES, resolvePosition } from '../program'
+import { PROTOCOLS, resolvePosition } from '../program'
 import { today } from '../lib/date'
 import { Wordmark } from './ui'
 
@@ -31,7 +31,7 @@ export default function Layout() {
   const pos = resolvePosition(settings, today())
   // resolvePosition already falls back to a real phase, so this cannot be undefined
   // for a stored id that no longer exists.
-  const phase = PHASES[pos.phaseId]
+  const phase = PROTOCOLS[pos.phaseId]
   const context =
     pos.status === 'active' ? `${phase.name} · Wk ${pos.week}` : (phase?.name ?? 'Tactical Barbell')
 

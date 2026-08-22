@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, ExternalLink, AlertTriangle, X, Flame } from 'lucide-react'
 import { useSettings, useSessions, useSessionByDate } from '../hooks'
-import { PHASES, resolvePosition, sessionFor } from '../program'
+import { PROTOCOLS, resolvePosition, sessionFor } from '../program'
 import { isoDate, today, prettyDate, parseISO, diffDays, addDays, mondayIndex } from '../lib/date'
 import { db, saveSettings } from '../db'
 import { beginStravaAuth } from '../lib/strava'
@@ -34,7 +34,7 @@ export default function Today() {
     )
 
   const pos = resolvePosition(settings, now)
-  const phase = PHASES[pos.phaseId]
+  const phase = PROTOCOLS[pos.phaseId]
 
   // lapse detection (hoisted so it can guard the phase-complete branch too):
   // been away a while → don't silently advance into heavier weeks, and never

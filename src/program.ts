@@ -1,71 +1,75 @@
 import type { Settings, SessionType } from './types'
 import { diffDays, parseISO } from './lib/date'
-import { beginnerSessionFor, type Interval } from './beginner'
+import { BEGINNER_PROTOCOL } from './beginner'
+import type { BlockPosition, Protocol, SessionPlan } from './protocol'
+
+// The resolved plan shapes now live in ./protocol so the protocol layer does not
+// depend on any one programme. Re-exported here because screens import them from
+// this module.
+export type { PlannedSet, PlannedExercise, SessionPlan, Protocol } from './protocol'
 
 // ---------------------------------------------------------------------------
-// Resolved plan shapes (what a screen renders)
-// ---------------------------------------------------------------------------
-export interface PlannedSet {
-  reps: number
-  weight?: number // kg per dumbbell
-  perDumbbell?: boolean
-  overCeiling?: boolean
-  underFloor?: boolean
-}
-export interface PlannedExercise {
-  name: string
-  note?: string
-  loaded: boolean
-  sets: PlannedSet[]
-}
-export interface SessionPlan {
-  type: SessionType
-  title: string
-  scheme?: string
-  detail?: string
-  exercises: PlannedExercise[]
-  /** Time-based run/walk intervals, if this session prescribes them. */
-  intervals?: Interval[]
-}
-
-export interface PhaseMeta {
-  id: string
-  name: string
-  lengthWeeks: number
-}
-
-// ---------------------------------------------------------------------------
-// Phase registry + resolver
+// Protocol registry
 //
-// The Tactical Barbell phases (Base Building, Operator) that used to live here
-// were removed: they were written without being verified against the books and
-// are being rebuilt from scratch. Beginner is the only programme for now.
+// Was `PHASES: Record<string, PhaseMeta>` where `PhaseMeta` held only
+// `{ id, name, lengthWeeks }`, and `sessionFor()` ignored its phase argument and
+// always delegated to Beginner. Neither could survive a second programme:
+// docs/codebase-map.md §8.2 records five screens importing a hardcoded lift list
+// directly, which structurally locked the app to one cluster shape.
+//
+// Screens should read `PROTOCOLS[id]` — its name, its clusters, its lifting days
+// — rather than importing programme data.
 // ---------------------------------------------------------------------------
-export const PHASES: Record<string, PhaseMeta> = {
-  // An open-ended on-ramp, so it never "completes".
-  beginner: { id: 'beginner', name: 'Beginner', lengthWeeks: 999 },
+export const PROTOCOLS: Record<string, Protocol> = {
+  beginner: BEGINNER_PROTOCOL,
 }
 
 export const DEFAULT_PHASE_ID = 'beginner'
 
-export interface Position {
+/** The protocol for an id, falling back rather than throwing. */
+export function protocolFor(phaseId: string | undefined): Protocol {
+  return (phaseId && PROTOCOLS[phaseId]) || PROTOCOLS[DEFAULT_PHASE_ID]
+}
+
+export interface Position extends BlockPosition {
   phaseId: string
-  week: number // 1-based
-  day: number // 0=Mon..6=Sun
   status: 'before' | 'active' | 'complete'
+}
+
+/**
+ * 0-based index of the lifting session on `day` of `week` within the block, or
+ * -1 when `day` is not a lifting day.
+ *
+ * Grey Man's A/B alternation reads this and nothing else — see the note on
+ * `BlockPosition.liftingOrdinal` for why day-of-week and week parity are both
+ * wrong.
+ */
+export function liftingOrdinalFor(protocol: Protocol, week: number, day: number): number {
+  const idx = protocol.liftingDays.indexOf(day)
+  if (idx < 0) return -1
+  return (week - 1) * protocol.liftingDays.length + idx
 }
 
 /** Where are we in the current phase, given the start date and today? */
 export function resolvePosition(settings: Settings, when: Date): Position {
   const start = parseISO(settings.phaseStartDate)
   const d = diffDays(when, start)
-  const phaseId = PHASES[settings.currentPhaseId] ? settings.currentPhaseId : DEFAULT_PHASE_ID
-  const phase = PHASES[phaseId]
-  if (d < 0) return { phaseId, week: 1, day: 0, status: 'before' }
+  const protocol = protocolFor(settings.currentPhaseId)
+  const phaseId = protocol.id
+  if (d < 0) return { phaseId, week: 1, day: 0, liftingOrdinal: liftingOrdinalFor(protocol, 1, 0), status: 'before' }
   const week = Math.floor(d / 7) + 1
   const day = ((d % 7) + 7) % 7
-  if (week > phase.lengthWeeks) return { phaseId, week: phase.lengthWeeks, day: 6, status: 'complete' }
-  return { phaseId, week, day, status: 'active' }
+  if (week > protocol.blockWeeks) {
+    const last = protocol.blockWeeks
+    return {
+      phaseId,
+      week: last,
+      day: 6,
+      liftingOrdinal: liftingOrdinalFor(protocol, last, 6),
+      status: 'complete',
+    }
+  }
+  return { phaseId, week, day, liftingOrdinal: liftingOrdinalFor(protocol, week, day), status: 'active' }
 }
 
 const TYPE_LABEL: Record<SessionType, string> = {
@@ -88,7 +92,7 @@ export function programSessionName(
   type: SessionType,
   settings: Settings,
 ): string {
-  const parts = [PHASES[phaseId]?.name ?? phaseId, `Wk${week}`]
+  const parts = [protocolFor(phaseId).name, `Wk${week}`]
   // ordinal of this session type within the week (Tue run = 1, Thu run = 2, …)
   let ordinal = 0
   for (let d = 0; d <= day; d++) {
@@ -100,10 +104,14 @@ export function programSessionName(
 
 /** The session plan for a given phase/week/day. */
 export function sessionFor(
-  _phaseId: string,
+  phaseId: string,
   week: number,
   day: number,
   settings: Settings,
 ): SessionPlan {
-  return beginnerSessionFor(week, day, settings)
+  const protocol = protocolFor(phaseId)
+  return protocol.sessionFor(
+    { week, day, liftingOrdinal: liftingOrdinalFor(protocol, week, day) },
+    settings,
+  )
 }

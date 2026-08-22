@@ -465,8 +465,15 @@ Each step ends green and demonstrable on `tb2`.
    machine — it ran and passed. A committed synthetic fixture mirrors its exact shape (same keys, same
    session count, same exercise names, synthetic numbers) so the test is repeatable without shipping
    personal data.
-3. **Protocol registry** — `Protocol`, `Cluster`, `Prescription`, `Loading`; move `beginner` into it
-   unchanged and prove nothing regressed.
+3. ~~**Protocol registry.**~~ **DONE (2026-08-22).** New `src/protocol.ts` holds `Loading`,
+   `LoadBasis`, `Prescription`, `Cluster`, `ClusterExercise`, `BlockPosition`, `Protocol` and the
+   resolved plan shapes. `PHASES`/`PhaseMeta` are gone; `PROTOCOLS: Record<string, Protocol>` replaces
+   them and `sessionFor()` now dispatches through `protocol.sessionFor()` instead of always calling
+   Beginner. Beginner registers itself as `BEGINNER_PROTOCOL` with its A/B lifts exposed as clusters, so
+   screens no longer need to import programme data. `Interval` moved to `types.ts` to break the
+   `beginner ⇄ program` import cycle. `liftingOrdinalFor()` lands here too — Grey Man's A/B selector —
+   with tests asserting it is neither day-of-week nor week parity. 20 new tests, including a
+   week×day matrix proving Beginner's plan is byte-identical through the new dispatch.
 4. **Grey Man protocol definition + `sessionFor`**, with the book-fixture tests from §7.
 5. **1RM entry / estimation screen** (resolves open question 4).
 6. **Session screen** rendering barbell sets with plate breakdown, preserving the `SetRow` hoisting and

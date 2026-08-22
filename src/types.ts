@@ -102,6 +102,16 @@ export interface SessionLog {
   createdAt: number
 }
 
+/**
+ * One leg of a time-based run/walk session (Couch-to-5K, and the book's Green
+ * conditioning sessions later). Lives here rather than in `beginner.ts` so the
+ * protocol layer can reference it without importing a specific programme.
+ */
+export interface Interval {
+  kind: 'walk' | 'jog'
+  sec: number
+}
+
 export type ThemeMode = 'system' | 'light' | 'dark'
 
 export interface Settings {

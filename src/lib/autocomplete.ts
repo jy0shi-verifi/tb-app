@@ -1,5 +1,5 @@
 import { db } from '../db'
-import { PHASES, resolvePosition, sessionFor } from '../program'
+import { PROTOCOLS, resolvePosition, sessionFor } from '../program'
 import { addDays, diffDays, isoDate, parseISO, today } from './date'
 import type { SessionLog } from '../types'
 
@@ -12,7 +12,7 @@ import type { SessionLog } from '../types'
 export async function autoCompleteRestDays(): Promise<void> {
   const settings = await db.settings.get('app')
   if (!settings) return
-  const phase = PHASES[settings.currentPhaseId]
+  const phase = PROTOCOLS[settings.currentPhaseId]
   if (!phase) return
 
   const now = today()

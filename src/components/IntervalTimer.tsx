@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Play, Pause, SkipForward } from 'lucide-react'
-import type { Interval } from '../beginner'
+import type { Interval } from '../types'
 import { Button } from './ui'
 
 function buzz(p: number | number[]) {

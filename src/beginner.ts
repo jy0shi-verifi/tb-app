@@ -1,8 +1,10 @@
 // Beginner Mode — a proven novice on-ramp: dumbbell Linear Progression (double
 // progression, StrengthLog-style A/B full body) + Couch-to-5K (canonical Josh Clark
 // 9-week schedule). Runs are time-based intervals (no watch needed).
-import type { LoggedExercise, Settings, SessionLog } from './types'
-import type { PlannedExercise, SessionPlan } from './program'
+import type { Interval, LoggedExercise, Settings, SessionLog } from './types'
+import type { ClusterExercise, PlannedExercise, Protocol, SessionPlan } from './protocol'
+
+export type { Interval }
 
 export interface BeginnerLift {
   id: string
@@ -40,10 +42,6 @@ export function workingKg(l: BeginnerLift, settings: Settings): number {
 // Couch-to-5K — canonical Josh Clark schedule. Each workout = a 5-min brisk-walk
 // warm-up then a sequence of jog/walk intervals (seconds).
 // ---------------------------------------------------------------------------
-export interface Interval {
-  kind: 'walk' | 'jog'
-  sec: number
-}
 const WARMUP: Interval = { kind: 'walk', sec: 300 }
 const jog = (sec: number): Interval => ({ kind: 'jog', sec })
 const walk = (sec: number): Interval => ({ kind: 'walk', sec })
@@ -234,4 +232,38 @@ export function applyBeginnerProgress(
     }
   })
   return changed ? next : null
+}
+
+// ---------------------------------------------------------------------------
+// Protocol registration
+//
+// Beginner is kept as an unadvertised fallback once MASS lands (Josh, 2026-08-22:
+// "keep it as a fallback only"), so this is not dead weight. Registering it here
+// rather than special-casing it in `program.ts` is the point of the protocol
+// layer: dispatch stops being "always call beginnerSessionFor".
+//
+// Behaviour is unchanged — `sessionFor` below just forwards to the same function
+// the app has always called. test/protocol.test.ts pins that.
+// ---------------------------------------------------------------------------
+
+const toClusterExercise = (l: BeginnerLift): ClusterExercise => ({
+  id: l.id,
+  name: l.name,
+  short: l.short,
+  defaultLoading: 'dumbbell',
+})
+
+export const BEGINNER_PROTOCOL: Protocol = {
+  id: 'beginner',
+  name: 'Beginner',
+  family: 'legacy',
+  // Open-ended on-ramp: it never "completes", so it has no real block length.
+  blockWeeks: 999,
+  liftingDays: LIFT_DAYS,
+  conditioning: 'none',
+  clusters: {
+    a: { id: 'a', label: 'Workout A', exercises: LP_A.map(toClusterExercise), editable: false },
+    b: { id: 'b', label: 'Workout B', exercises: LP_B.map(toClusterExercise), editable: false },
+  },
+  sessionFor: (pos, settings) => beginnerSessionFor(pos.week, pos.day, settings),
 }

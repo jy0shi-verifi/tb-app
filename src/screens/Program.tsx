@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useSettings, useSessions } from '../hooks'
-import { PHASES, resolvePosition, sessionFor } from '../program'
+import { PROTOCOLS, resolvePosition, sessionFor } from '../program'
 import { addDays, DAY_NAMES, isoDate, parseISO, today } from '../lib/date'
 import { Card, Pill, SegmentedPicker, SessionIcon, SESSION_META } from '../components/ui'
 
@@ -13,7 +13,7 @@ export default function Program() {
   const sessions = useSessions()
   const nav = useNavigate()
 
-  const phase = PHASES[settings.currentPhaseId] ?? PHASES.beginner
+  const phase = PROTOCOLS[settings.currentPhaseId] ?? PROTOCOLS.beginner
   const now = today()
   const todayIso = isoDate(now)
   const pos = resolvePosition(settings, now)
@@ -25,9 +25,10 @@ export default function Program() {
 
   const doneDates = new Set(sessions.filter((s) => s.done).map((s) => s.date))
   const loggedDates = new Set(sessions.map((s) => s.date))
-  // Beginner is open-ended (lengthWeeks 999), so the block view shows a rolling
-  // window around where you are rather than every week to the horizon.
-  const blockWeeks = Math.min(phase.lengthWeeks, Math.max(12, pos.week + 4))
+  // Beginner is open-ended (blockWeeks 999), so the block view shows a rolling
+  // window around where you are rather than every week to the horizon. A real
+  // MASS block is 3 weeks and shows in full.
+  const blockWeeks = Math.min(phase.blockWeeks, Math.max(12, pos.week + 4))
 
   function loadsLine(plan: ReturnType<typeof sessionFor>): string | null {
     const parts = plan.exercises
