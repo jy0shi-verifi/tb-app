@@ -24,6 +24,9 @@ protocol, and this design is largely a set of answers to that list.
 | Conditioning | Follow the book — app prescribes Green sessions during General Mass | Josh, 2026-08-22 |
 | Rounding | Nearest loadable weight, ties down, always show target + loaded + plates | Josh, 2026-08-22 (**DEVIATION** — book has no rule) |
 | Microplates | Optional, not required. Plate inventory is user-configurable | Josh, 2026-08-22 |
+| Base Building | **Skipped.** Start at General Mass | Josh, 2026-08-22 (**DEVIATION** — book sequences it first, p.147) |
+| Below bar weight | Show "empty bar" plus a warning; do not substitute automatically | Claude, 2026-08-22 (**DEVIATION** — book covers SE only, p.31) |
+| Fractional bodyweight reps | Round to nearest, ties down — same rule as weight | Claude, 2026-08-22 (**DEVIATION** — book silent) |
 
 Not being built now, but the model must not preclude them: Mass Template, Gladiator, Fighter HT,
 Specificity Alpha and Bravo, Base Building.
@@ -92,7 +95,19 @@ Notes that matter for the model:
   Gladiator and Fighter HT, week 3 is just heavier. That removes a whole feature from the first build.
 - Percentages are of the **1RM**, not a training max (p.51). Grey Man never uses a TM.
 
-### 2.4 Execution rules (pp.50–53)
+### 2.4 Scheduling — Days 1/3/5 are fixed
+
+Grey Man prints Days 1, 3 and 5 (p.50) and gives **no permission to move them.** That flexibility
+belongs to other templates: Fighter HT has an explicit 48-hour rule (p.61) and Gladiator says outright
+"You don't have to stick to the above schedule exactly" (p.55). Grey Man says only that the four days off
+"allows for more flexibility with **conditioning and recovery**" (p.48) — which is about the conditioning
+schedule, not the lifting one.
+
+So: **Monday / Wednesday / Friday**, mapping Day 1→`day 0`, Day 3→`day 2`, Day 5→`day 4` in the app's
+existing 0=Mon..6=Sun convention. Shifting them would be a deviation and should be labelled as one if it
+ever becomes necessary.
+
+### 2.5 Execution rules (pp.50–53)
 
 - Main lifts first, then S exercises (p.50).
 - Rest: 2–5 minutes on main lifts, 1–2 minutes on S (p.53).
@@ -103,7 +118,7 @@ Notes that matter for the model:
   work, nothing" (p.64) — but Grey Man's S cluster *is* the sanctioned outlet for exactly that (p.49).
   The S cluster is the exception; the app should not offer an "add extra exercise" affordance outside it.
 
-### 2.5 Progression (p.53, p.90)
+### 2.6 Progression (p.53, p.90)
 
 Forced Progression. Every 3–6 weeks — i.e. every one to two blocks — **add 5–10 lbs (2.5–5 kg) to the
 stored 1RM** and recalculate. Never force progression on a lift that was a struggle (p.53).
@@ -391,15 +406,19 @@ kg conversion tested separately — the book is entirely in pounds and the fixtu
 
 Ordered by how much they block the build.
 
-1. **Base Building — skip it or run it?** The book puts 6 weeks of Base Building before the first General
-   block and calls it "highly recommended" (Consolidation step 5, p.147; p.151). It is SE circuits plus
-   endurance work — a substantial separate build. *Recommendation: skip it for now and start at General
-   Mass.* Josh has been training a month, already runs, and Base Building is mostly conditioning he is
-   getting anyway. But it is a deliberate departure from the book's own sequence, so it needs saying out
-   loud rather than quietly dropping.
-2. **When a computed load falls below bar weight** — empty bar, dumbbell substitute, or a warning? The
-   book answers only for SE (p.31). Most likely to bite on overhead press early on.
-3. **Rounding a fractional bodyweight-rep target** — 8-rep max at 55% is 4.4 reps. Book is silent.
+1. ~~**Base Building**~~ — **DECIDED (Josh, 2026-08-22): skipped.** Start at General Mass. A deliberate
+   departure from the book's sequence (p.147 puts 6 weeks of Base Building first and p.151 calls it
+   highly recommended), taken because Josh already runs and Base Building is largely conditioning he is
+   getting anyway. Recorded as a **DEVIATION**, not an omission.
+2. ~~**When a computed load falls below bar weight**~~ — **DECIDED (Claude): show "empty bar" and warn.**
+   The book's only guidance is for SE — "go ahead and use the empty bar", and if that is still too heavy,
+   "switch to dumbbells or another exercise" (p.31). The app will surface the same two options but will
+   **not** substitute automatically: silently swapping an exercise would break the
+   `(protocolId, exerciseId)` progress scoping in §3.4 and produce history the user did not choose.
+   Most likely to bite on overhead press early on.
+3. ~~**Rounding a fractional bodyweight-rep target**~~ — **DECIDED (Claude): nearest, ties down.** Same
+   rule as weight rounding (§4), for consistency and for one less thing to remember. An 8-rep max at 55%
+   is 4.4 → 4 reps. **DEVIATION** — the book is silent.
 4. **1RM entry on first run.** Josh has no barbell yet, so there are no tested maxes. Does the app ship
    with an estimate-from-a-3RM flow (sanctioned by p.90), a manual entry, or both? This gates the very
    first session.
