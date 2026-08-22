@@ -29,6 +29,10 @@ protocol, and this design is largely a set of answers to that list.
 | Base Building | **Skipped.** Start at General Mass | Josh, 2026-08-22 (**DEVIATION** — book sequences it first, p.147) |
 | Below bar weight | Show "empty bar" plus a warning; do not substitute automatically | Claude, 2026-08-22 (**DEVIATION** — book covers SE only, p.31) |
 | Fractional bodyweight reps | Round to nearest, ties down — same rule as weight | Claude, 2026-08-22 (**DEVIATION** — book silent) |
+| Bar and plates | 20 kg bar; pairs of 25/20/15/10/5/2.5/1.25 kg. Smallest jump 2.5 kg | Josh, 2026-08-22 |
+| Lifting days | Mon / Wed / Fri, as printed (p.50) | Josh, 2026-08-22 |
+| First 1RMs | Estimate from a 3RM per lift via `estimate1RM`, once the bar arrives (sanctioned p.90) | Josh, 2026-08-22 |
+| Strava on `tb2` | A **second** Strava API app registered against `tb2.joshua-birch.co.uk`; the live app's Strava is untouched | Josh, 2026-08-22 |
 
 Not being built now, but the model must not preclude them: Mass Template, Gladiator, Fighter HT,
 Specificity Alpha and Bravo, Base Building.
@@ -311,7 +315,7 @@ Nothing like this exists in the codebase. `src/lib/barbell.ts`:
 ```ts
 export interface BarSetup {
   barKg: number            // 20 default, configurable (15 for a women's bar, 10 for a technique bar)
-  platePairsKg: number[]   // e.g. [25, 20, 15, 10, 5, 2.5, 1.25], optionally + [0.5]
+  platePairsKg: number[]   // Josh's kit: [25, 20, 15, 10, 5, 2.5, 1.25]. Add 0.5 if microplates arrive.
 }
 
 export interface LoadedBar {
@@ -421,14 +425,20 @@ Ordered by how much they block the build.
 3. ~~**Rounding a fractional bodyweight-rep target**~~ — **DECIDED (Claude): nearest, ties down.** Same
    rule as weight rounding (§4), for consistency and for one less thing to remember. An 8-rep max at 55%
    is 4.4 → 4 reps. **DEVIATION** — the book is silent.
-4. **1RM entry on first run.** Josh has no barbell yet, so there are no tested maxes. Does the app ship
-   with an estimate-from-a-3RM flow (sanctioned by p.90), a manual entry, or both? This gates the very
-   first session.
+4. ~~**1RM entry on first run**~~ — **DECIDED (Josh, 2026-08-22): estimate from a 3RM.** The app walks
+   through a 3RM for each of Bench, Squat, OHP and Deadlift and runs it through `estimate1RM` (Brzycki).
+   Explicitly sanctioned: "There's also no need to test a true 1RM with this protocol. It's acceptable to
+   perform a 2 or 3RM and determine 1RM using one of the many free online calculators" (p.90). The book
+   names no formula, so Brzycki remains our choice — its book-anchored tests in `test/calc.test.ts`
+   survive from the strip and stay valid. Pair it with p.64's warning in the UI: "DON'T start too heavy or
+   overestimate your 1RMs".
 5. **Bodyweight storage** — needed for weighted-bodyweight math (p.90) and for the nutrition formulas
    (p.120). Not currently in `Settings`.
-6. **Strava `redirect_uri`** — still `window.location.origin`, and Strava allows one callback domain per
-   app (CLAUDE.md). Unresolved, and it blocks Strava on `tb2`. Independent of MASS but on the critical
-   path to using the new app for real.
+6. ~~**Strava `redirect_uri`**~~ — **DECIDED (Josh, 2026-08-22): a second Strava API app.** Registered
+   against `tb2.joshua-birch.co.uk`, leaving the live app's Strava integration completely untouched.
+   **Blocked on Josh** registering it and supplying the client ID; the client secret goes in the `tb-app-v2`
+   Pages environment, never in the repo. The app then needs its client ID to come from build config rather
+   than being hardcoded, so the two variants can differ.
 7. **Forced Progression against a training max** — if a cluster uses TM, does the increment apply to the
    true 1RM or the TM? Book silent (§2 of the extraction reconciliation). **Does not affect Grey Man** —
    parked until Specificity.
@@ -439,8 +449,13 @@ Ordered by how much they block the build.
 
 Each step ends green and demonstrable on `tb2`.
 
-1. **`src/lib/barbell.ts` + tests.** Pure functions, no UI, no schema. Highest-risk arithmetic, zero
-   blast radius. Do it first.
+1. ~~**`src/lib/barbell.ts` + tests.**~~ **DONE (2026-08-22).** `loadBar`, `targetLoad`,
+   `bodyweightReps`, `weightedBodyweightAddedKg`, plus `DEFAULT_BAR_SETUP` for Josh's kit. 29 tests in
+   `test/barbell.test.ts`, each rule asserted against the plausible wrong answer as well as the right
+   one. Notably: the solver is exact subset-sum over the plate inventory rather than greedy
+   heaviest-first, because greedy fails on an irregular set (20 kg per side from 15s and 10s), and the
+   per-side target is deliberately not snapped to the unit grid before the nearest/ties-down comparison —
+   snapping it first silently converts a round-down into a round-up.
 2. **Dexie v2 + `oneRm` table + `BACKUP_VERSION` 2 + migration tests**, including the real 23-session
    round-trip. Schema work before anything depends on it.
 3. **Protocol registry** — `Protocol`, `Cluster`, `Prescription`, `Loading`; move `beginner` into it
