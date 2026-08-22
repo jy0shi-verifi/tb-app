@@ -34,3 +34,9 @@ backups/
 
 # playwright-mcp scratch output
 .playwright-mcp/
+
+# MASS book source material — copyrighted, do not commit.
+# The derived extraction in docs/MASS/extract/ IS tracked.
+docs/MASS/*.pdf
+docs/MASS/mass-text.txt
+docs/MASS/images/
