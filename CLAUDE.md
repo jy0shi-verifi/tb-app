@@ -9,7 +9,8 @@ Read this first, then **`HANDOFF.md`** for where work actually stopped and what 
 A single-user, offline-first training PWA. Josh uses it **every morning** to run his lifting and running. It tells him what to do that day and works out every weight.
 
 - **Sole user: Josh.** Every design decision assumes one user, one device-local database, no auth, no backend.
-- **Currently running:** Beginner Mode — dumbbell A/B double progression (3×8–12, +2 kg when all three sets hit 12). Running is delegated to **Runna** and pulled in via **Strava**.
+- **Currently running (live app, `master`):** Beginner Mode — dumbbell A/B double progression (3×8–12, +2 kg when all three sets hit 12). Running is delegated to **Runna** and pulled in via **Strava**.
+- **In development (`tb2`, branch `mass-extraction`):** Tactical Barbell **MASS — Grey Man**, rebuilt from the book. Josh will not switch to it for some months (he is cutting on Beginner until the barbell and rack arrive), so tb2 has no deadline pressure — but **Beginner must keep working**, it is not legacy code that can rot.
 - **Live at:** `tb.joshua-birch.co.uk` (Cloudflare Pages project `tb-app`).
 - **In daily production use with ~1 month of real training history.**
 
@@ -58,26 +59,45 @@ Outside research is a **second pass, not an input**: cross-reference a finished 
 
 ---
 
-## Status: Tactical Barbell strip — done on branch `strip-tb`
+## Status: MASS rebuild — Grey Man complete on branch `mass-extraction`
 
-The TB programme code was never verified against the books, so it is being **rebuilt from scratch** rather than trusted. Step 1 (removal) is complete on branch **`strip-tb`**; `master` is untouched and still matches what Josh uses daily.
+`master` is untouched and still matches what Josh uses daily. Branch `strip-tb` removed the unverified
+Tactical Barbell code; branch **`mass-extraction`** (off `strip-tb`) contains the rebuild.
 
-**Removed:** the Maxes calculator (screen, route and tab), Operator and Base Building session generation, all TB load math (`trainingMax`, `basisMax`, `workingLoad`, `effective1RM`, `maxToBasis`, the wave tables), `src/lib/progression.ts` (block completion, forced progression, the retest ladder), the TB↔Beginner mode switch, the `loadBasis` control, the Operator hold/strength-trend/records blocks in History, and the dead `src/App.css`.
+**The book is extracted.** `docs/MASS/MASS-extraction.md` — 4,800 lines, nine chapter sections, every
+claim page-referenced. All 71 programming tables in the PDF are **raster images, not text**, so each was
+transcribed visually; a text-only extraction would have captured every caveat and not one percentage.
+The source PDF, its text dump and the extracted page images are **gitignored** (copyrighted); only the
+derived extraction is tracked.
 
-**Kept deliberately:**
-- **The Guide screen** — still all TB content; to be rewritten later.
-- **The "Tactical Barbell" wordmark and header text** — Josh wants the branding.
-- **`MaxEntry` and the `maxes` table** — nothing writes them, but they are part of the backup contract, so v1 files still round-trip.
-- **`estimate1RM`** (Brzycki) — still used for PR detection and the Strava write-back. Its book-anchored tests in `test/calc.test.ts` survive; reuse them when TB is rebuilt.
-- `SessionType` still includes `'se'` and `'hic'` so Josh's existing logged sessions keep their type.
+**The design is written.** `docs/mass-design.md` — decisions, the type model, the test-fixture list, and
+every **DEVIATION** from the book labelled with why.
 
-**Safety nets added:** `ensureSeeded()` and `importBackup()` both coerce `currentPhaseId` to `'beginner'`, so a stored TB phase (or a restored old backup) can't strand the app on a phase with no generator; `resolvePosition` falls back rather than throwing; and a `<Route path="*">` catches bookmarked `/maxes` links instead of rendering a blank page.
+**Grey Man is built and runs on `tb2`.** All nine build steps of `docs/mass-design.md` §9 are done:
 
-**Verified:** 39 e2e + 24 unit tests green; `npm run build` clean; Josh's real 23-session backup imported into the stripped build renders identically to production (same streak, week, weights, coins, +46 kg/DB).
+| | |
+|---|---|
+| `src/lib/barbell.ts` | plate math — exact subset-sum, nearest with ties down, per-side breakdown |
+| Dexie **v2** + `oneRm` table | first migration in the project; `BACKUP_VERSION` **2** |
+| `src/protocol.ts` + `PROTOCOLS` | protocol registry; `PHASES`/`PhaseMeta` are gone |
+| `src/protocols/greyman.ts` | the p.51 grid as data, A/B clusters, load resolution |
+| `src/screens/Maxes.tsx` (`/maxes`) | 1RM entry from a 2–5 rep test set |
+| Session screen | loading-aware units, plate line, unrounded target |
+| `src/screens/Plan.tsx` (`/plan`) | block sequence, S-cluster builder, conditioning days |
+| `src/protocols/bridge.ts` | Bridge Week (pp.92–93) |
+| `src/protocols/conditioning.ts` | all eight Green/Black sessions, cards verbatim |
 
-**Next:** rebuild Tactical Barbell from the books on a fresh branch. Do not mix rebuild work into `strip-tb`.
+**Verified:** 153 unit + 51 e2e green, lint and build clean, and the real 23-session backup round-trips
+through the v2 schema unchanged.
 
----
+**Not built:** Specificity (Alpha/Bravo), the other three General templates (Mass, Gladiator, Fighter
+HT), Base Building (**deliberately skipped** — Josh's decision, a labelled deviation from p.147), and
+nutrition/supplement tracking. The model accommodates all of them.
+
+**Kept deliberately:** the Guide screen (still TB content, to be rewritten), the "Tactical Barbell"
+wordmark, `MaxEntry` and the `maxes` table (frozen — nothing writes them, but v1 backups round-trip
+through them), `estimate1RM` (Brzycki — and p.90 explicitly sanctions estimating a 1RM from a 2RM/3RM),
+and `'se'`/`'hic'` in `SessionType` so Josh's logged history keeps its types.
 
 ## Commands
 
@@ -100,15 +120,27 @@ React 19 + TypeScript + Vite 8 · Tailwind v4 · **Dexie/IndexedDB** · react-ro
 
 **No global state store.** Every screen reads Dexie via `useLiveQuery` and writes back imperatively. Don't add a store without a specific reason.
 
-**Three tables** (`src/db.ts`), schema **still at version 1, no migrations ever written**:
+**Four tables** (`src/db.ts`), schema at **version 2** — one migration, which adds `oneRm` and touches
+nothing else:
 
 ```
-settings: 'id'                    // single row, id: 'app'
-maxes:    'liftId'
+settings: 'id'                       // single row, id: 'app'
+maxes:    'liftId'                   // FROZEN — v1 only, for backup round-tripping
 sessions: '++id, date, phaseId'
+oneRm:    '[protocolId+exerciseId]'  // v2 — protocol-scoped 1RMs
 ```
 
-**Programme dispatch** goes through `sessionFor()` in `src/program.ts`, which currently always delegates to `beginnerSessionFor()`. `PHASES` holds only `beginner`. When TB is rebuilt, this is the seam to branch on — and `PhaseMeta` is where per-protocol data belongs, rather than the hardcoded `switch(day)` the old implementation used.
+`BACKUP_VERSION` is **2**. v1 files still load (a missing `oneRm` becomes `[]`). **v2 files will not load
+into the live app** — take a fresh v1 export before switching over.
+
+**Programme dispatch** goes through `sessionFor()` in `src/program.ts` → `PROTOCOLS[id].sessionFor()`.
+`PHASES`/`PhaseMeta` no longer exist. A `Protocol` (`src/protocol.ts`) carries its clusters, lifting
+days, block length, conditioning colour and `maxScope`. To add a template, write one file under
+`src/protocols/` and register it — no screen changes.
+
+**Two position modes.** With `settings.plan` present, `resolvePosition` walks an ordered list of blocks
+and returns `blockIndex`/`blockCount`. Without one it falls back to the original single open-ended phase
+(`currentPhaseId` + `phaseStartDate`), which is what Beginner and every existing install still use.
 
 ---
 
@@ -116,12 +148,31 @@ sessions: '++id, date, phaseId'
 
 - **Dates are local time, never UTC.** `YYYY-MM-DD` strings, Monday-based weeks (`day` 0=Mon…6=Sun). Use `src/lib/date.ts` — never `Date.parse` on a date string.
 - **`strava.expiresAt` is epoch seconds. Every other timestamp is milliseconds.**
-- **There is no barbell plate math in this codebase.** All load handling is per-dumbbell (`perDumbbell: true`, a 4–60 kg clamp, 1/2 kg increments). The MASS rebuild needs bar weight, plate pairs, loadable-weight rounding and a per-side breakdown built from scratch — and `PlannedSet` needs to express barbell, dumbbell and bodyweight loading, because the existing beginner history is all per-dumbbell and must keep rendering.
-- **Exercises are keyed by display-name string**, not id. Renaming an exercise string silently breaks historical progress calculations. Josh's logged history still contains old TB exercise names, and several collide with the beginner lifts (`'DB Bench Press'`, `'1-Arm DB Row'`, `'DB Romanian Deadlift'`) — a rebuilt TB protocol that reuses those names will feed the beginner stall detector, and vice-versa. Scope any new lookup by phase, not just by `type === 'lift'`.
+- **Barbell plate math lives in `src/lib/barbell.ts`.** `loadBar()` solves an exact subset-sum over the
+  plate inventory — **not** greedy heaviest-first, which fails on an irregular set (20 kg a side from 15s
+  and 10s: greedy takes a 15 and cannot finish). Rounding is **nearest, ties down**; this is **our rule,
+  not the book's** — MASS gives none in 160 pages — so `LoadedBar` returns the unrounded target and the
+  UI always shows it. Don't "simplify" that away. The per-side target is deliberately not snapped to the
+  unit grid before comparison; snapping first turns a round-down into a round-up.
+- **Four loading modes**, with genuinely different arithmetic: barbell (% × 1RM), dumbbell (per hand),
+  **bodyweight (% applies to MAX REPS**, p.90 — a 10-rep max at 70% is 7 reps), and weighted bodyweight
+  (**bodyweight must be inside the calculation**, p.90).
+- **Scope by protocol, never by `type === 'lift'` alone.** Grey Man sessions are also `type: 'lift'`, so
+  a bare type check leaks one programme's logic into another's — Beginner's double-progression badge
+  rendered on Grey Man sessions until `Session.tsx` was scoped by `pos.phaseId`. New code: gate on the
+  protocol.
+- **Historical exercises are keyed by display name**; new ones carry a stable `exerciseId`. Stored 1RMs
+  are keyed `(maxScope, exerciseId)`. All MASS templates share `maxScope: 'mass'`; Beginner has its own,
+  because its maxes are **kilos per dumbbell** and MASS's are **total on the bar** — letting those meet
+  would be a silent factor-of-two error on every set.
 - **`SetRow` in `Session.tsx` is hoisted to module scope on purpose.** Inlining it remounts and blurs the inputs 4×/sec while the rest timer ticks. The comment at `Session.tsx:95-99` explains it. Don't "tidy" it.
 - **Session writes re-read the freshest row before saving** (`Session.tsx:300`) so a background Strava sync isn't clobbered, and **refuse to delete a Strava-linked row** — they un-tick `done` instead. Preserve both behaviours.
 - **Dark mode is defined twice** in `src/index.css` (`.dark` and the `prefers-color-scheme` block) — ~40 duplicated lines that must be kept in sync.
-- **`<Route path="*">` renders Today.** Added during the strip so bookmarked `/maxes` links don't render a blank screen. Keep a catch-all if you touch routing.
+- **`<Route path="*">` renders Today.** Keep a catch-all if you touch routing. `/maxes` is a live route
+  again (1RM entry), alongside `/plan`.
+- **`ensureSeeded` and `importBackup` coerce `currentPhaseId` only when it does not resolve.** They used
+  to pin it to `'beginner'` unconditionally, which would silently undo a switch to Grey Man on every app
+  open. Don't reintroduce that.
 - `APP_VERSION` in `src/version.ts` is bumped **by hand** and echoed in the commit subject (`… (v23)`). It's shown in the footer to detect a stale PWA cache.
 
 ### Known live risks (not yet fixed)
@@ -129,7 +180,7 @@ sessions: '++id, date, phaseId'
 - The **"Load demo history" and "Reset to clean" buttons in `Settings.tsx:302/313` are not DEV-gated** — the production app can wipe real training data from the UI.
 - `POST /api/strava/token` is an **unauthenticated public endpoint** that signs any caller's code with `STRAVA_CLIENT_SECRET`. No origin check, no rate limit, and the OAuth flow has no `state` parameter.
 - `sessions.date` is **not a unique index**, yet nearly all read code assumes one session per date.
-- **Strava's `redirect_uri` is `window.location.origin`**, but Strava allows only one callback domain per app — **this needs solving before the new app can connect to Strava from a second subdomain.**
+- **Strava's `redirect_uri` is `window.location.origin`**, but Strava allows only one callback domain per app. **Decided (Josh, 2026-08-22): register a second Strava API app** against `tb2.joshua-birch.co.uk`, leaving the live app untouched. **Blocked on Josh** supplying the client ID; the secret goes in the `tb-app-v2` Pages environment, never the repo. The client ID must come from build config so the two variants can differ.
 - `backups/` is untracked **and un-ignored** — real personal data, one `git add .` from being committed.
 
 ---
@@ -138,9 +189,18 @@ sessions: '++id, date, phaseId'
 
 `e2e/helpers.ts` is the entry point for any new Playwright test: `seedState()` writes Dexie directly, `readSessions`/`readSettings` assert the persisted row rather than the DOM, and the extended `test` fixture **auto-fails on any console error**. There is no `page.clock` usage — dates are controlled by injecting `phaseStartDate`, not by mocking time.
 
-`e2e/COVERAGE.md` is stale (claims 41 tests; there are 49) and has no Beginner Mode section.
+`e2e/COVERAGE.md` is stale (claims 41 tests; there are 51) and has no Beginner Mode or MASS section.
 
-The Vitest suite is the strongest asset in the repo — it asserts Brzycki 1RM against the printed numbers in TB1 3rd ed. **If TB math is rebuilt, rebuild these assertions from the books too.**
+Unit tests need `fake-indexeddb` for anything touching Dexie — `import 'fake-indexeddb/auto'` first.
+
+**The book's printed tables are the fixtures.** `test/greyman.test.ts` asserts the p.51 grid cell for
+cell; `test/barbell.test.ts` and `test/plan.test.ts` do the same for the plate math and the conditioning
+cards. Follow the house pattern of also asserting **the plausible wrong answer** — `total(32)` must be
+32.5 *and must not be 30*; `bodyweightReps(10, 70)` must be 7 *and must not be 10*. That pattern is what
+caught the original Brzycki/Epley bug.
+
+`test/migration.test.ts` builds a **real v1 IndexedDB**, fills it and opens the app's `TBDatabase` over
+the top. It also imports Josh's real backup whenever `backups/` holds one.
 
 ---
 

@@ -1,6 +1,6 @@
 # HANDOFF
 
-**Last updated:** 2026-08-21 · **Branch:** `strip-tb` · **Status:** Tactical Barbell strip complete, tested, deployed. Ready to start the MASS rebuild.
+**Last updated:** 2026-08-23 · **Branch:** `mass-extraction` · **Status:** MASS Grey Man built, tested and deployed to `tb2`. All nine build steps done.
 
 Read `CLAUDE.md` first for standing project context, then this file for where the work actually stopped.
 
@@ -8,98 +8,102 @@ Read `CLAUDE.md` first for standing project context, then this file for where th
 
 ## Where we are
 
-The app is a single-user training PWA Josh uses every morning. It was built around Tactical Barbell Operator/Black, then switched to a beginner dumbbell programme. The TB code was **never verified against the books**, so it has been removed and will be rebuilt from source.
+The Tactical Barbell MASS book has been extracted, a design written from it, and **Grey Man built end to
+end**. It runs on `tb2.joshua-birch.co.uk`. `master` is untouched and still matches what Josh uses every
+morning.
 
-**Done:**
+**Josh will not use tb2 for some months.** He is cutting on Beginner Mode and has no barbell or rack yet;
+possibly an interim dumbbell hypertrophy block before MASS starts. So there is no deadline pressure on
+tb2 — but **Beginner Mode must keep working**, and its 23 sessions of real history must keep rendering.
 
-1. **Codebase mapped** — `docs/codebase-map.md`. Five parallel agents covering data model, programme logic, UI, Strava/infra, and tests/docs, plus live verification against the deployed app with Josh's real backup. Still accurate for everything except the TB-specific sections (flagged inline at the top of that file).
-2. **Tactical Barbell stripped** — see the Status section of `CLAUDE.md` for exactly what was removed vs. deliberately kept. 50 files, ~914 insertions / ~2,148 deletions.
-3. **Second deploy target stood up** — `tb2.joshua-birch.co.uk` (Cloudflare Pages project `tb-app-v2`), fully separate from the live app. `npm run deploy:v2`.
+### Done
 
-**Verified at handoff:** 39 e2e + 24 unit tests green · `npm run build` clean · Josh's real 23-session backup imports into the stripped build and renders identically to production (same streak, week, weights, coins, +46 kg/DB).
+| | Where |
+|---|---|
+| Book extracted, every claim page-referenced | `docs/MASS/MASS-extraction.md` (4,800 lines, 9 sections) |
+| Design + decisions + deviations | `docs/mass-design.md` |
+| Plate math | `src/lib/barbell.ts` |
+| Dexie v2, `oneRm` table, `BACKUP_VERSION` 2 | `src/db.ts`, `test/migration.test.ts` |
+| Protocol registry (`PHASES` retired) | `src/protocol.ts`, `src/program.ts` |
+| Grey Man | `src/protocols/greyman.ts` |
+| Bridge Week | `src/protocols/bridge.ts` |
+| Conditioning catalogue + placement | `src/protocols/conditioning.ts`, `conditioningPlan.ts` |
+| 1RM entry | `src/screens/Maxes.tsx` → `/maxes` |
+| Block plan, S-cluster builder, conditioning days | `src/screens/Plan.tsx` → `/plan` |
+| Barbell-aware session rendering | `src/screens/Session.tsx` |
+
+**Verified at handoff:** 153 unit + 51 e2e green · lint and build clean · the real 23-session backup
+round-trips through the v2 schema unchanged · Grey Man verified in a real browser, not just in tests.
+
+### Decisions taken (all recorded in `docs/mass-design.md` §1)
+
+Grey Man first · 3-week blocks, phases are any multiple of 3 · Beginner kept as an unadvertised fallback
+· app prescribes Green conditioning · **Base Building skipped** · rounding nearest-with-ties-down ·
+microplates optional · 20 kg bar with standard kg plates · Mon/Wed/Fri · 1RMs estimated from a 3RM.
+
+Six **deviations** from the book are labelled as such in the design doc. The book gives no rounding rule
+at all, which is the largest of them.
 
 ---
 
-## Next task: put the MASS book into the app
+## What is NOT built
 
-Josh's intent, in his words: *"we literally put the MASS book into our app, the book is the single source of truth, everything needs to be exactly by the book and its recommendations."*
+- **Specificity** (Alpha and Bravo) — extracted in full, not implemented. Alpha is the more complex: two
+  MS days and two H days with separate grids, plus a deadlift override (pp.74–75).
+- **The other three General templates** — Mass, Gladiator, Fighter HT. All extracted. Each is one file
+  under `src/protocols/` plus registration; no screen changes needed.
+- **Base Building** — deliberately skipped (Josh's call), a labelled deviation from the book's own
+  sequence (p.147).
+- **Nutrition / supplements** — extracted (section 08), out of scope.
+- **The Guide screen** is still old Tactical Barbell content and needs rewriting.
 
-**The plan he set out:**
+---
 
-1. He provides the MASS book as a PDF (**not yet in the repo** — this is the first blocker).
-2. Subagents read it, understand the templates, and write findings to a Markdown file he can read through.
-3. That becomes the spec for the rebuild.
+## Next steps, in the order I would take them
 
-**This is the right shape.** The step that made the last implementation untrustworthy was going straight from "roughly remember the programme" to code. An extraction document he can actually check, before any code exists, is the fix.
+1. **Register the second Strava API app.** Blocked on Josh. `strava.com/settings/api`, callback domain
+   `tb2.joshua-birch.co.uk`; send the client ID (the secret goes in the `tb-app-v2` Pages env, never the
+   repo). The client ID then needs to come from build config so `tb-app` and `tb-app-v2` can differ.
+   Until this is done, **Strava does not work on tb2 at all**.
+2. **Forced Progression has no UI.** The data model supports it (`OneRmEntry.progressedKg`, and a fresh
+   test resets it), and the rule is extracted — "Every 3 to 6 weeks, add 5-10lbs to 1RMs… Don't force
+   progression for exercises you struggled with" (pp.53, 90) — but nothing offers it yet. This is the
+   most obvious gap in day-to-day use: after a block, Josh has to edit his 1RMs by hand.
+3. **Nothing writes a MASS session's `exerciseId`.** `PlannedExercise.exerciseId` is populated, but
+   `LoggedExercise` still stores only `name`. History and PR detection therefore still match by name for
+   MASS work. Worth closing before real training data accumulates.
+4. **The Guide screen rewrite** — it still describes Operator/Black.
+5. Then: Specificity, or the other General templates, as Josh wants them.
 
-### How fidelity must be enforced — DECIDED
+---
 
-**The book wins, always.** Josh's rule (2026-08-21): *"whatever he says in the book to do, we do."* Where the book offers options, follow the book's own recommendation; do not substitute judgement, and do not quietly "improve" a prescription.
+## Known live risks (unchanged, still not fixed)
 
-Two mechanisms make that real, and both are cheap:
-
-- **Every claim in the extraction doc carries a page reference.** No page number, no claim.
-- **The printed tables become test fixtures.** `test/calc.test.ts` is the model to copy: it asserts the estimated-1RM formula against K. Black's own printed worked examples *and* explicitly asserts the result is not the wrong formula. That test is why the Brzycki bug got caught. Do the same for every MASS percentage table and set/rep scheme — assert the app reproduces the book's printed numbers cell for cell.
-
-**Outside research is a second pass, not an input.** Once a plan is extracted from the book, cross-reference it online to see whether others run it the same way — and if something in the book is genuinely unclear, research that specific question (it has probably been answered before). But the extraction itself comes from the book alone. Never let a forum post reshape the extraction before the book has been read.
-
-`docs/book-fidelity-audit-2026-07-12.md` is the standard for what a real audit looks like (it read the rendered template tables rather than working from notes, and cited chapter and page throughout).
-
-### Equipment — DECIDED: barbell
-
-MASS is a **barbell** programme. Josh won't run any TB programming until he has a barbell and a rack; **for the app, assume he has one.**
-
-This is the single biggest technical consequence of the rebuild:
-
-- The app has only ever done dumbbell math — `perDumbbell: true` on every loaded set, a 4–60 kg per-dumbbell clamp, 1/2 kg increments, and **no plate math anywhere in the codebase**.
-- **Barbell plate math has to be built from scratch**: bar weight, available plate pairs, rounding a percentage target to a loadable weight, and showing the per-side plate breakdown. Follow the book's own rounding rule — the previous audit established that TB floor-rounds ("rounds down on the weights if necessary", TB1 p113); confirm what MASS says rather than assuming it carries over.
-- `PlannedSet` currently carries `perDumbbell`. The model needs to express barbell, dumbbell **and** bodyweight loading, because Josh's existing beginner history is all per-dumbbell and must keep rendering correctly.
-
-### Programme structure — Josh's reading, TO VERIFY against the book
-
-Josh understands MASS as two phases. **Treat this as a hypothesis to confirm from the source, not as settled fact** — confirming or correcting it is one of the first jobs of the extraction:
-
-- **General Mass** — the TB part. Heavy barbell compounds and bodyweight work. This is the phase that needs the percentage tables, clusters and progression rules extracted precisely.
-- **Specificity** — isolation work, where the book is deliberately permissive ("you can do whatever you want").
-
-If that holds, the two phases want quite different data models: General Mass is prescriptive and percentage-driven, Specificity is a flexible user-defined slot. Don't force them into one shape.
-
-### Still open
-
-1. **Which template(s)?** Extract all of them so Josh can choose, but the one he actually runs determines what gets built first.
-2. **Where does Beginner mode go?** Kept as-is, retired once MASS starts, or selectable? Affects whether a protocol switch comes back as a first-class concept. **Ask Josh — not yet decided.**
-
-### Design traps to avoid (learned from the old implementation)
-
-`docs/codebase-map.md` §8 lists these with file references. The short version — the old code made these mistakes, so don't repeat them:
-
-- `WaveWeek` allowed **one prescription per week**, hardcoding the assumption that every lifting day is identical. Multi-cluster templates cannot be expressed in that shape. Put per-day prescriptions in `PhaseMeta`.
-- `OPERATOR_LIFTS` was imported directly by five screens, so the max-entry form was structurally locked to exactly three lifts. Screens should read `PHASES[phaseId].lifts`.
-- Block completion **hardcoded weeks 3 and 6** as the heavy weeks.
-- Rest time was chosen by **string-sniffing the session title** (`plan.title.startsWith('Operator')`).
-- `MaxEntry` has **no protocol scope**, so a rebuilt protocol reusing an old `liftId` would inherit stale progression state.
-- Exercises are keyed by **display name**, and Josh's logged history still contains old TB exercise names that collide with the beginner lifts. Scope lookups by phase, not just `type === 'lift'`.
-
-### Practical notes for the PDF work
-
-- Check first whether the PDF has a text layer or is scanned images — that changes how the reading agents need to work, and how many turns it takes.
-- `Read` handles PDFs via the `pages` parameter, **max 20 pages per request**, and the parameter is required for PDFs over 10 pages. A full book needs chunked reads across several agents.
-- Keep the extraction to programme structure — templates, percentages, set/rep schemes, progression and deload rules, and the book's own caveats. It is Josh's own copy for his own app; don't reproduce the book wholesale, and don't publish the extraction anywhere public.
+- **"Load demo history" and "Reset to clean" in `Settings.tsx` are not DEV-gated** — the production app
+  can wipe real training data from the UI.
+- `POST /api/strava/token` is an **unauthenticated public endpoint**; no origin check, no rate limit, and
+  the OAuth flow has no `state` parameter.
+- `sessions.date` is **not a unique index**, yet nearly all read code assumes one session per date.
+- `backups/` is gitignored but holds real personal data. `docs/MASS/` now has an ignore rule too — the
+  book PDF, its text dump and the 71 extracted page images are **not** committed, only the extraction.
 
 ---
 
 ## Resuming
 
 ```bash
-git checkout strip-tb          # the current line of work
+git checkout mass-extraction
 npm run test:unit && npm run test:e2e
-npm run deploy:v2              # push to tb2.joshua-birch.co.uk (~15s)
+npm run deploy:v2              # tb2.joshua-birch.co.uk, ~15s
 ```
 
-Start MASS work on a **fresh branch off `strip-tb`** — don't mix the rebuild into the strip commit.
+To see Grey Man: Settings → Programme → **Grey Man**, then Settings → **1RM maxes** to enter numbers, and
+Settings → **Block plan** to sequence blocks and build the S cluster.
 
 ## State of the tree at handoff
 
-- `strip-tb` is committed and pushed to `origin`. `master` is untouched and still matches what Josh's phone runs.
-- `.claude/launch.json` shows as deleted in the working tree. That predates this work and was left alone deliberately — it is not part of any commit here.
-- `backups/` and `.playwright-mcp/` are gitignored. `backups/tb-backup-2026-08-19 (2).json` is real personal data and the regression fixture for any migration work — keep it, don't commit it.
+- `mass-extraction` is committed and pushed to `origin`. `master` and `strip-tb` are untouched.
+- `.claude/launch.json` shows as deleted in the working tree. That predates all of this work and has been
+  left alone deliberately.
+- `npm install` added `fake-indexeddb` as a devDependency. npm reported pre-existing audit warnings on the
+  tree; `npm audit fix` was **not** run, since it rewrites the lockfile.
