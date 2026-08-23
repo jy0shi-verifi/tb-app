@@ -491,7 +491,12 @@ export default function Session() {
   // Leaving a session: run the LP double-progression off what was actually
   // logged (bump a lift 2 kg once all 3 sets hit 12), then go back.
   async function finish() {
-    if (settings && plan?.type === 'lift' && pos && ex) {
+    // Beginner's linear progression must only ever run on a BEGINNER session.
+    // Gating on `plan.type === 'lift'` alone let a Grey Man session through, and
+    // `applyBeginnerProgress` maps logged exercises onto LP_A/LP_B *by position* —
+    // so finishing a Grey Man day wrote barbell totals into the per-dumbbell
+    // beginner weights (bench 55 kg on the bar became a 55 kg/DB goblet squat).
+    if (settings && plan?.type === 'lift' && pos?.phaseId === 'beginner' && pos && ex) {
       const loggedEx = ex.map((e) => ({
         name: e.name,
         sets: e.sets.map((s) => ({

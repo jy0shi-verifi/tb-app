@@ -9,7 +9,7 @@ import {
   liftingOrdinalFor,
   programSessionName,
 } from '../src/program'
-import { beginnerSessionFor, BEGINNER_PROTOCOL, LP_A, LP_B } from '../src/beginner'
+import { beginnerSessionFor, BEGINNER_PROTOCOL, LP_A, LP_B, applyBeginnerProgress } from '../src/beginner'
 import { protocolExercises, findExercise, sets, setsRange, type Protocol } from '../src/protocol'
 import { DEFAULT_SETTINGS } from '../src/db'
 import type { Settings } from '../src/types'
@@ -176,5 +176,58 @@ describe('Prescription helpers', () => {
     expect(sets(3, 5, { kind: 'barbell', percent: 80 }).basis).toBe('1rm')
     expect(setsRange(4, 5, 8, { kind: 'barbell', percent: 70 }).basis).toBe('1rm')
     expect(sets(3, 5, { kind: 'barbell', percent: 80 }, 'tm90').basis).toBe('tm90')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Cross-protocol contamination
+//
+// Found by audit, 2026-08-23. `applyBeginnerProgress` maps logged exercises onto
+// LP_A/LP_B *by array position*, which is correct for a Beginner session and
+// catastrophic for any other. `Session.tsx`'s finish() gated only on
+// `plan.type === 'lift'`, and Grey Man sessions are also type 'lift' — so
+// finishing one wrote barbell totals into the per-dumbbell beginner weights.
+// A 55 kg bench on the bar became a 55 kg/DB goblet squat.
+// ---------------------------------------------------------------------------
+describe('Beginner progression cannot be fed by another protocol', () => {
+  const beginnerLifts = { bg_squat: 20, bg_bench: 18, bg_row: 16 }
+  const withLifts = (): Settings => settings({ beginner: { lifts: { ...beginnerLifts } } })
+
+  const greyManDayALog = [
+    { name: 'Bench Press', sets: Array.from({ length: 4 }, () => ({ weight: 55, reps: 8, done: true })) },
+    { name: 'Squat', sets: Array.from({ length: 4 }, () => ({ weight: 70, reps: 8, done: true })) },
+    { name: 'Front Squat', sets: Array.from({ length: 4 }, () => ({ weight: 32.5, reps: 12, done: true })) },
+  ]
+
+  it('ignores a Grey Man log entirely', () => {
+    expect(applyBeginnerProgress(withLifts(), 'A', greyManDayALog)).toBeNull()
+  })
+
+  it('specifically does not write a barbell total as a per-dumbbell weight', () => {
+    const next = applyBeginnerProgress(withLifts(), 'A', greyManDayALog)
+    // The exact corruption observed: bg_squat 20 -> 55, bg_bench 18 -> 70.
+    expect(next?.bg_squat).not.toBe(55)
+    expect(next?.bg_bench).not.toBe(70)
+  })
+
+  it('still works normally for a genuine Beginner session', () => {
+    const log = LP_A.map((l) => ({
+      name: l.name,
+      sets: Array.from({ length: 3 }, () => ({ weight: beginnerLifts[l.id as keyof typeof beginnerLifts], reps: 12, done: true })),
+    }))
+    const next = applyBeginnerProgress(withLifts(), 'A', log)
+    // All three sets at the top of the range → +step on every lift.
+    expect(next).not.toBeNull()
+    for (const l of LP_A) {
+      expect(next![l.id]).toBe(beginnerLifts[l.id as keyof typeof beginnerLifts] + l.step)
+    }
+  })
+
+  it('ignores a renamed exercise rather than mapping it positionally', () => {
+    const renamed = LP_A.map((l) => ({
+      name: `${l.name} (variation)`,
+      sets: Array.from({ length: 3 }, () => ({ weight: 99, reps: 12, done: true })),
+    }))
+    expect(applyBeginnerProgress(withLifts(), 'A', renamed)).toBeNull()
   })
 })

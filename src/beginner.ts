@@ -220,6 +220,12 @@ export function applyBeginnerProgress(
   logged.forEach((ex, i) => {
     const l = lifts[i]
     if (!l) return
+    // Defence in depth. The mapping is positional, which is correct for a
+    // Beginner session (liftPlan emits LP_A/LP_B in order) but catastrophic if
+    // any other programme's log reaches here — a barbell total would be written
+    // as a per-dumbbell weight. The caller gates by protocol; this makes a
+    // mistake there inert rather than destructive.
+    if (ex.name !== l.name) return
     const doneSets = ex.sets.filter((s) => s.done && s.reps > 0)
     if (doneSets.length === 0) return
     // the weight actually used (most recent non-empty set) — respects mid-session edits
