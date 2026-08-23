@@ -40,3 +40,6 @@ backups/
 docs/MASS/*.pdf
 docs/MASS/mass-text.txt
 docs/MASS/images/
+
+# agent/throwaway test scratch — never commit
+test/__tmp_*
