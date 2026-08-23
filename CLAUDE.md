@@ -1,6 +1,10 @@
 # CLAUDE.md — tb-app
 
-Read this first, then **`HANDOFF.md`** for where work actually stopped and what comes next. For the full architecture reference, see **`docs/codebase-map.md`** (dated map of every subsystem, with file:line references).
+Read this first, then **`HANDOFF.md`** for where work actually stopped and what comes next, and
+**`docs/BACKLOG.md`** for the durable list of outstanding work — **if something is not in that file it
+will be forgotten.** For the full architecture reference see **`docs/codebase-map.md`** (dated map of
+every subsystem, with file:line references); for the MASS rebuild see **`docs/mass-design.md`** and the
+book extraction in **`docs/MASS/MASS-extraction.md`**.
 
 ---
 
@@ -92,7 +96,11 @@ through the v2 schema unchanged.
 
 **Not built:** Specificity (Alpha/Bravo), the other three General templates (Mass, Gladiator, Fighter
 HT), Base Building (**deliberately skipped** — Josh's decision, a labelled deviation from p.147), and
-nutrition/supplement tracking. The model accommodates all of them.
+nutrition/supplement tracking. The model accommodates all of them. See `docs/BACKLOG.md`.
+
+**"Load demo history"** seeds the whole timeline: 26 weeks of Beginner, then four Grey Man blocks with a
+bridge week, landing mid-block. Both halves run the real `sessionFor`, so seeded weights are the ones the
+app would genuinely have prescribed.
 
 **Kept deliberately:** the Guide screen (still TB content, to be rewritten), the "Tactical Barbell"
 wordmark, `MaxEntry` and the `maxes` table (frozen — nothing writes them, but v1 backups round-trip

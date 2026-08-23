@@ -1,8 +1,9 @@
 # HANDOFF
 
-**Last updated:** 2026-08-23 · **Branch:** `mass-extraction` · **Status:** MASS Grey Man built, tested and deployed to `tb2`. All nine build steps done.
+**Last updated:** 2026-08-23 · **Branch:** `mass-extraction` · **Status:** MASS Grey Man built, tested and deployed to `tb2` (v29). All nine build steps done; Josh has reviewed it and is happy.
 
-Read `CLAUDE.md` first for standing project context, then this file for where the work actually stopped.
+Read `CLAUDE.md` first for standing project context, then this file for where the work actually stopped,
+then **`docs/BACKLOG.md`** — that is the durable list of outstanding work, and nothing tracks it elsewhere.
 
 ---
 
@@ -31,6 +32,8 @@ tb2 — but **Beginner Mode must keep working**, and its 23 sessions of real his
 | 1RM entry | `src/screens/Maxes.tsx` → `/maxes` |
 | Block plan, S-cluster builder, conditioning days | `src/screens/Plan.tsx` → `/plan` |
 | Barbell-aware session rendering | `src/screens/Session.tsx` |
+| Barbell strength summary | `src/screens/History.tsx` |
+| Full-timeline demo data | `src/dev/seed.ts` |
 
 **Verified at handoff:** 153 unit + 51 e2e green · lint and build clean · the real 23-session backup
 round-trips through the v2 schema unchanged · Grey Man verified in a real browser, not just in tests.
@@ -59,23 +62,19 @@ at all, which is the largest of them.
 
 ---
 
-## Next steps, in the order I would take them
+## Next steps
 
-1. **Register the second Strava API app.** Blocked on Josh. `strava.com/settings/api`, callback domain
-   `tb2.joshua-birch.co.uk`; send the client ID (the secret goes in the `tb-app-v2` Pages env, never the
-   repo). The client ID then needs to come from build config so `tb-app` and `tb-app-v2` can differ.
-   Until this is done, **Strava does not work on tb2 at all**.
-2. **Forced Progression has no UI.** The data model supports it (`OneRmEntry.progressedKg`, and a fresh
-   test resets it), and the rule is extracted — "Every 3 to 6 weeks, add 5-10lbs to 1RMs… Don't force
-   progression for exercises you struggled with" (pp.53, 90) — but nothing offers it yet. This is the
-   most obvious gap in day-to-day use: after a block, Josh has to edit his 1RMs by hand.
-3. **Nothing writes a MASS session's `exerciseId`.** `PlannedExercise.exerciseId` is populated, but
-   `LoggedExercise` still stores only `name`. History and PR detection therefore still match by name for
-   MASS work. Worth closing before real training data accumulates.
-4. **The Guide screen rewrite** — it still describes Operator/Black.
-5. Then: Specificity, or the other General templates, as Josh wants them.
+**`docs/BACKLOG.md` is the list.** In short, in the order I would take them:
 
----
+1. **C1 — log MASS exercises by id, not name.** Gets harder the more sessions exist.
+2. **C2 — a Forced Progression UI.** The most visible functional hole: after a block, 1RMs must be
+   edited by hand.
+3. **D1 — rewrite the Guide screen**, which still describes Operator/Black.
+4. **B1 — Strava on tb2** (blocked on Josh, deferred by him).
+5. Then more templates: Specificity, or the other three General ones.
+
+An audit pass ran on 2026-08-23 — book-fidelity and code-gap findings are in **`docs/audit/`**. Work
+those in before adding features.
 
 ## Known live risks (unchanged, still not fixed)
 
