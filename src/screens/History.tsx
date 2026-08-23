@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Check, Flame, Footprints, Trash2 } from 'lucide-react'
-import { useSessions, useSettings } from '../hooks'
+import { useSessions, useSettings, useAllOneRm } from '../hooks'
 import { beginnerProgress } from '../beginner'
 import { badges, computeStreak, runStats, weekSummary } from '../lib/stats'
 import { db, deleteSession } from '../db'
@@ -39,6 +39,7 @@ function paceLabel(min?: number, km?: number): string | null {
 export default function History() {
   const sessions = useSessions()
   const settings = useSettings()
+  const oneRm = useAllOneRm()
   const [openId, setOpenId] = useState<number | null>(null)
   // undefined until IndexedDB has loaded — lets us show a skeleton instead of flashing
   // "No sessions yet" at an established user on a cold start.
@@ -89,6 +90,12 @@ export default function History() {
     return <EmptyState title="No sessions logged yet" sub="Log your first session and it lands here." />
 
   const prog = beginnerProgress(sessions, settings)
+  // Barbell strength, from the protocol-scoped 1RMs. Separate from the Beginner
+  // card above because the units differ — those are kilos PER DUMBBELL, these are
+  // total on the bar, and showing them in one list would be misleading.
+  const barbell = oneRm
+    .filter((m) => m.protocolId === 'mass' && m.kg > 0)
+    .sort((a, b) => b.kg + b.progressedKg - (a.kg + a.progressedKg))
   const totalAdded = Math.round(prog.reduce((n, p) => n + Math.max(0, p.delta), 0) * 10) / 10
   const streak = computeStreak(sessions)
   const summary = weekSummary(sessions)
@@ -198,6 +205,38 @@ export default function History() {
             ) : (
               'Add reps each session; once you hit 3×12, the weight goes up. This is where it shows.'
             )}
+          </p>
+        </Card>
+      )}
+
+      {/* barbell strength — 1RMs, and what Forced Progression has added */}
+      {barbell.length > 0 && (
+        <Card>
+          <p className="eyebrow text-muted mb-3">Barbell strength</p>
+          <div className="space-y-2.5">
+            {barbell.map((m) => {
+              const current = Math.round((m.kg + m.progressedKg) * 10) / 10
+              const perDb = m.unit === 'perDumbbell'
+              return (
+                <div key={m.exerciseId} className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-ink text-[15px] min-w-0 truncate">
+                    {m.exerciseName}
+                  </span>
+                  <span className="text-sm text-right num-display shrink-0">
+                    {m.progressedKg > 0 && <span className="text-muted">{m.kg} → </span>}
+                    <b className="text-load">{current} kg</b>
+                    <span className="text-muted text-xs">{perDb ? '/DB' : ''}</span>
+                    {m.progressedKg > 0 && (
+                      <span className="text-load font-semibold"> +{m.progressedKg}</span>
+                    )}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          <p className="text-xs text-muted text-center mt-3">
+            One-rep maxes. Every working weight is a percentage of these — add 2.5–5 kg every three to
+            six weeks and recalculate.
           </p>
         </Card>
       )}

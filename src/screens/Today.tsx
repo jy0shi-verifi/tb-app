@@ -12,6 +12,15 @@ import { computeStreak, longestStreak, sessionsThisWeek } from '../lib/stats'
 import { Button, Card, Pill, SessionIcon, SESSION_META } from '../components/ui'
 import type { SessionLog } from '../types'
 
+/** One line of context per protocol, shown under the date. */
+const BLURBS: Record<string, string> = {
+  beginner:
+    'Linear Progression, plus your own running from Runna. Add weight when you earn it; the runs build the engine.',
+  gm: 'Grey Man — two main lifts a day, alternating A/B, then your supplementary cluster. Green conditioning on the days between.',
+  bridge:
+    'Bridge week — a week off between blocks so the work comes to fruition. Light activity only; test your 1RMs if the next block needs it.',
+}
+
 export default function Today() {
   const settings = useSettings()
   const maxes = useMaxesFor(settings.currentPhaseId)
@@ -107,6 +116,9 @@ export default function Today() {
 
   // ---- an active training day ----
   const plan = sessionFor(pos.phaseId, pos.week, pos.day, settings, maxes)
+  // Protocol-specific, not hardcoded — this line described Beginner's linear
+  // progression and was showing above Grey Man sessions.
+  const blurb = BLURBS[pos.phaseId] ?? BLURBS.beginner
   const meta = SESSION_META[plan.type]
   // lifts open the session logger; runs (Runna-owned) mark-complete on Today
   const isLoggable = plan.type === 'lift' || plan.type === 'se' || (plan.intervals?.length ?? 0) > 0
@@ -187,9 +199,7 @@ export default function Today() {
           <span className="text-sm text-muted">{prettyDate(now)}</span>
           <Pill tone="soft-brand">{`${phase.name} · Wk ${pos.week}`}</Pill>
         </div>
-        <p className="text-[11px] text-muted mt-2">
-          Linear Progression, plus your own running from Runna. Add weight when you earn it; the runs build the engine.
-        </p>
+        <p className="text-[11px] text-muted mt-2">{blurb}</p>
       </div>
 
       {/* data-safety: Strava connection trouble + backup nudge */}
