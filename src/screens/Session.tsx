@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createPortal } from 'react-dom'
 import { Check, Timer, X, Plus, Minus, Smile, Meh, Frown, ChevronDown } from 'lucide-react'
-import { resolvePosition, sessionFor, type SessionPlan } from '../program'
+import { narrowMaxes, protocolFor, resolvePosition, sessionFor, type SessionPlan } from '../program'
 import { EXERCISE_INFO } from '../exerciseInfo'
 import ExerciseDetail from '../components/ExerciseDetail'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
@@ -27,6 +27,17 @@ interface ExState {
   note?: string
   loaded: boolean
   sets: SetState[]
+  /**
+   * How this exercise is loaded. The screen used to hardcode "kg/DB" under every
+   * weight, which is wrong by a factor of two for a barbell lift.
+   */
+  perDumbbell: boolean
+  /** Plate breakdown for one side of the bar, when the plan computed one. */
+  perSide?: { kg: number; count: number }[]
+  /** The exact percentage target before rounding — shown next to the loaded weight. */
+  targetKg?: number
+  /** Target is lighter than the empty bar (MASS p.31). */
+  belowBar?: boolean
 }
 interface MetaState {
   done: boolean
@@ -94,11 +105,53 @@ const STEP =
  * identity is stable across Session re-renders — otherwise every render (incl. the rest
  * timer ticking 4x/sec) would remount the row and blur the weight/reps input mid-keystroke.
  */
+/**
+ * Shows how the prescribed weight was arrived at: the exact percentage target,
+ * the weight actually loaded, and the plates per side.
+ *
+ * This is not decoration. The book gives NO rounding rule (see
+ * src/lib/barbell.ts), so the rounding is ours — and a deviation we chose has to
+ * stay visible and auditable against the book rather than being absorbed
+ * silently into a single number.
+ */
+function PlateLine({ ex }: { ex: ExState }) {
+  if (ex.belowBar) {
+    return (
+      <p className="text-[11px] text-muted mt-1">
+        Target is under the empty bar — lift the bar, or swap in dumbbells.
+      </p>
+    )
+  }
+  if (!ex.perSide?.length) return null
+  const plates = ex.perSide.map((p) => (p.count > 1 ? `${p.count}×${p.kg}` : `${p.kg}`)).join(' + ')
+  const target = ex.targetKg
+  const loaded = Number(ex.sets[0]?.weight) || 0
+  const off = target != null && Math.abs(loaded - target) >= 0.05
+  return (
+    <p className="text-[11px] text-muted mt-1">
+      <span className="num-display text-ink">{plates}</span> per side
+      {target != null && (
+        <>
+          {' · '}
+          {off ? (
+            <>
+              target <span className="num-display">{target}</span> kg
+            </>
+          ) : (
+            'exact'
+          )}
+        </>
+      )}
+    </p>
+  )
+}
+
 function SetRow({
   s,
   loaded,
   index,
   inc,
+  unit,
   onSet,
   onToggle,
 }: {
@@ -106,6 +159,7 @@ function SetRow({
   loaded: boolean
   index: number
   inc: number
+  unit: string
   onSet: (patch: Partial<SetState>) => void
   onToggle: () => void
 }) {
@@ -129,10 +183,10 @@ function SetRow({
               onChange={(e) => onSet({ weight: e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1') })}
               onFocus={(e) => e.currentTarget.select()}
               placeholder="0"
-              aria-label="Weight per dumbbell"
+              aria-label={unit === 'kg/DB' ? 'Weight per dumbbell' : 'Weight on the bar'}
               className="w-full text-center num-display text-ink text-[15px] leading-none bg-transparent outline-none focus:text-brand-ink"
             />
-            <span className="text-[10px] text-muted block leading-none">kg/DB</span>
+            <span className="text-[10px] text-muted block leading-none">{unit}</span>
           </div>
           <button onClick={() => bumpW(inc)} className={STEP} aria-label="More weight">
             <Plus size={15} />
@@ -173,7 +227,9 @@ export default function Session() {
   const when = parseISO(iso)
 
   const settings = useLiveQuery(async () => (await db.settings.get('app')) ?? DEFAULT_SETTINGS, [])
-  const maxes = useLiveQuery(() => db.maxes.toArray(), [])
+  // Protocol-scoped 1RMs. `narrowMaxes` keeps Beginner's per-dumbbell maxes away
+  // from MASS's total-on-the-bar ones.
+  const oneRm = useLiveQuery(() => db.oneRm.toArray(), [])
   const logged = useLiveQuery(
     async () => (await db.sessions.where('date').equals(iso).first()) ?? null,
     [iso],
@@ -190,15 +246,20 @@ export default function Session() {
   const celebrated = useRef<Set<string>>(new Set())
   const touched = useRef(false)
 
-  const ready = settings !== undefined && maxes !== undefined && logged !== undefined
+  const ready = settings !== undefined && oneRm !== undefined && logged !== undefined
   const pos = ready ? resolvePosition(settings, when) : null
-  const plan = ready && pos ? sessionFor(pos.phaseId, pos.week, pos.day, settings) : null
+  const maxes = ready && pos ? narrowMaxes(oneRm, protocolFor(pos.phaseId)) : {}
+  const plan = ready && pos ? sessionFor(pos.phaseId, pos.week, pos.day, settings, maxes) : null
 
   // hydrate once from an existing log or the plan
   useEffect(() => {
     if (!ready || !plan || ex !== null) return
     const fromLog = logged && logged.exercises.length > 0
-    const beginnerLift = plan.type === 'lift'
+    // Scope by PROTOCOL, not just by type. Grey Man sessions are also
+    // `type: 'lift'`, and CLAUDE.md warns that a `type === 'lift'` test lets one
+    // programme's progression logic bleed into another's — the beginner
+    // double-progression prefill and badge did exactly that until this gate.
+    const beginnerLift = pos?.phaseId === 'beginner' && plan.type === 'lift'
     setEx(
       plan.exercises.map((e, i) => {
         const saved = fromLog ? logged!.exercises[i] : undefined
@@ -208,10 +269,15 @@ export default function Session() {
         const working = e.sets[0]?.weight
         const last = beginnerLift && !fromLog ? lastPerformance(allSessions, e.name, iso) : null
         const prefill = last && last.weight === working ? last.reps : null
+        const first = e.sets[0]
         return {
           name: e.name,
           note: e.note,
           loaded: e.loaded,
+          perDumbbell: first?.perDumbbell === true,
+          perSide: first?.perSide,
+          targetKg: first?.targetKg,
+          belowBar: first?.belowBar,
           sets: e.sets.map((s, j) => {
             const ss = saved?.sets[j]
             return {
@@ -345,7 +411,11 @@ export default function Session() {
   const isSE = plan.type === 'se'
   const restSec = restSeconds(plan, settings.restSec)
   const inc = settings.dbIncrement
-  const beginnerLift = plan.type === 'lift'
+  // Smallest change you can actually make to a loaded bar: twice the lightest
+  // plate pair you own. 2.5 kg on a standard kg set, 1 kg with microplates.
+  const barStep = 2 * Math.min(...(settings.bar?.platePairsKg?.length ? settings.bar.platePairsKg : [1.25]))
+  // See the note at the other `beginnerLift` above: protocol-scoped, not type-scoped.
+  const beginnerLift = pos?.phaseId === 'beginner' && plan.type === 'lift'
 
   const setSet = (ei: number, si: number, patch: Partial<SetState>) => {
     touched.current = true
@@ -588,6 +658,7 @@ export default function Session() {
                 <p className="font-bold text-ink">{e.name}</p>
               )}
               {e.note && <p className="text-xs text-muted mt-0.5">{e.note}</p>}
+              <PlateLine ex={e} />
             </div>
             {beginnerLift &&
               (() => {
@@ -648,7 +719,10 @@ export default function Session() {
                   index={si}
                   s={e.sets[si]}
                   loaded={e.loaded}
-                  inc={inc}
+                  // Dumbbells step by the user's pair increment; a bar steps by the
+                  // smallest pair of plates they own (2.5 kg by default).
+                  inc={e.perDumbbell ? inc : barStep}
+                  unit={e.perDumbbell ? 'kg/DB' : 'kg'}
                   onSet={(patch) => setSet(ei, si, patch)}
                   onToggle={() => toggleDone(ei, si)}
                 />

@@ -1,9 +1,15 @@
 import { useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Download, Upload } from 'lucide-react'
 import { useSettings } from '../hooks'
 import { applyTheme, importBackup, parseBackup, saveSettings } from '../db'
 import { downloadBackup } from '../lib/backup'
 import { Button, Card, SegmentedPicker } from '../components/ui'
+import { PROTOCOLS } from '../program'
+import { DEFAULT_BAR_SETUP } from '../lib/barbell'
+
+/** Josh's kit — the fallback when no inventory has been saved. */
+const DEFAULT_PLATES = DEFAULT_BAR_SETUP.plates.map((p) => p.kg)
 import { beginStravaAuth, disconnectStrava, stravaCanWrite, stravaConfigured } from '../lib/strava'
 import { syncStrava, importStravaHistory } from '../lib/stravaSync'
 import { APP_VERSION } from '../version'
@@ -113,12 +119,94 @@ export default function Settings() {
       <Card>
         <p className="eyebrow text-muted mb-2">Program</p>
         <div className="divide-y divide-line/60">
+          <Row
+            label="Programme"
+            hint="Beginner stays available as a fallback — for travel, or a week without the rack."
+          >
+            <select
+              aria-label="Programme"
+              value={s.currentPhaseId}
+              onChange={(e) => saveSettings({ currentPhaseId: e.target.value })}
+              className={fieldCls}
+            >
+              {Object.values(PROTOCOLS).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </Row>
           <Row label="Phase start date" hint="The Monday your current phase's week 1 began.">
             <input
               type="date"
               aria-label="Phase start date"
               value={s.phaseStartDate}
               onChange={(e) => saveSettings({ phaseStartDate: e.target.value })}
+              className={fieldCls}
+            />
+          </Row>
+          <Row label="1RM maxes" hint="Enter a 2–5 rep test set; the app works out every weight.">
+            <Link
+              to="/maxes"
+              className="inline-flex items-center justify-center rounded-pill bg-brand/10 text-brand-ink text-[13px] font-bold px-4 min-h-11"
+            >
+              Open
+            </Link>
+          </Row>
+        </div>
+      </Card>
+
+      <Card>
+        <p className="eyebrow text-muted mb-2">Barbell</p>
+        <div className="divide-y divide-line/60">
+          <Row label="Bar weight" hint="kg. A standard Olympic bar is 20 kg.">
+            <input
+              type="text"
+              inputMode="decimal"
+              aria-label="Bar weight"
+              value={s.bar?.barKg ?? DEFAULT_BAR_SETUP.barKg}
+              onChange={(e) =>
+                saveSettings({
+                  bar: {
+                    barKg: Number(e.target.value.replace(/[^0-9.]/g, '')) || 20,
+                    platePairsKg: s.bar?.platePairsKg ?? DEFAULT_PLATES,
+                  },
+                })
+              }
+              className={fieldCls}
+            />
+          </Row>
+          <Row
+            label="Microplates"
+            hint="0.5 kg pairs take the smallest bar jump from 2.5 kg to 1 kg. Optional — the error without them is at most 1.25 kg."
+          >
+            <input
+              type="checkbox"
+              aria-label="Microplates"
+              className="size-6 accent-[var(--color-brand)]"
+              checked={(s.bar?.platePairsKg ?? DEFAULT_PLATES).includes(0.5)}
+              onChange={(e) =>
+                saveSettings({
+                  bar: {
+                    barKg: s.bar?.barKg ?? 20,
+                    platePairsKg: e.target.checked ? [...DEFAULT_PLATES, 0.5] : DEFAULT_PLATES,
+                  },
+                })
+              }
+            />
+          </Row>
+          <Row label="Bodyweight" hint="kg. Used for weighted pull-ups and dips (MASS p.90).">
+            <input
+              type="text"
+              inputMode="decimal"
+              aria-label="Bodyweight"
+              value={s.bodyweightKg ?? ''}
+              placeholder="—"
+              onChange={(e) =>
+                saveSettings({
+                  bodyweightKg: Number(e.target.value.replace(/[^0-9.]/g, '')) || undefined,
+                })
+              }
               className={fieldCls}
             />
           </Row>

@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import type { MaxEntry, OneRmEntry, SessionLog, Settings } from './types'
 import { nextMonday } from './lib/date'
+import { PROTOCOLS, DEFAULT_PHASE_ID } from './program'
 
 export class TBDatabase extends Dexie {
   settings!: Table<Settings, string>
@@ -57,11 +58,15 @@ export async function ensureSeeded(): Promise<void> {
     return
   }
   // Existing installs (and restored backups) may still carry a Tactical Barbell
-  // phase id from before that programme was removed. There is no plan generator
-  // for those any more, so coerce to the only phase that exists — otherwise
-  // resolvePosition falls back and every screen renders the wrong week.
-  if (s.currentPhaseId !== 'beginner') {
-    await db.settings.put({ ...s, currentPhaseId: 'beginner' })
+  // phase id from before that programme was removed — 'operator', 'base-building'.
+  // Those have no generator, so coerce them; otherwise resolvePosition falls back
+  // and every screen renders the wrong week.
+  //
+  // Coerce only ids that DO NOT resolve. The original version pinned this to
+  // 'beginner' unconditionally, which would now silently undo a switch to Grey Man
+  // on every app open.
+  if (!PROTOCOLS[s.currentPhaseId]) {
+    await db.settings.put({ ...s, currentPhaseId: DEFAULT_PHASE_ID })
   }
 }
 
@@ -178,12 +183,16 @@ export async function importBackup(json: string): Promise<void> {
       ])
       // A v1 backup may have been taken while the old Tactical Barbell programme
       // was active. Its phase ids no longer resolve, so normalise on the way in —
-      // the sessions themselves keep their original phaseId for history.
-      // TODO(mass): once MASS protocols are registered, this must coerce to a
-      // phase that EXISTS rather than always to 'beginner'. See docs/mass-design.md §3.3.
+      // but only the ones that genuinely do not resolve, so importing a v2 backup
+      // taken on Grey Man does not silently drop you back to Beginner. The
+      // sessions themselves keep their original phaseId for history either way.
       const settings = data.settings.map((s) =>
         s.id === 'app'
-          ? { ...s, strava: currentStrava ?? s.strava, currentPhaseId: 'beginner' }
+          ? {
+              ...s,
+              strava: currentStrava ?? s.strava,
+              currentPhaseId: PROTOCOLS[s.currentPhaseId] ? s.currentPhaseId : DEFAULT_PHASE_ID,
+            }
           : s,
       )
       await db.settings.bulkPut(settings)

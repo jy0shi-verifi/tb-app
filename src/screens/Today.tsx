@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, ExternalLink, AlertTriangle, X, Flame } from 'lucide-react'
-import { useSettings, useSessions, useSessionByDate } from '../hooks'
+import { useSettings, useSessions, useSessionByDate, useMaxesFor } from '../hooks'
 import { PROTOCOLS, resolvePosition, sessionFor } from '../program'
 import { isoDate, today, prettyDate, parseISO, diffDays, addDays, mondayIndex } from '../lib/date'
 import { db, saveSettings } from '../db'
@@ -14,6 +14,7 @@ import type { SessionLog } from '../types'
 
 export default function Today() {
   const settings = useSettings()
+  const maxes = useMaxesFor(settings.currentPhaseId)
   const sessions = useSessions()
   const nav = useNavigate()
   const now = today()
@@ -105,7 +106,7 @@ export default function Today() {
   }
 
   // ---- an active training day ----
-  const plan = sessionFor(pos.phaseId, pos.week, pos.day, settings)
+  const plan = sessionFor(pos.phaseId, pos.week, pos.day, settings, maxes)
   const meta = SESSION_META[plan.type]
   // lifts open the session logger; runs (Runna-owned) mark-complete on Today
   const isLoggable = plan.type === 'lift' || plan.type === 'se' || (plan.intervals?.length ?? 0) > 0
@@ -120,7 +121,7 @@ export default function Today() {
     const d = addDays(now, -back)
     const p = resolvePosition(settings, d)
     if (p.status !== 'active') continue
-    const pl = sessionFor(p.phaseId, p.week, p.day, settings)
+    const pl = sessionFor(p.phaseId, p.week, p.day, settings, maxes)
     if ((pl.type === 'lift' || pl.type === 'se') && !loggedDates.has(isoDate(d))) {
       missed = { date: isoDate(d), title: pl.title }
     }
@@ -130,7 +131,7 @@ export default function Today() {
   const tmr = addDays(now, 1)
   const tmrPos = resolvePosition(settings, tmr)
   const tmrPlan =
-    tmrPos.status === 'active' ? sessionFor(tmrPos.phaseId, tmrPos.week, tmrPos.day, settings) : null
+    tmrPos.status === 'active' ? sessionFor(tmrPos.phaseId, tmrPos.week, tmrPos.day, settings, maxes) : null
 
   async function markDone() {
     if (logged?.id && logged.done) {

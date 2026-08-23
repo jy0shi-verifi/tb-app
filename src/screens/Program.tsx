@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useSettings, useSessions } from '../hooks'
+import { useSettings, useSessions, useMaxesFor } from '../hooks'
 import { PROTOCOLS, resolvePosition, sessionFor } from '../program'
 import { addDays, DAY_NAMES, isoDate, parseISO, today } from '../lib/date'
 import { Card, Pill, SegmentedPicker, SessionIcon, SESSION_META } from '../components/ui'
@@ -10,6 +10,7 @@ const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 export default function Program() {
   const settings = useSettings()
+  const maxes = useMaxesFor(settings.currentPhaseId)
   const sessions = useSessions()
   const nav = useNavigate()
 
@@ -80,7 +81,7 @@ export default function Program() {
             {DAY_NAMES.map((dn, day) => {
               const date = addDays(parseISO(settings.phaseStartDate), (week - 1) * 7 + day)
               const iso = isoDate(date)
-              const plan = sessionFor(settings.currentPhaseId, week, day, settings)
+              const plan = sessionFor(settings.currentPhaseId, week, day, settings, maxes)
               const isToday = iso === todayIso
               const loads = loadsLine(plan)
               return (
@@ -147,7 +148,7 @@ export default function Program() {
                     {Array.from({ length: 7 }, (_, day) => {
                       const date = addDays(weekStart, day)
                       const iso = isoDate(date)
-                      const plan = sessionFor(settings.currentPhaseId, w, day, settings)
+                      const plan = sessionFor(settings.currentPhaseId, w, day, settings, maxes)
                       const meta = SESSION_META[plan.type]
                       const Icon = meta.icon
                       const isToday = iso === todayIso

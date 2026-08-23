@@ -14,7 +14,15 @@ const BENIGN = [
  * uncaught exception during the test — the class of runtime bug static review
  * misses. `errors` is exposed so a test can additionally assert on it.
  */
-export const test = base.extend<{ errors: string[]; _noSplash: void }>({
+export const test = base.extend<{
+  errors: string[]
+  _noSplash: void
+  seed: (state: SeedState) => Promise<void>
+}>({
+  // Convenience wrapper so specs can seed without threading `page` themselves.
+  seed: async ({ page }, provide) => {
+    await provide((state: SeedState) => seedState(page, state))
+  },
   // Auto: suppress the cold-open intro splash so it never covers the app under test.
   _noSplash: [
     async ({ page }, provide) => {
@@ -63,6 +71,8 @@ type SeedState = {
   settings?: Record<string, unknown>
   sessions?: Record<string, unknown>[]
   maxes?: Record<string, unknown>[]
+  /** Protocol-scoped 1RMs (Dexie v2). Keyed [protocolId+exerciseId]. */
+  oneRm?: Record<string, unknown>[]
 }
 
 /** Inject an arbitrary starting state (settings/sessions/maxes) and reload. */
@@ -75,10 +85,11 @@ export async function seedState(page: Page, state: SeedState): Promise<void> {
         const open = indexedDB.open('tb-app')
         open.onsuccess = () => {
           const db = open.result
-          const tx = db.transaction(['settings', 'sessions', 'maxes'], 'readwrite')
+          const tx = db.transaction(['settings', 'sessions', 'maxes', 'oneRm'], 'readwrite')
           tx.objectStore('settings').clear()
           tx.objectStore('sessions').clear()
           tx.objectStore('maxes').clear()
+          tx.objectStore('oneRm').clear()
           tx.objectStore('settings').put({
             id: 'app',
             dbIncrement: 2,
@@ -89,6 +100,7 @@ export async function seedState(page: Page, state: SeedState): Promise<void> {
             ...(s.settings ?? {}),
           })
           for (const m of s.maxes ?? []) tx.objectStore('maxes').put(m)
+          for (const m of s.oneRm ?? []) tx.objectStore('oneRm').put(m)
           for (const ses of s.sessions ?? []) tx.objectStore('sessions').add(ses)
           tx.oncomplete = () => res()
           tx.onerror = () => rej(tx.error)
@@ -125,6 +137,10 @@ async function readStore(page: Page, store: string): Promise<Record<string, unkn
 /** Read the sessions table (to assert what autosave/sync actually wrote). */
 export async function readSessions(page: Page) {
   return readStore(page, 'sessions')
+}
+/** Read the protocol-scoped 1RM table. */
+export async function readOneRm(page: Page) {
+  return readStore(page, 'oneRm')
 }
 /** Read the maxes table. */
 export async function readMaxes(page: Page) {

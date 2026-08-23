@@ -3,9 +3,10 @@ import { test, expect, setupLiftWeek } from './helpers'
 test('rest-timer setting persists across reload', async ({ page }) => {
   await setupLiftWeek(page)
   await page.goto('/settings')
-  await page.getByRole('combobox').selectOption('120') // 2 min
+  // Target by label: Settings now has more than one <select> (Programme too).
+  await page.getByLabel('Rest timer').selectOption('120') // 2 min
   await page.reload()
-  await expect(page.getByRole('combobox')).toHaveValue('120')
+  await expect(page.getByLabel('Rest timer')).toHaveValue('120')
 })
 
 test('theme choice persists across reload', async ({ page }) => {

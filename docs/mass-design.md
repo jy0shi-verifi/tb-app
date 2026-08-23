@@ -483,9 +483,20 @@ Each step ends green and demonstrable on `tb2`.
    keeps its own — the scope separates incompatible loading conventions (kg-per-dumbbell vs total on the
    bar), not templates. **Not yet reachable in the UI**: needs the 1RM entry screen (step 5) and the
    Session-screen load display (step 6), which still hardcodes a "kg/DB" label at `Session.tsx:135`.
-5. **1RM entry / estimation screen** (resolves open question 4).
-6. **Session screen** rendering barbell sets with plate breakdown, preserving the `SetRow` hoisting and
-   the Strava-safe write behaviour CLAUDE.md calls out.
+5. ~~**1RM entry / estimation screen.**~~ **DONE (2026-08-23).** `src/screens/Maxes.tsx` at `/maxes`,
+   reachable from Settings. Enter a 2–5 rep test set, `estimate1RM` (Brzycki) derives the 1RM, and a
+   three-cell preview shows what it produces in weeks 1–3. Bodyweight exercises take max reps instead
+   (p.90). A fresh test resets `progressedKg`, so Forced Progression never stacks on top of a retest.
+6. ~~**Session screen rendering barbell sets.**~~ **DONE (2026-08-23).** The hardcoded `kg/DB` label is
+   now driven by the set's loading mode, the +/- stepper uses the smallest loadable bar jump rather than
+   the dumbbell increment, and a `PlateLine` shows the per-side plates and the unrounded target. `SetRow`
+   stays hoisted and the Strava-safe write behaviour is untouched.
+
+   Two bugs found only by running the app, both now covered by e2e:
+   - **Beginner's double-progression badge leaked into Grey Man sessions.** It was gated on
+     `plan.type === 'lift'` alone — exactly the trap CLAUDE.md warns about. Now scoped by protocol.
+   - **`/maxes` crashed on load.** `useSettings` returns `DEFAULT_SETTINGS` before IndexedDB resolves, so
+     the form seeded Beginner's exercise ids and then rendered Grey Man's.
 7. **S-cluster builder.**
 8. **Block plan + scheduling UI.**
 9. **Green conditioning.**

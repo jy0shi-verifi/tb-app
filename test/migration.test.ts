@@ -178,6 +178,55 @@ describe('export / import round trip after the upgrade', () => {
   })
 })
 
+describe('phase id coercion on the way in', () => {
+  const withPhase = (phaseId: string) =>
+    JSON.stringify({
+      app: 'tb-app',
+      version: 2,
+      exportedAt: '2026-08-23T08:00:00.000Z',
+      settings: [{ id: 'app', dbIncrement: 2, currentPhaseId: phaseId, phaseStartDate: '2026-08-17' }],
+      maxes: [],
+      sessions: [],
+      oneRm: [],
+    })
+
+  it('rewrites a dead Tactical Barbell phase id', async () => {
+    await mod.importBackup(withPhase('operator'))
+    expect((await mod.db.settings.get('app'))?.currentPhaseId).toBe('beginner')
+  })
+
+  it('leaves a phase id that still resolves alone', async () => {
+    // The original coercion pinned this to 'beginner' unconditionally, which
+    // would have silently undone a switch to Grey Man on every import.
+    await mod.importBackup(withPhase('gm'))
+    expect((await mod.db.settings.get('app'))?.currentPhaseId).toBe('gm')
+    await mod.importBackup(withPhase('beginner'))
+    expect((await mod.db.settings.get('app'))?.currentPhaseId).toBe('beginner')
+  })
+
+  it('ensureSeeded does not undo a valid programme choice', async () => {
+    await mod.db.settings.put({
+      id: 'app',
+      dbIncrement: 2,
+      currentPhaseId: 'gm',
+      phaseStartDate: '2026-08-17',
+    })
+    await mod.ensureSeeded()
+    expect((await mod.db.settings.get('app'))?.currentPhaseId).toBe('gm')
+  })
+
+  it('ensureSeeded still rescues an unresolvable one', async () => {
+    await mod.db.settings.put({
+      id: 'app',
+      dbIncrement: 2,
+      currentPhaseId: 'base-building',
+      phaseStartDate: '2026-08-17',
+    })
+    await mod.ensureSeeded()
+    expect((await mod.db.settings.get('app'))?.currentPhaseId).toBe('beginner')
+  })
+})
+
 // ---------------------------------------------------------------------------
 // The real backup, when it is on this machine. Gitignored personal data, so it
 // cannot be the committed fixture — but if it is here, it gets tested.
