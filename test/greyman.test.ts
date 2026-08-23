@@ -128,16 +128,12 @@ describe('clusters (pp.48–49)', () => {
 })
 
 describe('the A/B schedule (p.50)', () => {
-  it('trains Days 1/3/5 — Mon, Wed, Fri — and rests the other four', () => {
+  it('trains Days 1/3/5 — Mon, Wed, Fri — and never lifts on the other four', () => {
     expect(GM_LIFTING_DAYS).toEqual([0, 2, 4])
     const s = settings()
     expect([0, 2, 4].map((d) => sessionFor('gm', 1, d, s).type)).toEqual(['lift', 'lift', 'lift'])
-    expect([1, 3, 5, 6].map((d) => sessionFor('gm', 1, d, s).type)).toEqual([
-      'rest',
-      'rest',
-      'rest',
-      'rest',
-    ])
+    // The other four are Green conditioning or rest — never a lift.
+    expect([1, 3, 5, 6].map((d) => sessionFor('gm', 1, d, s).type)).not.toContain('lift')
   })
 
   it('A is Bench + Squat, B is Overhead Press + Deadlift', () => {

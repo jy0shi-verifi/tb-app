@@ -2,6 +2,8 @@ import type { Settings, SessionType } from './types'
 import { diffDays, parseISO } from './lib/date'
 import { BEGINNER_PROTOCOL } from './beginner'
 import { GREY_MAN_PROTOCOL } from './protocols/greyman'
+import { BRIDGE_PROTOCOL } from './protocols/bridge'
+import { conditioningSessionFor } from './protocols/conditioningPlan'
 import type { BlockPosition, Protocol, ProtocolContext, SessionPlan } from './protocol'
 import type { OneRmEntry } from './types'
 
@@ -25,7 +27,11 @@ export type { PlannedSet, PlannedExercise, SessionPlan, Protocol } from './proto
 export const PROTOCOLS: Record<string, Protocol> = {
   beginner: BEGINNER_PROTOCOL,
   gm: GREY_MAN_PROTOCOL,
+  bridge: BRIDGE_PROTOCOL,
 }
+
+/** Protocols a user can actually choose to run, in a sensible order. */
+export const SELECTABLE_PROTOCOLS: Protocol[] = [GREY_MAN_PROTOCOL, BEGINNER_PROTOCOL]
 
 export const DEFAULT_PHASE_ID = 'beginner'
 
@@ -37,7 +43,34 @@ export function protocolFor(phaseId: string | undefined): Protocol {
 export interface Position extends BlockPosition {
   phaseId: string
   status: 'before' | 'active' | 'complete'
+  /** Index into `settings.plan.blocks`, or -1 when running without a plan. */
+  blockIndex: number
+  /** How many blocks the plan holds; 0 without a plan. */
+  blockCount: number
 }
+
+export interface PlannedBlock {
+  protocolId: string
+  weeks: number
+}
+
+/** The default first cycle: four 3-week Grey Man blocks, bridged, then repeat. */
+export function defaultPlan(startDate: string): NonNullable<Settings['plan']> {
+  return {
+    startDate,
+    blocks: [
+      { protocolId: 'gm', weeks: 3 },
+      { protocolId: 'gm', weeks: 3 },
+      { protocolId: 'bridge', weeks: 1 },
+      { protocolId: 'gm', weeks: 3 },
+      { protocolId: 'gm', weeks: 3 },
+    ],
+  }
+}
+
+/** Total weeks a plan spans. */
+export const planWeeks = (blocks: PlannedBlock[]): number =>
+  blocks.reduce((n, b) => n + Math.max(1, b.weeks), 0)
 
 /**
  * 0-based index of the lifting session on `day` of `week` within the block, or
@@ -53,26 +86,93 @@ export function liftingOrdinalFor(protocol: Protocol, week: number, day: number)
   return (week - 1) * protocol.liftingDays.length + idx
 }
 
-/** Where are we in the current phase, given the start date and today? */
+/**
+ * Where are we today?
+ *
+ * Two modes. With `settings.plan` we walk the block sequence — that is what MASS
+ * needs, because a phase is several 3-week blocks with bridge weeks between
+ * them. Without a plan we fall back to the original single open-ended phase,
+ * which is what Beginner has always used and what every existing install and
+ * e2e fixture still carries.
+ */
 export function resolvePosition(settings: Settings, when: Date): Position {
+  const plan = settings.plan
+  if (plan?.blocks?.length) return resolveInPlan(plan, when)
+
   const start = parseISO(settings.phaseStartDate)
   const d = diffDays(when, start)
   const protocol = protocolFor(settings.currentPhaseId)
   const phaseId = protocol.id
-  if (d < 0) return { phaseId, week: 1, day: 0, liftingOrdinal: liftingOrdinalFor(protocol, 1, 0), status: 'before' }
+  const base = { phaseId, blockIndex: -1, blockCount: 0 }
+  if (d < 0)
+    return { ...base, week: 1, day: 0, liftingOrdinal: liftingOrdinalFor(protocol, 1, 0), status: 'before' }
   const week = Math.floor(d / 7) + 1
   const day = ((d % 7) + 7) % 7
   if (week > protocol.blockWeeks) {
     const last = protocol.blockWeeks
     return {
-      phaseId,
+      ...base,
       week: last,
       day: 6,
       liftingOrdinal: liftingOrdinalFor(protocol, last, 6),
       status: 'complete',
     }
   }
-  return { phaseId, week, day, liftingOrdinal: liftingOrdinalFor(protocol, week, day), status: 'active' }
+  return { ...base, week, day, liftingOrdinal: liftingOrdinalFor(protocol, week, day), status: 'active' }
+}
+
+function resolveInPlan(plan: NonNullable<Settings['plan']>, when: Date): Position {
+  const blocks = plan.blocks
+  const d = diffDays(when, parseISO(plan.startDate))
+  const day = ((d % 7) + 7) % 7
+  const blockCount = blocks.length
+
+  if (d < 0) {
+    const p = protocolFor(blocks[0].protocolId)
+    return {
+      phaseId: p.id,
+      week: 1,
+      day: 0,
+      liftingOrdinal: liftingOrdinalFor(p, 1, 0),
+      status: 'before',
+      blockIndex: 0,
+      blockCount,
+    }
+  }
+
+  const weekIndex = Math.floor(d / 7) // 0-based across the whole plan
+  let acc = 0
+  for (let i = 0; i < blocks.length; i++) {
+    const len = Math.max(1, blocks[i].weeks)
+    if (weekIndex < acc + len) {
+      const p = protocolFor(blocks[i].protocolId)
+      const week = weekIndex - acc + 1
+      return {
+        phaseId: p.id,
+        week,
+        day,
+        liftingOrdinal: liftingOrdinalFor(p, week, day),
+        status: 'active',
+        blockIndex: i,
+        blockCount,
+      }
+    }
+    acc += len
+  }
+
+  // Past the end of the plan — hold on its last day rather than falling over.
+  const last = blocks[blocks.length - 1]
+  const p = protocolFor(last.protocolId)
+  const week = Math.max(1, last.weeks)
+  return {
+    phaseId: p.id,
+    week,
+    day: 6,
+    liftingOrdinal: liftingOrdinalFor(p, week, 6),
+    status: 'complete',
+    blockIndex: blocks.length - 1,
+    blockCount,
+  }
 }
 
 const TYPE_LABEL: Record<SessionType, string> = {
@@ -125,10 +225,15 @@ export function sessionFor(
 ): SessionPlan {
   const protocol = protocolFor(phaseId)
   const ctx: ProtocolContext = { settings, maxes }
-  return protocol.sessionFor(
-    { week, day, liftingOrdinal: liftingOrdinalFor(protocol, week, day) },
-    ctx,
-  )
+  const pos = { week, day, liftingOrdinal: liftingOrdinalFor(protocol, week, day) }
+  const plan = protocol.sessionFor(pos, ctx)
+  // Conditioning is a property of the block (p.20). A protocol that carries a
+  // colour fills its rest days with the matching session rather than leaving
+  // them blank — but never displaces a lifting day.
+  if (plan.type === 'rest' && protocol.conditioning !== 'none') {
+    return conditioningSessionFor(protocol, pos, settings) ?? plan
+  }
+  return plan
 }
 
 /**

@@ -156,6 +156,27 @@ export interface Settings {
   /** MASS state. `sCluster` is the user-built Grey Man supplementary cluster (p.49). */
   mass?: {
     sCluster?: { s1?: ClusterExerciseRef[]; s2?: ClusterExerciseRef[] }
+    /**
+     * Days carrying a conditioning session, 0=Mon..6=Sun. The book fixes the
+     * count (1–3 Green a week, p.99) but not the days, so this is a choice —
+     * see `defaultConditioningDays`.
+     */
+    conditioningDays?: number[]
+    /** Chosen session per weekday, e.g. `{ 1: 'ruck' }`. Falls back to the first Green. */
+    conditioningPick?: Record<number, string>
+  }
+  /**
+   * The block sequence. When present it supersedes `currentPhaseId` /
+   * `phaseStartDate`, which remain the fallback for Beginner and for any install
+   * that has never built a plan.
+   *
+   * "Both General and Specificity consist of 3-week blocks" (p.40), and Josh's
+   * decision is that a phase runs any multiple of 3 — so a longer General stint
+   * is simply more blocks, not a longer one.
+   */
+  plan?: {
+    startDate: string // ISO yyyy-mm-dd, the Monday block 1 week 1 began
+    blocks: { protocolId: string; weeks: number }[]
   }
   /** Strava OAuth tokens (on-device only); set after "Connect Strava". */
   strava?: {

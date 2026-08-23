@@ -29,6 +29,7 @@ protocol, and this design is largely a set of answers to that list.
 | Base Building | **Skipped.** Start at General Mass | Josh, 2026-08-22 (**DEVIATION** — book sequences it first, p.147) |
 | Below bar weight | Show "empty bar" plus a warning; do not substitute automatically | Claude, 2026-08-22 (**DEVIATION** — book covers SE only, p.31) |
 | Fractional bodyweight reps | Round to nearest, ties down — same rule as weight | Claude, 2026-08-22 (**DEVIATION** — book silent) |
+| Conditioning days | Default Tue/Sat, user editable; the book's weekly caps are enforced | Claude, 2026-08-23 (**DEVIATION** — book fixes the count, not the days) |
 | Bar and plates | 20 kg bar; pairs of 25/20/15/10/5/2.5/1.25 kg. Smallest jump 2.5 kg | Josh, 2026-08-22 |
 | Lifting days | Mon / Wed / Fri, as printed (p.50) | Josh, 2026-08-22 |
 | First 1RMs | Estimate from a 3RM per lift via `estimate1RM`, once the bar arrives (sanctioned p.90) | Josh, 2026-08-22 |
@@ -497,11 +498,22 @@ Each step ends green and demonstrable on `tb2`.
      `plan.type === 'lift'` alone — exactly the trap CLAUDE.md warns about. Now scoped by protocol.
    - **`/maxes` crashed on load.** `useSettings` returns `DEFAULT_SETTINGS` before IndexedDB resolves, so
      the form seeded Beginner's exercise ids and then rendered Grey Man's.
-7. **S-cluster builder.**
-8. **Block plan + scheduling UI.**
-9. **Green conditioning.**
+7. ~~**S-cluster builder.**~~ **DONE (2026-08-23).** In `/plan`. Add and remove exercises, split them
+   between S1 and S2, set each one's loading mode. Enforces the book's own limit — "Use no more than 4
+   to 6" (p.49) — and can be reset to the book's example. Stored in `settings.mass.sCluster`.
+8. ~~**Block plan + scheduling UI.**~~ **DONE (2026-08-23).** `settings.plan` holds an ordered list of
+   blocks; `resolvePosition` walks it and reports `blockIndex`/`blockCount` alongside the week. Without a
+   plan it falls back to the original single-phase behaviour, so Beginner and every existing install are
+   untouched. `BRIDGE_PROTOCOL` implements pp.92–93 — `Rest Rest Rest Test Test Rest Rest`, with the test
+   days marked optional because testing "is only required once before you start the protocol, and maybe
+   before your first Specificity block" (p.93). The A/B alternation restarts at the top of every block.
+9. ~~**Green conditioning.**~~ **DONE (2026-08-23).** All eight sessions extracted to
+   `src/protocols/conditioning.ts` with their cards verbatim and their governing quote. A protocol
+   carrying a colour fills its rest days with the matching session, never a lifting day. The book's
+   caps are enforced (Green ≤3/week, Black ≤2/week and non-lifting days only, p.99); the *days* are a
+   **DEVIATION**, since the book fixes the count but not the placement — default Tue/Sat, user editable.
 
-Steps 1–4 are the substance. Nothing before step 4 changes what Josh sees on his phone.
+Steps 1–4 are the substance. Nothing before step 4 changed what Josh sees on his phone.
 
 ---
 

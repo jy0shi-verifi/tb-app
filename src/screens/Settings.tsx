@@ -145,6 +145,14 @@ export default function Settings() {
               className={fieldCls}
             />
           </Row>
+          <Row label="Block plan" hint="Sequence your 3-week blocks, build your S cluster, set conditioning days.">
+            <Link
+              to="/plan"
+              className="inline-flex items-center justify-center rounded-pill bg-brand/10 text-brand-ink text-[13px] font-bold px-4 min-h-11"
+            >
+              Open
+            </Link>
+          </Row>
           <Row label="1RM maxes" hint="Enter a 2–5 rep test set; the app works out every weight.">
             <Link
               to="/maxes"
