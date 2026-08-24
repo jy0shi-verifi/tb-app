@@ -101,13 +101,105 @@ export async function requestPersistentStorage(): Promise<boolean> {
   }
 }
 
+/**
+ * Merge a patch into the single settings row.
+ *
+ * The read and the write are inside one `rw` transaction on purpose. As a bare
+ * read-modify-write this could lose a concurrent update: Strava's token refresh
+ * rotates `strava.refreshToken` in the background, and a settings screen saving
+ * a theme from render state a moment later would write back the OLD token —
+ * silently breaking the connection until a reconnect (audit code-01 F8). Dexie
+ * serialises transactions on the same table, so the read here always sees the
+ * previous write.
+ */
 export async function saveSettings(patch: Partial<Settings>): Promise<void> {
-  const cur = (await db.settings.get('app')) ?? DEFAULT_SETTINGS
-  await db.settings.put({ ...cur, ...patch, id: 'app' })
+  await db.transaction('rw', db.settings, async () => {
+    const cur = (await db.settings.get('app')) ?? DEFAULT_SETTINGS
+    await db.settings.put({ ...cur, ...patch, id: 'app' })
+  })
 }
 
-export async function deleteSession(id: number): Promise<void> {
+/**
+ * The result of asking to remove a logged session.
+ *
+ * A Strava-linked row is never actually deleted: `stravaSync` re-imports the
+ * activity on the next sync, so deleting one makes it resurrect — usually as an
+ * un-dismissable ghost the user deletes again. Un-ticking `done` is the
+ * behaviour that survives a sync.
+ */
+export type DeleteSessionResult = 'deleted' | 'unticked' | 'missing'
+
+/**
+ * Remove a logged session, honouring the Strava invariant.
+ *
+ * The invariant used to live ONLY inside `Today.tsx`'s `markDone` — Session and
+ * History both called `db.sessions.delete` directly, so a deleted run came
+ * straight back on the next sync (audit code-01 F6). Putting it here is the same
+ * move `applyBeginnerProgress` and `lastPerformance` already made: a rule that
+ * every call site must remember belongs where a call site cannot forget it.
+ */
+export async function deleteSession(id: number): Promise<DeleteSessionResult> {
+  const row = await db.sessions.get(id)
+  if (!row) return 'missing'
+  if (row.stravaId != null) {
+    await db.sessions.update(id, { done: false })
+    return 'unticked'
+  }
   await db.sessions.delete(id)
+  return 'deleted'
+}
+
+/**
+ * The session logged for a date, collapsing any duplicates.
+ *
+ * `sessions.date` is not a unique index, and un-serialised autosave could write
+ * two rows for one date (audit A6). The second was unreachable — `.first()`
+ * returns the lowest id — undeletable from the UI, and `stravaSync`'s `byDate`
+ * map kept the LAST, so Strava enrichment landed on the invisible one.
+ *
+ * Writes are serialised now, so new duplicates are not created. This repairs the
+ * ones an older build may already have written: keep the row carrying the most
+ * information (a Strava link first, then the most logged sets), fold in the
+ * others' Strava data, and delete them.
+ */
+export async function sessionForDate(date: string): Promise<SessionLog | undefined> {
+  const rows = await db.sessions.where('date').equals(date).toArray()
+  if (rows.length <= 1) return rows[0]
+
+  // Merge FIELD BY FIELD, not row by row. Picking a single "best" row loses
+  // whatever the others held: the duplicate that carries the Strava link is
+  // usually the one with no logged sets, so keeping it wholesale would throw the
+  // training away, and keeping the other would throw the sync link away.
+  const doneSets = (r: SessionLog): number =>
+    r.exercises.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0)
+
+  const byId = [...rows].sort((a, b) => (a.id ?? 0) - (b.id ?? 0))
+  // The row the UI has been editing: `.first()` returns the lowest id, so that
+  // is the one the user can see. Its id is kept so nothing else has to re-point.
+  const base = byId[0]
+  const richest = [...byId].sort((a, b) => doneSets(b) - doneSets(a))[0]
+  const synced = byId.find((r) => r.stravaId != null)
+
+  const merged: SessionLog = {
+    ...base,
+    id: base.id,
+    exercises: doneSets(richest) > doneSets(base) ? richest.exercises : base.exercises,
+    done: byId.some((r) => r.done),
+    stravaId: base.stravaId ?? synced?.stravaId,
+    title: base.stravaId == null && synced ? (synced.title ?? base.title) : base.title,
+    durationMin: base.durationMin ?? synced?.durationMin,
+    distanceKm: base.distanceKm ?? synced?.distanceKm,
+    avgHr: base.avgHr ?? synced?.avgHr,
+    feel: base.feel ?? richest.feel ?? synced?.feel,
+    notes: base.notes ?? richest.notes ?? synced?.notes,
+    createdAt: Math.min(...byId.map((r) => r.createdAt || Date.now())),
+  }
+
+  await db.transaction('rw', db.sessions, async () => {
+    await db.sessions.put(merged)
+    await db.sessions.bulkDelete(byId.slice(1).map((r) => r.id!).filter((id) => id != null))
+  })
+  return merged
 }
 
 // ---- backup ----

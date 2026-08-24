@@ -90,7 +90,6 @@ export interface LoadedBar {
 }
 
 const toUnits = (kg: number): number => Math.round(kg * UNITS_PER_KG)
-const toKg = (units: number): number => units / UNITS_PER_KG
 
 /**
  * Load a bar as close as possible to `targetKg`.
@@ -166,7 +165,14 @@ export function loadBar(targetKg: number, setup: BarSetup = DEFAULT_BAR_SETUP): 
   }
 
   const perSide = reconstruct(bestUnits, from, plates)
-  const totalKg = barKg + toKg(bestUnits) * 2
+  // The total comes from the plates we actually chose, NOT from the solver's
+  // unit count. The solver works on a 0.25 kg grid, so an off-grid plate size is
+  // snapped on the way in (`toUnits(1.1)` is 4 units = 1.0 kg) — and the two then
+  // disagreed: the app said "22 kg" while the bar weighed 22.2 (audit code-02
+  // F9). What is on the bar is what the plates weigh, so that is what is
+  // reported. Grid-aligned inventories are unaffected: the sums are identical,
+  // which the plate tests assert across 13 inventories.
+  const totalKg = round2(barKg + perSide.reduce((n, p) => n + p.kg * p.count, 0) * 2)
   return {
     targetKg,
     totalKg,

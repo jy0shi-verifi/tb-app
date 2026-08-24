@@ -24,7 +24,13 @@ function tierFor(key: string): 'bronze' | 'steel' | 'gold' | 'black' {
 
 async function confirmDelete(id?: number) {
   if (id == null) return
-  if (window.confirm('Delete this logged session?')) await deleteSession(id)
+  if (!window.confirm('Delete this logged session?')) return
+  // `deleteSession` holds the Strava invariant: a synced row is un-ticked, not
+  // removed, because deleting it only makes it come back on the next sync.
+  if ((await deleteSession(id)) === 'unticked')
+    window.alert(
+      'This one came from Strava, so it has been un-ticked rather than deleted — deleting it would only bring it back on the next sync.',
+    )
 }
 
 /** Average pace as "m:ss /km" from minutes + km, or null if either is missing. */

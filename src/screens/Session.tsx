@@ -7,7 +7,7 @@ import { narrowMaxes, protocolFor, resolvePosition, sessionFor, type SessionPlan
 import { EXERCISE_INFO } from '../exerciseInfo'
 import ExerciseDetail from '../components/ExerciseDetail'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
-import { db, DEFAULT_SETTINGS, saveSettings } from '../db'
+import { db, DEFAULT_SETTINGS, deleteSession, saveSettings, sessionForDate } from '../db'
 import IntervalTimer from '../components/IntervalTimer'
 import { applyBeginnerProgress, beginnerDayLetter, beginnerLiftId, beginnerStall, REP_HI } from '../beginner'
 import { estimate1RM } from '../lib/calc'
@@ -272,6 +272,8 @@ export default function Session() {
   const allSessions = useLiveQuery(() => db.sessions.toArray(), [], [])
 
   const [ex, setEx] = useState<ExState[] | null>(null)
+  /** Serialises autosaves so two can never both insert a row for one date (A6). */
+  const saveChain = useRef<Promise<void>>(Promise.resolve())
   const [meta, setMeta] = useState<MetaState>({ done: false, duration: '', feel: '', notes: '' })
   const [restEnd, setRestEnd] = useState<number | null>(null)
   const [remaining, setRemaining] = useState(0)
@@ -399,7 +401,10 @@ export default function Session() {
       // Re-read the freshest row at write time — an auto-sync may have merged
       // Strava HR/duration into it since this component rendered; using a stale
       // `logged` closure here would silently clobber that enrichment.
-      const existing = await db.sessions.where('date').equals(iso).first()
+      //
+      // `sessionForDate` rather than `.first()`: it also collapses any duplicate
+      // rows an older build left behind (audit A6).
+      const existing = await sessionForDate(iso)
       const exercises: LoggedExercise[] = ex.map((e) => ({
         name: e.name,
         sets: e.sets.map((s) => ({
@@ -435,7 +440,13 @@ export default function Session() {
       }
       await db.sessions.put(rec)
     }
-    save()
+    // Serialised behind a promise chain. Two taps in quick succession both used
+    // to read "no existing row" and both `put` WITHOUT an id, creating a second
+    // row for the same date — unreachable (`.first()` returns the lowest id),
+    // undeletable from the UI, and the one `stravaSync`'s `byDate` map kept, so
+    // Strava enrichment landed on the invisible copy (audit A6). Chaining means
+    // the second save always sees the first one's id.
+    saveChain.current = saveChain.current.then(save).catch(() => {})
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ex, meta])
 
@@ -953,7 +964,13 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
         <button
           onClick={async () => {
             if (!window.confirm('Delete this logged session?')) return
-            await db.sessions.delete(logged.id!)
+            // Via `deleteSession`, which refuses to delete a Strava-linked row
+            // and un-ticks it instead — otherwise it resurrects on the next sync.
+            const outcome = await deleteSession(logged.id!)
+            if (outcome === 'unticked')
+              window.alert(
+                'This one came from Strava, so it has been un-ticked rather than deleted — deleting it would only bring it back on the next sync.',
+              )
             nav(-1)
           }}
           className="w-full text-sm text-danger font-medium py-2"

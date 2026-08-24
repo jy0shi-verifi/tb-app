@@ -5,7 +5,7 @@ import { CheckCircle2, ExternalLink, AlertTriangle, X, Flame, TrendingUp } from 
 import { useSettings, useSessions, useSessionByDate, useMaxesFor } from '../hooks'
 import { PROTOCOLS, progressionPending, resolvePosition, sessionFor } from '../program'
 import { isoDate, today, prettyDate, parseISO, diffDays, addDays, mondayIndex } from '../lib/date'
-import { db, saveSettings } from '../db'
+import { db, deleteSession, saveSettings } from '../db'
 import { beginStravaAuth } from '../lib/strava'
 import { shouldNudgeBackup, downloadBackup } from '../lib/backup'
 import { computeStreak, longestStreak, sessionsThisWeek } from '../lib/stats'
@@ -189,9 +189,10 @@ export default function Today() {
 
   async function markDone() {
     if (logged?.id && logged.done) {
-      // don't destroy a Strava-enriched row — just un-tick it
-      if (logged.stravaId != null) await db.sessions.update(logged.id, { done: false })
-      else await db.sessions.delete(logged.id)
+      // `deleteSession` un-ticks a Strava-linked row rather than removing it.
+      // The invariant used to live only here, which is how Session and History
+      // came to delete unconditionally (audit code-01 F6).
+      await deleteSession(logged.id)
       return
     }
     const rec: SessionLog = {
