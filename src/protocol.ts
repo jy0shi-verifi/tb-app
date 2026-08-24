@@ -139,6 +139,8 @@ export interface PlannedSet {
   perSide?: { kg: number; count: number }[]
   /** Target is lighter than the empty bar (MASS p.31 covers this for SE only). */
   belowBar?: boolean
+  /** The plate inventory could not reach the target — the bar is as heavy as it goes. */
+  exhausted?: boolean
 }
 
 export interface PlannedExercise {
@@ -212,6 +214,13 @@ export interface ProtocolContext {
 export interface Protocol {
   id: string
   name: string
+  /**
+   * The exercises this protocol will actually prescribe for this user — which is
+   * NOT always `clusters`, because a protocol may let the user build part of its
+   * cluster (Grey Man's S cluster, p.49). Any screen collecting 1RMs must use
+   * this; reading `clusters` directly left custom exercises un-loadable.
+   */
+  exercisesFor?(settings: import('./types').Settings): ClusterExercise[]
   family: ProtocolFamily
   /**
    * Namespace for stored 1RMs — the `protocolId` half of the `oneRm` compound

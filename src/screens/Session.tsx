@@ -38,6 +38,14 @@ interface ExState {
   targetKg?: number
   /** Target is lighter than the empty bar (MASS p.31). */
   belowBar?: boolean
+  /** Plate inventory could not reach the target. */
+  exhausted?: boolean
+  /**
+   * The weight the PLAN prescribed. Distinct from `sets[].weight`, which is what
+   * the user has typed — the plate breakdown describes the prescription and must
+   * not re-compute itself as you edit a logged value.
+   */
+  plannedKg?: number
 }
 interface MetaState {
   done: boolean
@@ -125,10 +133,15 @@ function PlateLine({ ex }: { ex: ExState }) {
   if (!ex.perSide?.length) return null
   const plates = ex.perSide.map((p) => (p.count > 1 ? `${p.count}×${p.kg}` : `${p.kg}`)).join(' + ')
   const target = ex.targetKg
-  const loaded = Number(ex.sets[0]?.weight) || 0
+  // The PRESCRIBED weight, not the typed one.
+  const loaded = ex.plannedKg ?? 0
   const off = target != null && Math.abs(loaded - target) >= 0.05
   return (
     <p className="text-[11px] text-muted mt-1">
+      {/* The loaded total is shown first and always: the rounding is our
+          deviation from the book, so what you actually put on the bar has to be
+          on screen next to the exact target. */}
+      <span className="num-display text-ink">{loaded}</span> kg ·{' '}
       <span className="num-display text-ink">{plates}</span> per side
       {target != null && (
         <>
@@ -141,6 +154,11 @@ function PlateLine({ ex }: { ex: ExState }) {
             'exact'
           )}
         </>
+      )}
+      {ex.exhausted && (
+        <span className="block text-brand-ink font-semibold">
+          Not enough plates to reach the target — check your plate inventory in Settings.
+        </span>
       )}
     </p>
   )
@@ -175,7 +193,10 @@ function SetRow({
           <button onClick={() => bumpW(-inc)} className={STEP} aria-label="Less weight">
             <Minus size={15} />
           </button>
-          <div className="w-12 text-center border-x border-line">
+          {/* w-16 AND shrink-0: barbell totals run to five characters ("102.5"),
+              and the dumbbell-era w-12 clipped them to "10". Without shrink-0 the
+              flex row squeezes the cell back down and the clipping returns. */}
+          <div className="w-16 shrink-0 text-center border-x border-line">
             <input
               type="text"
               inputMode="decimal"
@@ -278,6 +299,8 @@ export default function Session() {
           perSide: first?.perSide,
           targetKg: first?.targetKg,
           belowBar: first?.belowBar,
+          exhausted: first?.exhausted,
+          plannedKg: first?.weight,
           sets: e.sets.map((s, j) => {
             const ss = saved?.sets[j]
             return {

@@ -247,6 +247,7 @@ export function planExercise(
         targetKg: bar.targetKg,
         perSide: bar.perSide,
         belowBar: bar.belowBar,
+        exhausted: bar.exhausted,
       }
       break
     }
@@ -288,7 +289,7 @@ export function greyManSessionFor(pos: BlockPosition, ctx: ProtocolContext): Ses
   const week = Math.min(Math.max(pos.week, 1), GM_BLOCK_WEEKS)
   const grid = GM_GRID[week]
   const letter = greyManDay(pos.liftingOrdinal)
-  const supp = letter === 'A' ? sClusterOf(ctx, 's1') : sClusterOf(ctx, 's2')
+  const supp = letter === 'A' ? sClusterOf(ctx.settings, 's1') : sClusterOf(ctx.settings, 's2')
 
   const exercises: PlannedExercise[] = [
     ...mainLiftsFor(letter).map((ex) => planExercise(ex, grid.main, ctx)),
@@ -304,11 +305,27 @@ export function greyManSessionFor(pos: BlockPosition, ctx: ProtocolContext): Ses
   }
 }
 
-/** The user's S cluster if they have built one, otherwise the book's example. */
-function sClusterOf(ctx: ProtocolContext, which: 's1' | 's2'): ClusterExercise[] {
-  const custom = ctx.settings.mass?.sCluster?.[which]
+/**
+ * The user's S cluster if they have built one, otherwise the book's example.
+ *
+ * Exported because ANY screen that needs to know what the S cluster is must ask
+ * this, not read `protocol.clusters`. The two disagree the moment the builder is
+ * used, and `/maxes` reading the static default meant a custom exercise could
+ * never be given a 1RM — it appeared in the session asking for a max that there
+ * was nowhere to enter.
+ */
+export function sClusterOf(settings: Settings, which: 's1' | 's2'): ClusterExercise[] {
+  const custom = settings.mass?.sCluster?.[which]
   if (custom?.length) return custom
   return which === 's1' ? GM_S1_EXAMPLE : GM_S2_EXAMPLE
+}
+
+/**
+ * Every exercise this protocol will actually prescribe for a given user, main
+ * cluster plus their live S cluster. This is what a maxes form must iterate.
+ */
+export function greyManExercises(settings: Settings): ClusterExercise[] {
+  return [...GM_MAIN, ...sClusterOf(settings, 's1'), ...sClusterOf(settings, 's2')]
 }
 
 // ---------------------------------------------------------------------------
@@ -338,5 +355,6 @@ export const GREY_MAN_PROTOCOL: Protocol = {
     s1: cluster('s1', 'Supplementary S1', GM_S1_EXAMPLE, true, 'MASS p.49 — you build this (4–6 total, split S1/S2)'),
     s2: cluster('s2', 'Supplementary S2', GM_S2_EXAMPLE, true, 'MASS p.49 — you build this (4–6 total, split S1/S2)'),
   },
+  exercisesFor: greyManExercises,
   sessionFor: greyManSessionFor,
 }

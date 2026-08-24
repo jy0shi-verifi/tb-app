@@ -23,7 +23,6 @@ const BLURBS: Record<string, string> = {
 
 export default function Today() {
   const settings = useSettings()
-  const maxes = useMaxesFor(settings.currentPhaseId)
   const sessions = useSessions()
   const nav = useNavigate()
   const now = today()
@@ -32,6 +31,15 @@ export default function Today() {
   const [dismissedDate, setDismissedDate] = useState<string | null>(() =>
     localStorage.getItem('tb-dismiss-missed'),
   )
+
+  // Resolved BEFORE the loading guard below, because `useMaxesFor` is a hook and
+  // must run on every render — putting it after an early return changes the hook
+  // count between renders and React throws. `resolvePosition` is pure and safe to
+  // call against DEFAULT_SETTINGS.
+  const pos = resolvePosition(settings, now)
+  // Scoped to the RESOLVED protocol, not to settings — under a block plan the
+  // two differ, and the wrong scope means every load renders "set your 1RM".
+  const maxes = useMaxesFor(pos.phaseId)
 
   // undefined until IndexedDB loads — avoids a flash of the wrong phase on DEFAULT_SETTINGS
   const settingsLoading = useLiveQuery(() => db.settings.get('app'), []) === undefined
@@ -43,7 +51,6 @@ export default function Today() {
       </div>
     )
 
-  const pos = resolvePosition(settings, now)
   const phase = PROTOCOLS[pos.phaseId]
 
   // lapse detection (hoisted so it can guard the phase-complete branch too):

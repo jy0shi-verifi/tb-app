@@ -108,3 +108,89 @@ test('a custom S cluster reaches the session', async ({ page, seed }) => {
   await expect(page.getByText('Barbell Curl', { exact: true })).toBeVisible()
   await expect(page.getByText('Dips')).toHaveCount(0)
 })
+
+// ---------------------------------------------------------------------------
+// Audit fixes, 2026-08-24. Program.tsx had ZERO assertions before this, which is
+// how it shipped building its calendar from `phaseStartDate` and showing dates
+// months out of date under a block plan.
+// ---------------------------------------------------------------------------
+
+test('Program follows the block plan, not the stale phase start date', async ({ page, seed }) => {
+  await seed(
+    planned([
+      { protocolId: 'gm', weeks: 3 },
+      { protocolId: 'bridge', weeks: 1 },
+    ]),
+  )
+  await page.goto('/program')
+
+  // Week 1 of the plan starts on MONDAY, and the dates shown must be that week —
+  // not dates derived from settings.phaseStartDate.
+  const monday = Number(MONDAY.slice(8, 10))
+  await expect(page.getByText('Grey Man', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText(String(monday), { exact: true }).first()).toBeVisible()
+})
+
+test('Program labels the bridge week as the bridge, not as Grey Man', async ({ page, seed }) => {
+  // A plan whose CURRENT week is the bridge: one 3-week block already elapsed.
+  await seed({
+    settings: {
+      currentPhaseId: 'gm',
+      plan: {
+        startDate: plusDays(MONDAY, -21),
+        blocks: [
+          { protocolId: 'gm', weeks: 3 },
+          { protocolId: 'bridge', weeks: 1 },
+        ],
+      },
+    },
+  })
+  await page.goto('/program')
+  await expect(page.getByText('Bridge Week', { exact: true }).first()).toBeVisible()
+  await expect(page.getByText('Grey Man — Day A')).toHaveCount(0)
+})
+
+test('the maxes screen offers the S exercises you actually built', async ({ page, seed }) => {
+  await seed({
+    settings: {
+      currentPhaseId: 'gm',
+      plan: { startDate: MONDAY, blocks: [{ protocolId: 'gm', weeks: 3 }] },
+      mass: {
+        sCluster: {
+          s1: [{ id: 's_curl', name: 'Barbell Curl', defaultLoading: 'barbell' }],
+          s2: [{ id: 's_calf', name: 'Calf Raise', defaultLoading: 'dumbbell' }],
+        },
+      },
+    },
+  })
+  await page.goto('/maxes')
+  // A custom S exercise used to be un-loadable: the session asked for a 1RM that
+  // there was nowhere to enter, because /maxes rendered the book's defaults.
+  await expect(page.getByLabel('Barbell Curl test weight')).toBeVisible()
+  await expect(page.getByLabel('Calf Raise test weight')).toBeVisible()
+  await expect(page.getByText('Dips', { exact: true })).toHaveCount(0)
+})
+
+test('the maxes preview uses the S percentages for an S lift', async ({ page, seed }) => {
+  await seed({
+    settings: {
+      currentPhaseId: 'gm',
+      plan: { startDate: MONDAY, blocks: [{ protocolId: 'gm', weeks: 3 }] },
+      mass: {
+        sCluster: {
+          s1: [{ id: 's_curl', name: 'Barbell Curl', defaultLoading: 'barbell' }],
+          s2: [],
+        },
+      },
+    },
+  })
+  await page.goto('/maxes')
+  await page.getByLabel('Barbell Curl test weight').fill('40')
+  // A main lift too, so both rows of the grid are on screen at once.
+  await page.getByLabel('Bench Press test weight', { exact: true }).fill('80')
+
+  // S runs 55/60/65 (p.51), NOT the main lifts' 70/75/80 — which is what the
+  // preview hardcoded for everything.
+  await expect(page.getByText('Wk 1 · 55%')).toBeVisible()
+  await expect(page.getByText('Wk 1 · 70%')).toBeVisible()
+})

@@ -1,11 +1,26 @@
 import { useEffect, useState } from 'react'
 import { useSettings, useAllOneRm } from '../hooks'
-import { protocolFor } from '../program'
-import { protocolExercises, type ClusterExercise } from '../protocol'
+import { protocolFor, resolvePosition } from '../program'
+import { protocolExercises, type Cluster, type ClusterExercise, type Prescription } from '../protocol'
+import { GM_GRID, sClusterOf } from '../protocols/greyman'
+import type { Settings } from '../types'
+
+/**
+ * A protocol's clusters with any user-built parts substituted in. Grey Man's S1
+ * and S2 are editable (p.49), so the static `protocol.clusters` is only a
+ * default — showing it here is what made custom exercises un-loadable.
+ */
+function liveClusters(protocol: { id: string; clusters: Record<string, Cluster> }, settings: Settings): Cluster[] {
+  return Object.values(protocol.clusters).map((c) => {
+    if (protocol.id !== 'gm' || (c.id !== 's1' && c.id !== 's2')) return c
+    return { ...c, exercises: sClusterOf(settings, c.id) }
+  })
+}
 import { estimate1RM } from '../lib/calc'
 import { loadBar, DEFAULT_BAR_SETUP, targetLoad, type BarSetup } from '../lib/barbell'
 import { db } from '../db'
 import { Card, Pill } from '../components/ui'
+import { today } from '../lib/date'
 import type { OneRmEntry } from '../types'
 
 /**
@@ -47,8 +62,15 @@ const barSetupFrom = (plates?: number[], barKg?: number): BarSetup =>
 export default function Maxes() {
   const settings = useSettings()
   const rows = useAllOneRm()
-  const protocol = protocolFor(settings.currentPhaseId)
-  const exercises = protocolExercises(protocol)
+  // The protocol actually running today. Under a block plan `currentPhaseId` is
+  // a stale leftover, so keying off it edited the wrong scope and left every MASS
+  // lift permanently blank.
+  const protocol = protocolFor(resolvePosition(settings, today()).phaseId)
+  // The exercises actually prescribed for THIS user — a protocol may let the
+  // user build part of its cluster, and reading `protocol.clusters` meant a
+  // custom S exercise could never be given a 1RM.
+  const exercises = protocol.exercisesFor?.(settings) ?? protocolExercises(protocol)
+  const clusters = liveClusters(protocol, settings)
   const [fields, setFields] = useState<Record<string, Field> | null>(null)
   // Which protocol the current `fields` were built for. `useSettings` returns
   // DEFAULT_SETTINGS before IndexedDB has loaded, so the first render is always
@@ -154,7 +176,7 @@ export default function Maxes() {
         </p>
       </Card>
 
-      {Object.values(protocol.clusters).map((cluster) => (
+      {clusters.map((cluster) => (
         <Card key={cluster.id}>
           <div className="mb-2">
             <p className="font-bold text-ink">{cluster.label}</p>
@@ -222,7 +244,11 @@ export default function Maxes() {
                         />
                       </div>
                       {e && ex.defaultLoading === 'barbell' && (
-                        <WorkingPreview oneRm={e.kg + e.progressedKg} bar={bar} />
+                        <WorkingPreview
+                          oneRm={e.kg + e.progressedKg}
+                          bar={bar}
+                          main={cluster.id === 'main'}
+                        />
                       )}
                     </>
                   )}
@@ -243,9 +269,16 @@ export default function Maxes() {
   )
 }
 
-/** What this 1RM produces across the three weeks of the block. */
-function WorkingPreview({ oneRm, bar }: { oneRm: number; bar: BarSetup }) {
-  const weeks = [70, 75, 80]
+/**
+ * What this 1RM produces across the three weeks of the block.
+ *
+ * The percentages come from `GM_GRID`, and the SUPPLEMENTARY row is different
+ * from the main one (55/60/65 vs 70/75/80, p.51). This used to hardcode the main
+ * row for everything, so every S lift previewed a weight ~27% too heavy.
+ */
+function WorkingPreview({ oneRm, bar, main }: { oneRm: number; bar: BarSetup; main: boolean }) {
+  const pctOf = (p: Prescription) => ('percent' in p.loading ? (p.loading.percent ?? 0) : 0)
+  const weeks = [1, 2, 3].map((w) => pctOf(main ? GM_GRID[w].main : GM_GRID[w].supp))
   return (
     <div className="flex gap-2 mt-2">
       {weeks.map((pct, i) => {

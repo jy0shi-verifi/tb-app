@@ -10,14 +10,19 @@ const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 
 export default function Program() {
   const settings = useSettings()
-  const maxes = useMaxesFor(settings.currentPhaseId)
   const sessions = useSessions()
   const nav = useNavigate()
 
-  const phase = PROTOCOLS[settings.currentPhaseId] ?? PROTOCOLS.beginner
   const now = today()
   const todayIso = isoDate(now)
   const pos = resolvePosition(settings, now)
+  // Everything below hangs off the RESOLVED position, not off settings. Under a
+  // block plan `settings.currentPhaseId` and `settings.phaseStartDate` are stale
+  // leftovers — using them put every date in this grid months out and labelled
+  // bridge weeks as Grey Man.
+  const phase = PROTOCOLS[pos.phaseId] ?? PROTOCOLS.beginner
+  const maxes = useMaxesFor(pos.phaseId)
+  const blockStart = parseISO(pos.blockStartDate)
 
   const [view, setView] = useState<'week' | 'block'>('week')
   const [week, setWeek] = useState(pos.week)
@@ -79,9 +84,9 @@ export default function Program() {
 
           <Card pad="none" className="divide-y divide-line/60 overflow-hidden">
             {DAY_NAMES.map((dn, day) => {
-              const date = addDays(parseISO(settings.phaseStartDate), (week - 1) * 7 + day)
+              const date = addDays(blockStart, (week - 1) * 7 + day)
               const iso = isoDate(date)
-              const plan = sessionFor(settings.currentPhaseId, week, day, settings, maxes)
+              const plan = sessionFor(pos.phaseId, week, day, settings, maxes)
               const isToday = iso === todayIso
               const loads = loadsLine(plan)
               return (
@@ -133,7 +138,7 @@ export default function Program() {
             <div className="space-y-1">
               {Array.from({ length: blockWeeks }, (_, wi) => {
                 const w = wi + 1
-                const weekStart = addDays(parseISO(settings.phaseStartDate), wi * 7)
+                const weekStart = addDays(blockStart, wi * 7)
                 return (
                   <div key={w} className="grid grid-cols-[2.4rem_repeat(7,1fr)] gap-1 items-stretch">
                     <button
@@ -148,7 +153,7 @@ export default function Program() {
                     {Array.from({ length: 7 }, (_, day) => {
                       const date = addDays(weekStart, day)
                       const iso = isoDate(date)
-                      const plan = sessionFor(settings.currentPhaseId, w, day, settings, maxes)
+                      const plan = sessionFor(pos.phaseId, w, day, settings, maxes)
                       const meta = SESSION_META[plan.type]
                       const Icon = meta.icon
                       const isToday = iso === todayIso

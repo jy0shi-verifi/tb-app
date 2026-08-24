@@ -1,5 +1,5 @@
 import type { Settings, SessionType } from './types'
-import { diffDays, parseISO } from './lib/date'
+import { addDays, diffDays, isoDate, parseISO } from './lib/date'
 import { BEGINNER_PROTOCOL } from './beginner'
 import { GREY_MAN_PROTOCOL } from './protocols/greyman'
 import { BRIDGE_PROTOCOL } from './protocols/bridge'
@@ -47,6 +47,14 @@ export interface Position extends BlockPosition {
   blockIndex: number
   /** How many blocks the plan holds; 0 without a plan. */
   blockCount: number
+  /**
+   * ISO date of week 1, day 0 of the CURRENT block.
+   *
+   * Screens that lay out a calendar must use this, not `settings.phaseStartDate`
+   * — under a plan the latter is a stale leftover, and `Program.tsx` was using it
+   * to build its week grid, putting every date and tap target months out.
+   */
+  blockStartDate: string
 }
 
 export interface PlannedBlock {
@@ -103,7 +111,12 @@ export function resolvePosition(settings: Settings, when: Date): Position {
   const d = diffDays(when, start)
   const protocol = protocolFor(settings.currentPhaseId)
   const phaseId = protocol.id
-  const base = { phaseId, blockIndex: -1, blockCount: 0 }
+  const base = {
+    phaseId,
+    blockIndex: -1,
+    blockCount: 0,
+    blockStartDate: settings.phaseStartDate,
+  }
   if (d < 0)
     return { ...base, week: 1, day: 0, liftingOrdinal: liftingOrdinalFor(protocol, 1, 0), status: 'before' }
   const week = Math.floor(d / 7) + 1
@@ -127,6 +140,9 @@ function resolveInPlan(plan: NonNullable<Settings['plan']>, when: Date): Positio
   const day = ((d % 7) + 7) % 7
   const blockCount = blocks.length
 
+  const startOfBlock = (weeksBefore: number): string =>
+    isoDate(addDays(parseISO(plan.startDate), weeksBefore * 7))
+
   if (d < 0) {
     const p = protocolFor(blocks[0].protocolId)
     return {
@@ -137,6 +153,7 @@ function resolveInPlan(plan: NonNullable<Settings['plan']>, when: Date): Positio
       status: 'before',
       blockIndex: 0,
       blockCount,
+      blockStartDate: startOfBlock(0),
     }
   }
 
@@ -155,6 +172,7 @@ function resolveInPlan(plan: NonNullable<Settings['plan']>, when: Date): Positio
         status: 'active',
         blockIndex: i,
         blockCount,
+        blockStartDate: startOfBlock(acc),
       }
     }
     acc += len
@@ -172,6 +190,7 @@ function resolveInPlan(plan: NonNullable<Settings['plan']>, when: Date): Positio
     status: 'complete',
     blockIndex: blocks.length - 1,
     blockCount,
+    blockStartDate: startOfBlock(acc - Math.max(1, last.weeks)),
   }
 }
 
