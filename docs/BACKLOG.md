@@ -40,7 +40,7 @@ and build clean · deployed to tb2 as **v41**.
 |---|---|---|
 | A4 | Green conditioning can share a lifting day (p.99), rendered alongside the lift. Black still refused on lifting days. | `fc351b2` |
 | A9 | The 5th set is reachable — the book's only sanctioned outlet for surplus energy (p.51, pp.64–65). | `d3e0ad3` |
-| A12 | Extra-curricular activity consumes the conditioning allowance (p.110). The finding with most real-world bite for Josh: his Runna running auto-logs from Strava. | `d3e0ad3` |
+| A12 | Extra-curricular activity consumes the conditioning allowance (p.110), counted from whatever Strava sends that the plan did not schedule. *(Framing corrected 2026-08-24: under MASS, Josh's cardio IS the Green work — Runna stops being the source. So this counts anything on top, not his programmed running.)* | `d3e0ad3` |
 | A13 | Duration caps reach the screen (p.111 + each session's own page); hardgainer caps restored; a stored pick is validated against the block's colour. | `d3e0ad3` |
 | A14 | `defaultPlan()` is now the p.140 Standard Cycle truncated where Specificity would begin. | `d266e61` |
 | — | Rest is per cluster — 2–5 min main, 1–2 min S (pp.52–53) — not a flat 120 s for everything. | `d3e0ad3` |
@@ -119,7 +119,15 @@ same fix `lastPerformance` already had. **Scope by protocol, never by anything e
 
 | ID | Item |
 |---|---|
-| B1 | **Second Strava API app for `tb2`.** Register at `strava.com/settings/api` with callback domain `tb2.joshua-birch.co.uk`; send the **client ID** (the secret goes in the `tb-app-v2` Pages env, never the repo). The client ID must then come from build config so the two variants can differ. **Until this exists, Strava does not work on tb2 at all** — which is also why the new OAuth `state` and same-origin checks are unit-tested rather than verified end to end. |
+| B1 | **Second Strava API app for `tb2`** — **deferred by Josh, 2026-08-24. Don't keep raising it.** Strava does not work on tb2 at all until it exists, and that is fine while he is months from switching. When he wants it: register at `strava.com/settings/api` with callback domain `tb2.joshua-birch.co.uk`, send the **client ID** (the secret goes in the `tb-app-v2` Pages env, never the repo), and move the client ID into build config so the two variants can differ. Consequence to remember: the OAuth `state` and same-origin checks are unit-tested but have never run against real Strava. |
+
+---
+
+## Decided, not yet built
+
+| ID | Item |
+|---|---|
+| **F1** | **Two sessions per day.** Josh, 2026-08-24: *"Allow two sessions per day, in case I ever need to shorten my week by doubling everything up."* Today a Green session sharing a day with a lift is informational only — it shows on Today and counts against the weekly allowance, but has nowhere of its own to be ticked, because the app stores **one session row per date**. This is the same root as A6: `sessions.date` is not a unique index, and nearly all read code assumes one row per date. Duplicates can no longer be *created* (saves are serialised) and stray ones are merged by `sessionForDate`, so the repair layer is in place — what is missing is a deliberate schema that permits exactly two, keyed by something like `(date, kind)`. **Touches the riskiest code in the project**: `db.ts`, every read that assumes one row per date, and `stravaSync`'s `byDate` map. Do it with a Dexie v4 migration and a fresh snapshot before the first write. |
 
 ---
 
@@ -147,7 +155,6 @@ same fix `lastPerformance` already had. **Scope by protocol, never by anything e
 
 | Item |
 |---|
-| **Conditioning sharing a day with a lift is informational only.** One session row per date leaves it nowhere to be ticked. Giving it one means allowing two rows per date — the same change A6 was about, now that duplicates are merged rather than prevented at the schema level. `sessions.date` is still not a unique index. |
 | **`EXERCISE_INFO` has no barbell lifts.** The Guide's form-video section filters them out, so Bench/Squat/OHP/Deadlift have no form content. Adding it means sourcing real coaching content — not inventing it. |
 | **`Maxes.tsx` hardcodes `[70,75,80]`** in one place as a second copy of `GM_GRID`. `WorkingPreview` already reads the grid properly; this is the remaining literal. |
 | **One genuinely flaky e2e** — `greyman.spec.ts` died once on `page.goto` with `net::ERR_ABORTED` and passed on retry. With no CI, that trains "just re-run it". |

@@ -14,6 +14,7 @@ A single-user, offline-first training PWA. Josh uses it **every morning** to run
 
 - **Sole user: Josh.** Every design decision assumes one user, one device-local database, no auth, no backend.
 - **Currently running (live app, `master`):** Beginner Mode — dumbbell A/B double progression (3×8–12, +2 kg when all three sets hit 12). Running is delegated to **Runna** and pulled in via **Strava**.
+- **Runna is a BEGINNER-ONLY arrangement.** Josh, 2026-08-24: *"Runna will be moot during mass, I will be following whatever training green gives me. I'll still be uploading to strava it just won't be runna."* So under MASS his cardio **is** the Green conditioning the app prescribes — Strava remains the log, Runna stops being the source. Don't write MASS-side copy that assumes a Runna plan.
 - **In development (`tb2`, branch `mass-extraction`):** Tactical Barbell **MASS — Grey Man**, rebuilt from the book. Josh will not switch to it for some months (he is cutting on Beginner until the barbell and rack arrive), so tb2 has no deadline pressure — but **Beginner must keep working**, it is not legacy code that can rot.
 - **Live at:** `tb.joshua-birch.co.uk` (Cloudflare Pages project `tb-app`).
 - **In daily production use with ~1 month of real training history.**

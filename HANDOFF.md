@@ -26,6 +26,17 @@ there is no deadline pressure — but **Beginner Mode must keep working**, and i
 rendering. Three of the audit's worst findings were Beginner being corrupted or misread by MASS code,
 and a fourth turned up this session (see "Hard-won lessons").
 
+### One standing assumption corrected
+
+**Runna is a Beginner-only arrangement.** Josh, 2026-08-24: *"Runna will be moot during mass, I will be
+following whatever training green gives me. I'll still be uploading to strava it just won't be runna."*
+So under MASS his cardio **is** the Green conditioning the app prescribes; Strava stays the log, Runna
+stops being the source. The extra-curricular rule (p.110) still applies — it just counts work on top of
+Green, not his programmed running. Don't write MASS-side copy that assumes a Runna plan.
+
+**B1 (the second Strava API app) is deferred, not blocked.** Josh does not want it raised again until
+he asks.
+
 ### The headline change
 
 **The programme now progresses.** Before this session nothing in `src/` wrote a non-zero
@@ -41,7 +52,7 @@ prompt, a per-lift "struggled" marker, and the 10% failure drop as an action.
 | Automatic on-device backups (Dexie **v3**) | `src/lib/snapshots.ts`, Settings → Automatic snapshots |
 | The guided block planner | `src/lib/planRules.ts`, `src/screens/NextCycle.tsx` → `/next-cycle` |
 | Green conditioning alongside a lift | `src/components/ConditioningAlongside.tsx` |
-| The conditioning allowance, Josh's own running included | `conditioningLoad` in `src/protocols/conditioningPlan.ts` |
+| The conditioning allowance, counting whatever Strava sends | `conditioningLoad` in `src/protocols/conditioningPlan.ts` |
 | Programme choice in onboarding | `src/screens/Onboarding.tsx` |
 | The Guide, rewritten from the book | `src/screens/Guide.tsx` |
 | OAuth `state` + same-origin token endpoint | `src/lib/strava.ts`, `functions/api/strava/token.ts` |
@@ -55,18 +66,19 @@ lint and build clean · every change confirmed in a real browser, not only in te
 
 **`docs/BACKLOG.md` is the list.** In rough priority order:
 
-1. **B1 — the second Strava API app.** Blocked on Josh for the client ID. Until it exists Strava does
-   not work on tb2 at all, which also means this session's OAuth `state` and same-origin work is
-   unit-tested but not verified end to end.
+0. **Josh is reviewing v41 first** (his call, 2026-08-24). He asked for nothing new to be started until
+   he has looked at it on his phone — nine of the changes touch screens he has not seen. Take his
+   feedback before picking anything below.
+1. **F1 — two sessions per day.** Decided by Josh this session: *"in case I ever need to shorten my
+   week by doubling everything up."* Needs a real schema decision (Dexie v4, `sessions.date` unique on
+   something like `(date, kind)`) and touches the riskiest code in the project. Also unblocks logging a
+   Green session that shares a day with a lift.
 2. **E1 — Specificity Alpha and Bravo.** Josh ruled these are required before the app is finished. The
    planner's ratio guidance and no-General warning are already written and waiting for them; the
    default plan currently has to stop at the bridge because Specificity does not exist. Extracted in
    sections 05 and 06. This is where `tm90` and the Bulgarian cluster finally matter.
 3. **E6 — a second plan preset** once E1 lands. `PLAN_PRESETS` is already a list.
-4. **A unique index on `sessions.date`.** Duplicates can no longer be created and existing ones are
-   merged on read, but the schema still permits them — and it is what a same-day conditioning session
-   would need to be logged separately from the lift it shares a day with.
-5. **E2 — the other three General templates.** Note Fighter HT trains twice a week and therefore hits
+4. **E2 — the other three General templates.** Note Fighter HT trains twice a week and therefore hits
    the `alternationRotates` limitation; read p.60 before deciding what it should do.
 
 ---

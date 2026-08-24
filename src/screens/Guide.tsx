@@ -332,7 +332,8 @@ const SECTIONS: Section[] = [
           <li>
             <b>Your own running counts.</b> <i>“Anytime you do that extra-curricular activity it
             counts as one conditioning session. Cross off one Green/Black session for that week.”</i>{' '}
-            (p.110) The Plan screen totals it up, Runna sessions included.
+            (p.110) Under MASS your cardio <i>is</i> the Green work above, so this is about anything on
+            top of it — and the Plan screen totals up whatever Strava sends, scheduled or not.
           </li>
           <li>
             A <b>10-minute easy run either side of a lift doesn’t count</b> — two of them still count
