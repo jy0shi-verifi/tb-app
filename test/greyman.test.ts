@@ -338,8 +338,11 @@ describe('execution notes carry the book’s rules (pp.50–53)', () => {
     expect(plan.detail).toMatch(/2–5 min/)
     expect(plan.detail).toMatch(/1–2 min/)
     // Grey Man says a flat 10% (p.53), where Mass Template says 5-10% (p.45).
-    expect(plan.detail).toMatch(/10%/)
-    expect(plan.detail).not.toMatch(/5–10%/)
+    // Asserted as an exact phrase: the previous version tested `not.toMatch(/5–10%/)`
+    // with an en-dash against a string containing neither form, so it could never
+    // fail — a dead assertion that looked like coverage.
+    expect(plan.detail).toContain('by 10% and recalculate')
+    expect(plan.detail).not.toMatch(/5\s*[-–]\s*10\s*%/)
   })
 
   it('summarises the week in the scheme line', () => {

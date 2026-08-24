@@ -26,7 +26,7 @@ protocol, and this design is largely a set of answers to that list.
 | Conditioning | Follow the book — app prescribes Green sessions during General Mass | Josh, 2026-08-22 |
 | Rounding | Nearest loadable weight, ties down, always show target + loaded + plates | Josh, 2026-08-22 (**DEVIATION** — book has no rule) |
 | Microplates | Optional, not required. Plate inventory is user-configurable | Josh, 2026-08-22 |
-| Base Building | **Skipped.** Start at General Mass | Josh, 2026-08-22 (**DEVIATION** — book sequences it first, p.147) |
+| Base Building | **Skipped.** Start at General Mass | Josh, 2026-08-22 — **NOT a deviation.** p.18: "If you already have a current/established endurance base of some kind, (i.e. runner…) feel free to skip it." p.151 FAQ: "No. Base Building is optional…" Josh is a runner, the exact case named. |
 | Below bar weight | Show "empty bar" plus a warning; do not substitute automatically | Claude, 2026-08-22 (**DEVIATION** — book covers SE only, p.31) |
 | Fractional bodyweight reps | Round to nearest, ties down — same rule as weight | Claude, 2026-08-22 (**DEVIATION** — book silent) |
 | Conditioning days | Default Tue/Sat, user editable; the book's weekly caps are enforced | Claude, 2026-08-23 (**DEVIATION** — book fixes the count, not the days) |

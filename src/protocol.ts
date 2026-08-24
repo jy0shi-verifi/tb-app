@@ -175,12 +175,14 @@ export interface BlockPosition {
    * 0-based index of this lifting session within the block, or -1 when today is
    * not a lifting day.
    *
-   * This is what drives Grey Man's A/B alternation. The book prints it as a
-   * two-week grid (p.50), which makes it look like week parity — it is not.
-   * Written out as a sequence it is simply `A B A B A B A B A`: strict
-   * alternation of consecutive lifting sessions, with the two-week period only a
-   * side effect of three sessions running against a two-element cycle. Selecting
-   * on day-of-week or on week parity both give the wrong answer.
+   * This is what drives Grey Man's A/B alternation. The book prints a THREE-week
+   * grid (p.50) whose pattern repeats every two weeks, which makes it look like
+   * week parity — it is not. Written out as a sequence it is simply
+   * `A B A B A B A B A`: strict alternation of consecutive lifting sessions, and
+   * the two-week period is only a side effect of three sessions running against a
+   * two-element cycle. Selecting on day-of-week is wrong (Monday is A in week 1
+   * and B in week 2), and so is week parity (it would make all three sessions in
+   * a week the same cluster).
    */
   liftingOrdinal: number
 }

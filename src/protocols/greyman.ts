@@ -128,10 +128,12 @@ export type GreyManDay = 'A' | 'B'
 /**
  * Which cluster today is.
  *
- * The book prints a two-week grid (p.50) which reads like week parity. It is
- * not: written out as a sequence of lifting sessions it is `A B A B A B A B A`,
- * strict alternation, and the two-week period is only a side effect of three
- * sessions running against a two-element cycle. See `BlockPosition.liftingOrdinal`.
+ * The book prints a THREE-week grid (p.50) — Week 1 `A B A`, Week 2 `B A B`,
+ * Week 3 `A B A` — whose pattern repeats every two weeks, which reads like week
+ * parity. It is not: written out as a sequence of lifting sessions it is
+ * `A B A B A B A B A`, strict alternation, and the two-week period is only a side
+ * effect of three sessions running against a two-element cycle.
+ * See `BlockPosition.liftingOrdinal`.
  */
 export function greyManDay(liftingOrdinal: number): GreyManDay {
   return liftingOrdinal % 2 === 0 ? 'A' : 'B'

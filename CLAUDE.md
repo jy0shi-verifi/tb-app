@@ -91,8 +91,17 @@ every **DEVIATION** from the book labelled with why.
 | `src/protocols/bridge.ts` | Bridge Week (pp.92–93) |
 | `src/protocols/conditioning.ts` | all eight Green/Black sessions, cards verbatim |
 
-**Verified:** 153 unit + 51 e2e green, lint and build clean, and the real 23-session backup round-trips
-through the v2 schema unchanged.
+**Audited (2026-08-24):** eight agents — four against the book, four against the code. Reports in
+`docs/audit/`, ranked synthesis in `docs/audit/00-summary.md`, outstanding items in `docs/BACKLOG.md`.
+The transcription came back faithful; the failures were in the engine around it. Nine findings fixed.
+
+Confirmed sound and **not worth re-auditing**: the Grey Man grid cell for cell, all eight conditioning
+cards, the 3-week block decision (book-cited, p.67), the absence of any rounding rule in the book, the
+v1→v2 migration *including* a stale build opening a v2 database, and the plate math — validated against
+an independent brute-force knapsack over 13 inventories × 1,041 targets with zero mismatches.
+
+**Verified at handoff:** 163 unit + 55 e2e green, typecheck/lint/build clean, and the real 23-session
+backup round-trips through the v2 schema unchanged.
 
 **Not built:** Specificity (Alpha/Bravo), the other three General templates (Mass, Gladiator, Fighter
 HT), Base Building (**deliberately skipped** — Josh's decision, a labelled deviation from p.147), and
@@ -112,6 +121,7 @@ and `'se'`/`'hic'` in `SessionType` so Josh's logged history keeps its types.
 ```bash
 npm run dev        # Vite dev server, port 5173
 npm run build      # tsc -b && vite build
+npm run typecheck  # tsc -b && tsc -p tsconfig.test.json --noEmit — ALSO covers test/ and e2e/
 npm run lint       # oxlint
 npm run test:unit  # Vitest  — test/**/*.test.ts
 npm run test:e2e   # Playwright — e2e/, spins its own server on :5199
@@ -119,6 +129,9 @@ npm run deploy     # ⚠ DEPLOYS TO PRODUCTION (project tb-app). Do not run for 
 ```
 
 There is **no CI**. Deploys are manual from this machine. `functions/` is neither type-checked nor linted by any script.
+
+`npm run build` only typechecks `src`. **Use `npm run typecheck`** — `test/` and `e2e/` were unchecked
+until 2026-08-24, which is how a required-argument change compiled cleanly and failed at runtime.
 
 ---
 
@@ -165,10 +178,21 @@ and returns `blockIndex`/`blockCount`. Without one it falls back to the original
 - **Four loading modes**, with genuinely different arithmetic: barbell (% × 1RM), dumbbell (per hand),
   **bodyweight (% applies to MAX REPS**, p.90 — a 10-rep max at 70% is 7 reps), and weighted bodyweight
   (**bodyweight must be inside the calculation**, p.90).
-- **Scope by protocol, never by `type === 'lift'` alone.** Grey Man sessions are also `type: 'lift'`, so
-  a bare type check leaks one programme's logic into another's — Beginner's double-progression badge
-  rendered on Grey Man sessions until `Session.tsx` was scoped by `pos.phaseId`. New code: gate on the
-  protocol.
+- **Scope by protocol, never by `type === 'lift'` alone.** This one root cause produced **four** separate
+  bugs, the worst of which silently rewrote Beginner's per-dumbbell working weights from barbell totals
+  when a Grey Man session was finished. Grey Man sessions are also `type: 'lift'`. Beginner's helpers now
+  filter `phaseId === 'beginner'` *inside* `src/beginner.ts` so a call site cannot forget, and
+  `lastPerformance` takes `phaseId` as a **required** argument for the same reason.
+- **A stored 1RM carries a unit.** `OneRmEntry.unit` is `'total'` or `'perDumbbell'` — a factor of two
+  apart. Anything computing a load must check it, not just the exercise's loading kind; the S-cluster
+  builder lets the kind change after a max is stored.
+- **Under a block plan, `settings.currentPhaseId` and `settings.phaseStartDate` are stale leftovers.**
+  Screens must read `resolvePosition()`, and any calendar must use `pos.blockStartDate`. Reading settings
+  directly put every date in `Program.tsx` months out.
+- **A protocol's real exercise list is `protocol.exercisesFor(settings)`, not `protocol.clusters`.** Grey
+  Man's S cluster is user-built (p.49); reading the static default made custom exercises un-loadable.
+- **Hooks must sit above every early return.** Moving `useMaxesFor` below `Today.tsx`'s loading guard
+  crashed every screen with "Rendered more hooks than during the previous render".
 - **Historical exercises are keyed by display name**; new ones carry a stable `exerciseId`. Stored 1RMs
   are keyed `(maxScope, exerciseId)`. All MASS templates share `maxScope: 'mass'`; Beginner has its own,
   because its maxes are **kilos per dumbbell** and MASS's are **total on the bar** — letting those meet

@@ -3,7 +3,11 @@
 Eight independent audits of the MASS rebuild: four checking the app against the book, four checking the
 code. Each wrote its own report in this directory; this file is the consolidated, ranked action list.
 
-**Status:** 7 of 8 reports complete. `code-03-ui-gaps.md` was still running when this was written.
+**Status:** all 8 reports complete.
+
+**A first fix pass landed on 2026-08-24** — commits `e39c9ab`, `eff85ef`, `b31f5b3`. Nine findings are
+fixed; see the table at the top of `docs/BACKLOG.md` for exactly which, and the rest of that file for
+everything still open. This document is the evidence and the reasoning; the backlog is the to-do list.
 
 **One finding was fixed during the audit rather than filed** — see A0.
 
