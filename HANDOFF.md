@@ -1,7 +1,7 @@
 # HANDOFF
 
 **Last updated:** 2026-08-24 · **Branch:** `mass-extraction` · **Status:** MASS Grey Man built, audited by
-eight agents, first fix pass landed. Deployed to `tb2` as **v32** and reviewed by Josh.
+eight agents, first fix pass landed. Deployed to `tb2` as **v33**; v32 reviewed and approved by Josh.
 
 Read in this order:
 
