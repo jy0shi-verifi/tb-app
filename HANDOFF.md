@@ -74,13 +74,18 @@ the book. Two stronger results worth knowing:
    step, a "struggled with this lift" marker, and the 10% failure drop as an action.
 2. **A4 — Green conditioning on lifting days.** The app structurally forbids what p.99 explicitly
    permits, and the Plan screen's day picker lies as a result.
-3. **A5, A8, A10, A16** — small data-safety fixes: demo-history confirm, the Maxes keystroke delete that
-   destroys progression state, the backup nudge disarming on a failed download, non-Monday plan starts.
-4. **A9 — the add-set control**, and **A6** autosave serialisation.
-5. **code-03 F4 / F11 / F12** — the journey: onboarding never mentions Grey Man, and `/maxes` and `/plan`
+3. **A5 — automatic backups.** Josh's direction: rather than just guarding the demo button, back up
+   automatically (e.g. on each app open) so no single destructive action is unrecoverable. Also softens
+   A10 and A11. Needs a short design decision first: where snapshots live, how many, how to restore.
+4. **A15 — the guided block planner.** Josh's direction: when a block ends, offer a real planner —
+   defaults or hand-picked (how many blocks, which template, how long) — while preventing anything that
+   is not valid TB Grey Man. **Discuss and design before coding.** Folds in book-04 F6 and F14.
+5. **A8, A16** — the Maxes keystroke delete that destroys progression state, and non-Monday plan starts.
+6. **A9 — the add-set control**, and **A6** autosave serialisation.
+7. **code-03 F4 / F11 / F12** — the journey: onboarding never mentions Grey Man, and `/maxes` and `/plan`
    are reachable only by knowing the URL.
-6. **D1 — rewrite the Guide screen**, still Operator/Base Building content.
-7. Then more templates: Specificity, or the other three General ones.
+8. **D1 — rewrite the Guide screen**, still Operator/Base Building content.
+9. Then more templates: Specificity, or the other three General ones.
 
 ---
 
