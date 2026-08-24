@@ -164,6 +164,8 @@ export interface ClusterExerciseRef {
   name: string
   short?: string
   defaultLoading: 'barbell' | 'dumbbell' | 'bodyweightReps' | 'weightedBodyweight' | 'unloaded'
+  /** Sizes the Forced Progression increment. See `ClusterExercise.bodyPart`. */
+  bodyPart?: 'upper' | 'lower'
 }
 
 export interface Settings {

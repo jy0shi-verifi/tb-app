@@ -6,17 +6,19 @@ import { db, saveSettings } from '../db'
 import { narrowMaxes, progressionPending, protocolFor } from '../program'
 import { protocolExercises } from '../protocol'
 import {
-  PROGRESSION_DEFAULT_KG,
   PROGRESSION_MAX_KG,
   PROGRESSION_MIN_KG,
+  kgForChoice,
+  reasonForChoice,
   reviewProgression,
   sessionsInBlock,
-  suggestProgression,
+  suggestChoice,
   withProgression,
   type ProgressionCandidate,
+  type ProgressionChoice,
 } from '../lib/progression'
 import { today } from '../lib/date'
-import { Card, Button, Checkbox } from '../components/ui'
+import { Card, Button } from '../components/ui'
 import ScreenHeader from '../components/ScreenHeader'
 
 /**
@@ -30,11 +32,21 @@ import ScreenHeader from '../components/ScreenHeader'
  * the app had none: nothing wrote a non-zero `progressedKg`, so a fourth block
  * prescribed exactly what the first one did (audit A1).
  *
- * It fires at a BLOCK boundary. The end of a whole plan is a different moment
- * with a different prompt — "reassess and determine if you need to change the
- * ratio" (p.140) — which belongs to the planner, not here.
- * See docs/mass-design.md §11.2.
+ * It fires at EVERY block boundary, which the book settles rather than leaves
+ * open: p.64's chapter heading is "PROGRESSION from block to block", and p.90
+ * says progression "consists of adding weight to your 1 rep maximum and
+ * recalculating from block to block".
+ *
+ * The end of a whole PLAN is a different moment with a different prompt —
+ * "reassess and determine if you need to change the ratio" (p.140) — which
+ * belongs to the planner. See docs/mass-design.md §11.2.
+ *
+ * The design goal Josh set is that this takes thinking OFF him: in a normal
+ * block he opens it, reads what the app worked out, and hits Apply.
  */
+
+const round1 = (n: number) => Math.round(n * 10) / 10
+
 export default function Progression() {
   const settings = useSettings()
   const rows = useAllOneRm()
@@ -52,43 +64,43 @@ export default function Progression() {
   const review = reviewProgression(exercises, maxes, blockSessions)
 
   /**
-   * Only the lifts he has explicitly overridden. The tick state itself is
-   * DERIVED from `suggestProgression`, never copied into state.
+   * Only the lifts he has explicitly overridden. The choice itself is DERIVED
+   * from `suggestChoice`, never copied into state.
    *
    * Seeding state from the suggestion is the obvious implementation and it is
    * wrong: `useSessions` and `useAllOneRm` both return `[]` while IndexedDB is
-   * still loading, so a seeding effect runs against no session history and ticks
-   * every lift — including the ones marked "struggled", which is precisely the
-   * case the book tells us to leave alone. It was invisible in unit tests, which
-   * call `suggestProgression` directly, and obvious the moment the screen was
-   * opened. Deriving makes the bug unrepresentable.
+   * still loading, so a seeding effect runs against no session history and
+   * proposes a full increment for every lift — including the ones marked
+   * "struggled", which is precisely the case the book tells us to leave alone.
+   * It was invisible in unit tests, which call the pure function directly, and
+   * obvious the moment the screen was opened. Deriving makes it unrepresentable.
    */
-  const [override, setOverride] = useState<Record<string, boolean>>({})
-  const [stepKg, setStepKg] = useState(String(PROGRESSION_DEFAULT_KG))
+  const [override, setOverride] = useState<Record<string, ProgressionChoice>>({})
   const [saving, setSaving] = useState(false)
 
-  const isPicked = (c: ProgressionCandidate): boolean =>
-    override[c.exerciseId] ?? suggestProgression(c)
+  const choiceFor = (c: ProgressionCandidate): ProgressionChoice =>
+    override[c.exerciseId] ?? suggestChoice(c)
 
   if (!block) {
     return (
-      <Card elev="1">
-        <p className="eyebrow text-muted">Forced Progression</p>
-        <h2 className="display-hero text-xl text-ink">Nothing to review</h2>
-        <p className="text-xs text-muted mt-2">
-          This appears when a block ends. “Every 3 to 6 weeks, add 5-10lbs to 1RMs. Recalculate and
-          repeat.” (p.53)
-        </p>
-        <Button className="mt-3" onClick={() => nav('/')}>
-          Back to today
-        </Button>
-      </Card>
+      <div className="space-y-4 stagger">
+        <ScreenHeader title="Forced Progression" fallback={'/'} />
+        <Card elev="1">
+          <p className="eyebrow text-muted">Forced Progression</p>
+          <h2 className="display-hero text-xl text-ink">Nothing to review</h2>
+          <p className="text-xs text-muted mt-2">
+            This appears when a block ends. “Every 3 to 6 weeks, add 5-10lbs to 1RMs. Recalculate and
+            repeat.” (p.53)
+          </p>
+          <Button className="mt-3" onClick={() => nav('/')}>
+            Back to today
+          </Button>
+        </Card>
+      </div>
     )
   }
 
-  const step = Number(stepKg)
-  const stepValid = step > 0
-  const chosen = review.candidates.filter((c) => !c.blocked && isPicked(c))
+  const moving = review.candidates.filter((c) => kgForChoice(c, choiceFor(c)) > 0)
 
   /**
    * Apply the increments and stamp the block as answered.
@@ -101,8 +113,9 @@ export default function Progression() {
     if (!block || saving) return
     setSaving(true)
     try {
-      for (const c of chosen) {
-        await db.oneRm.put(withProgression(c.entry, step))
+      for (const c of review.candidates) {
+        const add = kgForChoice(c, choiceFor(c))
+        if (add > 0) await db.oneRm.put(withProgression(c.entry, add))
       }
       const done = settings.mass?.progressedBlocks ?? []
       await saveSettings({
@@ -131,51 +144,20 @@ export default function Progression() {
           (p.53)
         </p>
         <p className="text-[11px] text-muted mt-2">
-          This is how the programme gets heavier. Add to the 1RM and every working weight follows
-          from it — you don’t re-test (p.90).
+          Worked out from the block you just did. Change anything you disagree with, then apply —
+          every working weight follows from the 1RM, and you don’t re-test (p.90).
         </p>
       </Card>
 
       <Card>
-        <p className="eyebrow text-muted mb-1">Increment</p>
-        <div className="flex items-center gap-2">
-          <input
-            type="text"
-            inputMode="decimal"
-            aria-label="Progression increment in kg"
-            value={stepKg}
-            onChange={(e) => setStepKg(e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'))}
-            className="w-24 text-center rounded-field bg-[var(--color-surface-sunk)] border border-[var(--color-field-border)] py-2 num-display text-base text-ink"
-          />
-          <p className="text-xs text-muted flex-1">
-            kg on the 1RM. The book says <b>5–10 lb</b>, which is{' '}
-            <b>
-              {PROGRESSION_MIN_KG}–{PROGRESSION_MAX_KG} kg
-            </b>{' '}
-            (p.53). Start at the bottom of it: <i>“DON’T start too heavy”</i> (p.64).
-          </p>
-        </div>
-        {stepValid && step > PROGRESSION_MAX_KG && (
-          <p className="text-[11px] font-bold text-brand-ink mt-2">
-            {step} kg is more than the book’s 10 lb top end ({PROGRESSION_MAX_KG} kg).
-          </p>
-        )}
-      </Card>
-
-      <Card>
-        <p className="eyebrow text-muted mb-1">Lifts</p>
-        <p className="text-xs text-muted mb-3">
-          Ticked lifts go up by {stepValid ? step : '—'} kg. Anything you struggled with stays where
-          it is — that is the book’s own instruction, not a courtesy.
-        </p>
+        <p className="eyebrow text-muted mb-2">Your 1RMs</p>
         <div className="space-y-2">
           {review.candidates.map((c) => (
             <CandidateRow
               key={c.exerciseId}
               c={c}
-              step={stepValid ? step : 0}
-              checked={isPicked(c)}
-              onToggle={() => setOverride({ ...override, [c.exerciseId]: !isPicked(c) })}
+              choice={choiceFor(c)}
+              onChoose={(v) => setOverride({ ...override, [c.exerciseId]: v })}
             />
           ))}
           {review.candidates.length === 0 && (
@@ -195,10 +177,21 @@ export default function Progression() {
         )}
       </Card>
 
+      <Card elev="sunk">
+        <p className="text-[11px] text-muted leading-relaxed">
+          The book says <b>5–10 lb</b> ({PROGRESSION_MIN_KG}–{PROGRESSION_MAX_KG} kg) but never which
+          lift gets which end (p.53). Tactical Barbell I does — <b>10 lb lower body, 5 lb upper</b>,
+          the same two numbers — so squats and deadlifts take {PROGRESSION_MAX_KG} kg and presses
+          take {PROGRESSION_MIN_KG} kg. <b>That split is our reading, not this book’s text.</b>
+        </p>
+      </Card>
+
       <div className="flex gap-2">
-        <Button className="flex-1" onClick={() => void apply()} disabled={!stepValid || saving}>
+        <Button className="flex-1" onClick={() => void apply()} disabled={saving}>
           <Check size={18} className="inline -mt-0.5 mr-1" />
-          {chosen.length > 0 ? `Progress ${chosen.length} lift${chosen.length === 1 ? '' : 's'}` : 'Keep all the same'}
+          {moving.length > 0
+            ? `Apply to ${moving.length} lift${moving.length === 1 ? '' : 's'}`
+            : 'Keep all the same'}
         </Button>
         <Button variant="secondary" onClick={() => nav('/')}>
           Not now
@@ -211,18 +204,24 @@ export default function Progression() {
   )
 }
 
+const CHOICES: { v: ProgressionChoice; label: string }[] = [
+  { v: 'full', label: 'Full' },
+  { v: 'eased', label: 'Half' },
+  { v: 'hold', label: 'Hold' },
+]
+
 function CandidateRow({
   c,
-  step,
-  checked,
-  onToggle,
+  choice,
+  onChoose,
 }: {
   c: ProgressionCandidate
-  step: number
-  checked: boolean
-  onToggle: () => void
+  choice: ProgressionChoice
+  onChoose: (v: ProgressionChoice) => void
 }) {
-  const round1 = (n: number) => Math.round(n * 10) / 10
+  const add = kgForChoice(c, choice)
+  const next = round1(c.currentKg + add)
+
   if (c.blocked) {
     return (
       <div className="rounded-field bg-[var(--color-surface-sunk)] p-3 opacity-70">
@@ -231,30 +230,42 @@ function CandidateRow({
       </div>
     )
   }
+
   return (
     <div className="rounded-field bg-[var(--color-surface-sunk)] p-3">
-      <div className="flex items-center gap-2">
-        <div className="flex-1 min-w-0">
-          <Checkbox checked={checked} onChange={onToggle}>
-            <span className="font-medium text-ink text-[15px]">{c.exerciseName}</span>
-          </Checkbox>
-        </div>
-        <span className="num-display text-[13px] text-load whitespace-nowrap">
-          {round1(c.currentKg)}
-          {checked && step > 0 && (
-            <span className="font-semibold"> → {round1(c.currentKg + step)}</span>
-          )}
+      <div className="flex items-baseline justify-between gap-2">
+        <p className="font-medium text-ink text-[15px] min-w-0 truncate">{c.exerciseName}</p>
+        <p className="num-display text-[13px] whitespace-nowrap">
+          <span className={add > 0 ? 'text-muted' : 'text-load'}>{round1(c.currentKg)}</span>
+          {add > 0 && <span className="text-load font-semibold"> → {next}</span>}
           <span className="text-muted"> kg</span>
-        </span>
-      </div>
-      {(c.struggled || c.shortSets > 0) && (
-        <p className="text-[11px] text-brand-ink mt-1.5 pl-9">
-          {c.struggled && 'You marked this a struggle. '}
-          {c.shortSets > 0 &&
-            `${c.shortSets} set${c.shortSets === 1 ? '' : 's'} logged short of the rest. `}
-          The book says use the same numbers again (p.53).
         </p>
-      )}
+      </div>
+
+      <p className="text-[11px] text-muted mt-1">{reasonForChoice(c, choice)}</p>
+
+      {/* One tap to disagree with any of it — the "change something" affordance. */}
+      <div className="flex gap-1.5 mt-2">
+        {CHOICES.map((o) => {
+          const on = choice === o.v
+          const kg = kgForChoice(c, o.v)
+          return (
+            <button
+              key={o.v}
+              type="button"
+              onClick={() => onChoose(o.v)}
+              aria-pressed={on}
+              aria-label={`${c.exerciseName} ${o.label}`}
+              className={`flex-1 rounded-pill text-[11px] font-bold py-1.5 min-h-9 ${
+                on ? 'bg-brand/15 text-brand-ink' : 'bg-surface text-muted'
+              }`}
+            >
+              {o.label}
+              {kg > 0 && <span className="font-normal"> +{kg}</span>}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }

@@ -167,6 +167,11 @@ same fix `lastPerformance` already had. **Scope by protocol, never by anything e
 
 - **Forced Progression against a training max** — does the increment apply to the true 1RM or the TM?
   Silent. Only bites once Specificity's Bulgarian cluster exists.
+- **Which lift gets 5 lb and which gets 10** — the rule is printed six times, always identically, and
+  never differentiates. **ANSWERED as far as it can be, 2026-08-24:** Tactical Barbell I gives the same
+  author's split (10 lb lower, 5 lb upper) and MASS's range is exactly those two numbers, so the app
+  applies it as a labelled deviation. See `docs/mass-design.md` §12. The *cadence* half of the same
+  sentence turned out NOT to be open — p.64 and p.90 both say "from block to block".
 - **Conditioning day placement** — the book fixes the count, not the days. Declared deviation.
 - **Weight rounding** — no rule anywhere in 160 pages. **The audit confirmed this across the whole
   book**, so our nearest-with-ties-down deviation rests on a verified premise.

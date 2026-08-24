@@ -35,22 +35,45 @@ import type { OneRmEntry, SessionLog } from '../types'
  * The book's increment is "5-10lbs" (p.53), and the book is in pounds
  * throughout — it never mentions kilograms on any of its 160 pages. Converted:
  *
- *   5 lb  = 2.268 kg
- *   10 lb = 4.536 kg
+ *   5 lb  = 2.268 kg   →  we use 2.5 kg (5.51 lb)
+ *   10 lb = 4.536 kg   →  we use 4.5 kg (9.92 lb)
  *
- * so the honest kg range is **2.5 to 4.5**, and a 5 kg jump (11.02 lb) is very
- * slightly ABOVE the book's top end. The UI prints the range and lets the number
- * be edited rather than offering a 2.5/5 toggle that would quietly exceed it.
+ * Round kg numbers, both effectively at the bounds of the printed range. The
+ * increment lands on the STORED 1RM, never on a bar, so it does not have to be
+ * plate-friendly.
  */
 export const PROGRESSION_MIN_KG = 2.5
 export const PROGRESSION_MAX_KG = 4.5
 
 /**
- * The default. The low end of the range on purpose: "Whatever you do, DON'T
- * start too heavy or overestimate your 1RMs" (p.64), and the whole argument of
- * pp.64-66 is that the loads are supposed to feel light early on.
+ * Which end of the range a lift gets — **DEVIATION**, see docs/mass-design.md §12.
+ *
+ * Mass Protocol prints "add 5-10lbs to 1RMs" six times (pp.47, 53, 57, 62, 77,
+ * 83) and NEVER says which lifts take which end. The extraction recorded that
+ * silence twice, and a search of the author's own forum found no guidance
+ * either — only community members, none of whom distinguish upper from lower.
+ *
+ * But **Tactical Barbell I does say it**, for the same author's Forced
+ * Progression under Operator: *5 lb to upper body lifts (Bench Press, Pull Up)
+ * and 10 lb to lower body lifts (Squat, Deadlift)*. MASS's range is exactly
+ * those two numbers, so this reads as the author stating the bounds of a rule he
+ * had already published rather than inventing a new undifferentiated one.
+ *
+ * That makes the split the most probable reading of the range — but it is our
+ * inference, not this book's text, so it is labelled a deviation.
+ *
+ * **Absent `bodyPart` means the SMALLER increment.** A user-built S exercise we
+ * know nothing about should progress conservatively, not aggressively.
  */
-export const PROGRESSION_DEFAULT_KG = 2.5
+export const incrementForKg = (bodyPart?: 'upper' | 'lower'): number =>
+  bodyPart === 'lower' ? PROGRESSION_MAX_KG : PROGRESSION_MIN_KG
+
+/**
+ * The default, kept for the UI's copy and for anything without an exercise to
+ * hand. The low end on purpose: "Whatever you do, DON'T start too heavy or
+ * overestimate your 1RMs" (p.64).
+ */
+export const PROGRESSION_DEFAULT_KG = PROGRESSION_MIN_KG
 
 /**
  * Grey Man's failure remedy is a flat **10%** (p.53). The Mass Template says
@@ -173,6 +196,11 @@ export interface ProgressionCandidate {
   /** Sets logged below the best set of their own session, across the block. */
   shortSets: number
   /**
+   * The full increment this lift would take on a clean block, sized by
+   * `bodyPart` — 4.5 kg lower body, 2.5 kg upper (`incrementForKg`).
+   */
+  fullKg: number
+  /**
    * Why this lift cannot take a kg increment, if it cannot. A bodyweight-reps
    * exercise has no load to add to — its 1RM stands in as a MAX REPS figure
    * (p.90) and the book gives no rep-increment rule on any page, so the app must
@@ -224,6 +252,7 @@ export function reviewProgression(
       currentKg: currentMaxKg(entry),
       struggled: markedStruggled(blockSessions, ex.name),
       shortSets: shortSetsInBlock(blockSessions, ex.name),
+      fullKg: incrementForKg(ex.bodyPart),
       blocked,
     })
   }
@@ -232,10 +261,51 @@ export function reviewProgression(
 }
 
 /**
- * The app's opening suggestion for one lift: progress unless the block gave a
- * reason not to. That is the book's own default — Forced Progression is called
- * the mechanism the protocol works by (p.90), with the struggle clause as the
- * exception, so it is the exception that has to be evidenced.
+ * What the app proposes for one lift.
+ *
+ * `full` — a clean block, so take the whole increment. That is the book's own
+ *   default: Forced Progression is the mechanism the protocol works by (p.90),
+ *   with the struggle clause as the exception, so it is the exception that has
+ *   to be evidenced.
+ * `eased` — sets were logged short of the rest of their own session. Half the
+ *   increment instead of the whole thing.
+ * `hold` — the lifter marked the lift a struggle, so "use the same numbers for
+ *   the next block" (p.53). Also covers a lift that cannot take kilos at all.
  */
-export const suggestProgression = (c: ProgressionCandidate): boolean =>
-  !c.blocked && !c.struggled && c.shortSets === 0
+export type ProgressionChoice = 'full' | 'eased' | 'hold'
+
+/**
+ * **DEVIATION — the middle gear is ours.** See docs/mass-design.md §12.
+ *
+ * The book's rule is binary: progress, or hold. `eased` sits between them, for
+ * the case where the lift was not flagged but the LOG shows it was not clean
+ * either. It does not contradict p.53 so much as apply it more gently, and it
+ * exists because the increments above run near the top of the book's range —
+ * a faster base rate is only defensible if something can brake it.
+ *
+ * The `hold` half is the book's, verbatim. Only `eased` is an addition.
+ */
+export function suggestChoice(c: ProgressionCandidate): ProgressionChoice {
+  if (c.blocked || c.struggled) return 'hold'
+  if (c.shortSets > 0) return 'eased'
+  return 'full'
+}
+
+/** The kilos a choice actually adds. `eased` is half, rounded to 0.1 kg. */
+export function kgForChoice(c: ProgressionCandidate, choice: ProgressionChoice): number {
+  if (choice === 'hold') return 0
+  return choice === 'eased' ? round1(c.fullKg / 2) : c.fullKg
+}
+
+/** Why the app proposed what it did, for the UI to show next to the lift. */
+export function reasonForChoice(c: ProgressionCandidate, choice: ProgressionChoice): string {
+  if (c.blocked) return c.blocked
+  if (choice === 'hold' && c.struggled)
+    return 'You marked this a struggle — the book says use the same numbers again (p.53).'
+  if (choice === 'hold') return 'Held at the same numbers.'
+  if (choice === 'eased')
+    return `${c.shortSets} set${c.shortSets === 1 ? '' : 's'} logged short of the rest — easing off rather than holding.`
+  return c.fullKg === PROGRESSION_MAX_KG
+    ? 'Clean block · lower body, so the top of the book’s range'
+    : 'Clean block'
+}

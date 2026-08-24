@@ -2,7 +2,6 @@ import 'fake-indexeddb/auto'
 import { describe, it, expect } from 'vitest'
 import {
   GM_FAILURE_DROP_PCT,
-  PROGRESSION_DEFAULT_KG,
   PROGRESSION_MAX_KG,
   PROGRESSION_MIN_KG,
   currentMaxKg,
@@ -10,7 +9,10 @@ import {
   reviewProgression,
   sessionsInBlock,
   shortSetsInBlock,
-  suggestProgression,
+  incrementForKg,
+  type ProgressionCandidate,
+  kgForChoice,
+  suggestChoice,
   withFailureDrop,
   withProgression,
 } from '../src/lib/progression'
@@ -82,16 +84,43 @@ const planned = (over: Partial<Settings> = {}): Settings => ({
 // ---------------------------------------------------------------------------
 
 describe('the increment, converted from the book’s pounds (p.53)', () => {
-  it('brackets 5–10 lb as 2.5–4.5 kg, and does NOT stretch to 5 kg', () => {
-    // 5 lb = 2.268 kg, 10 lb = 4.536 kg. A 5 kg jump is 11.02 lb — over the top end.
+  const LB = 0.45359237
+
+  it('brackets 5–10 lb, and both ends land inside the printed range', () => {
+    // The book is in pounds on all 160 pages; these are the kg we round to.
     expect(PROGRESSION_MIN_KG).toBe(2.5)
     expect(PROGRESSION_MAX_KG).toBe(4.5)
+    // 2.5 kg = 5.51 lb, 4.5 kg = 9.92 lb — the range is 5 to 10.
+    expect(PROGRESSION_MIN_KG / LB).toBeCloseTo(5.51, 1)
+    expect(PROGRESSION_MAX_KG / LB).toBeCloseTo(9.92, 1)
+    // 5 kg would be 11.02 lb — over the top end, which is why it is not used.
+    expect(5 / LB).toBeGreaterThan(10)
     expect(PROGRESSION_MAX_KG).not.toBe(5)
   })
 
-  it('defaults to the BOTTOM of the range — "DON’T start too heavy" (p.64)', () => {
-    expect(PROGRESSION_DEFAULT_KG).toBe(PROGRESSION_MIN_KG)
-    expect(PROGRESSION_DEFAULT_KG).not.toBe(PROGRESSION_MAX_KG)
+  it('gives lower body the top of the range and upper body the bottom', () => {
+    // DEVIATION (docs/mass-design.md §12). MASS prints "5-10lbs" six times and
+    // never says which lift takes which end; Tactical Barbell I does, for the
+    // same author's Forced Progression — 10 lb lower, 5 lb upper — and MASS's
+    // range is exactly those two numbers.
+    expect(incrementForKg('lower')).toBe(PROGRESSION_MAX_KG)
+    expect(incrementForKg('upper')).toBe(PROGRESSION_MIN_KG)
+    // The plausible wrong answer: one flat number for everything.
+    expect(incrementForKg('lower')).not.toBe(incrementForKg('upper'))
+  })
+
+  it('defaults an unclassified lift to the SMALLER increment', () => {
+    // A user-built S exercise we know nothing about must progress
+    // conservatively, not aggressively.
+    expect(incrementForKg(undefined)).toBe(PROGRESSION_MIN_KG)
+  })
+
+  it('classifies the book’s own main cluster correctly (p.48)', () => {
+    const by = (id: string) => GM_MAIN.find((e) => e.id === id)!
+    expect(by('squat').bodyPart).toBe('lower')
+    expect(by('deadlift').bodyPart).toBe('lower')
+    expect(by('bench').bodyPart).toBe('upper')
+    expect(by('ohp').bodyPart).toBe('upper')
   })
 
   it('Grey Man’s failure drop is a flat 10% (p.53), not the Mass Template’s 5–10% (p.45)', () => {
@@ -159,18 +188,48 @@ describe('"Don’t force progression for exercises you struggled with" (p.53)', 
       ohp: max('ohp', 60, { exerciseName: 'Overhead Press' }),
     }
     const exercises = [
-      { id: 'bench', name: 'Bench Press', defaultLoading: 'barbell' as const },
-      { id: 'squat', name: 'Squat', defaultLoading: 'barbell' as const },
-      { id: 'ohp', name: 'Overhead Press', defaultLoading: 'barbell' as const },
+      { id: 'bench', name: 'Bench Press', defaultLoading: 'barbell' as const, bodyPart: 'upper' as const },
+      { id: 'squat', name: 'Squat', defaultLoading: 'barbell' as const, bodyPart: 'lower' as const },
+      { id: 'ohp', name: 'Overhead Press', defaultLoading: 'barbell' as const, bodyPart: 'upper' as const },
     ]
     const { candidates } = reviewProgression(exercises, maxes, block)
     const by = (n: string) => candidates.find((c) => c.exerciseName === n)!
 
-    expect(suggestProgression(by('Bench Press'))).toBe(true)
-    // Explicitly marked — the book's own instruction.
-    expect(suggestProgression(by('Overhead Press'))).toBe(false)
-    // Missed reps in the log — the derived hint.
-    expect(suggestProgression(by('Squat'))).toBe(false)
+    // Clean → the full increment for that lift.
+    expect(suggestChoice(by('Bench Press'))).toBe('full')
+    expect(kgForChoice(by('Bench Press'), 'full')).toBe(2.5) // upper body
+
+    // Explicitly marked — the book's own instruction, verbatim.
+    expect(suggestChoice(by('Overhead Press'))).toBe('hold')
+    expect(kgForChoice(by('Overhead Press'), 'hold')).toBe(0)
+
+    // Sets logged short — the MIDDLE gear, which is our addition. It eases off
+    // rather than holding entirely, which is the whole point of it.
+    expect(suggestChoice(by('Squat'))).toBe('eased')
+    expect(kgForChoice(by('Squat'), 'eased')).toBe(2.3) // half of 4.5, to 0.1 kg
+    expect(kgForChoice(by('Squat'), 'eased')).toBeGreaterThan(0)
+    expect(kgForChoice(by('Squat'), 'eased')).toBeLessThan(kgForChoice(by('Squat'), 'full'))
+  })
+
+  it('an override beats the suggestion in either direction', () => {
+    // The screen holds only overrides; these are the values it maps them to.
+    const c = { fullKg: 4.5 } as ProgressionCandidate
+    expect(kgForChoice(c, 'full')).toBe(4.5)
+    expect(kgForChoice(c, 'eased')).toBe(2.3) // half, rounded to 0.1 kg
+    expect(kgForChoice(c, 'hold')).toBe(0)
+  })
+
+  it('"eased" always sits strictly between holding and progressing', () => {
+    // This is the invariant that makes the middle gear defensible rather than
+    // invented: the book sanctions 0 ("use the same numbers") and it sanctions
+    // the full increment, so anything between two book-sanctioned values is
+    // bounded by the book even though the value itself is ours.
+    for (const fullKg of [PROGRESSION_MIN_KG, PROGRESSION_MAX_KG]) {
+      const c = { fullKg } as ProgressionCandidate
+      const eased = kgForChoice(c, 'eased')
+      expect(eased).toBeGreaterThan(kgForChoice(c, 'hold'))
+      expect(eased).toBeLessThan(kgForChoice(c, 'full'))
+    }
   })
 
   it('refuses to invent a rep increment for bodyweight work (p.90)', () => {
@@ -178,7 +237,8 @@ describe('"Don’t force progression for exercises you struggled with" (p.53)', 
     const maxes = { pullup: max('pullup', 0, { maxReps: 12 }) }
     const { candidates } = reviewProgression(exercises, maxes, [])
     expect(candidates[0].blocked).toMatch(/max reps/)
-    expect(suggestProgression(candidates[0])).toBe(false)
+    expect(suggestChoice(candidates[0])).toBe('hold')
+    expect(kgForChoice(candidates[0], suggestChoice(candidates[0]))).toBe(0)
   })
 
   it('lists an exercise with no stored max as missing rather than hiding it', () => {

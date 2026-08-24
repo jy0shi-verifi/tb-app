@@ -105,6 +105,22 @@ export interface ClusterExercise {
   /** Short label for tight UI (pills, week grid). */
   short?: string
   defaultLoading: Loading['kind']
+  /**
+   * Which half of the body this lift trains, used ONLY to size the Forced
+   * Progression increment.
+   *
+   * Mass Protocol prints "add 5-10lbs to 1RMs" six times (pp.47, 53, 57, 62, 77,
+   * 83) and never says which lifts get which end of the range — a silence the
+   * extraction recorded twice. **Tactical Barbell I does say**, for the same
+   * author's own Forced Progression: 5 lb upper body, 10 lb lower body. Since
+   * MASS's range IS those two numbers, splitting on this is the most probable
+   * reading of the range rather than an import. Still a DEVIATION — see
+   * docs/mass-design.md §12.
+   *
+   * Optional, and absent means 'upper' (the smaller increment): a user-built S
+   * exercise we know nothing about should progress conservatively.
+   */
+  bodyPart?: 'upper' | 'lower'
 }
 
 export interface Cluster {

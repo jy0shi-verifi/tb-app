@@ -37,6 +37,18 @@ Green, not his programmed running. Don't write MASS-side copy that assumes a Run
 **B1 (the second Strava API app) is deferred, not blocked.** Josh does not want it raised again until
 he asks.
 
+### Forced Progression got a second pass (v42)
+
+Josh asked whether the book differentiates the 5–10 lb increment by movement type. **It does not** — the
+rule is printed six times, always identically. But TB1 does, for the same author's Forced Progression,
+and MASS's range is exactly TB1's two numbers. So the app now applies **4.5 kg to lower-body lifts and
+2.5 kg to upper**, as a labelled deviation, plus a three-way `full / eased / hold` decision it works out
+from the block you just did. `docs/mass-design.md` §12 has the whole argument.
+
+The same question settled something that had looked open: **progression fires every block**, because
+p.64's heading and p.90 both say "from block to block". An earlier draft offered "every other block" as
+the more faithful reading — that was wrong.
+
 ### The headline change
 
 **The programme now progresses.** Before this session nothing in `src/` wrote a non-zero

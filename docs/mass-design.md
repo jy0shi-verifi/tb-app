@@ -662,3 +662,102 @@ interface PlanPreset {
 
 A preset with no `cite` is not a preset. The one shipping today stops at the bridge because Specificity
 does not exist yet, and its `note` must say so rather than leaving the truncation silent.
+
+---
+
+## 12. DEVIATION — how the Forced Progression increment is chosen
+
+**Question Josh asked, 2026-08-24:** *"Does it mention anywhere in the book about the type of movement
+it is? In the TB2 book it says to increase by a higher weight if it's a lower body lift but stick to the
+lower option if it's an upper body movement. Is that the same here?"*
+
+### What the book says: nothing
+
+Mass Protocol prints the progression rule **six times** — pp.47, 53, 57, 62, 77, 83 — and every one is
+word-for-word identical:
+
+> *"Every 3 to 6 weeks, add 5-10lbs to 1RMs. Recalculate and repeat. Don't force progression for
+> exercises you struggled with - use the same numbers for the next block."*
+
+**It never distinguishes movement type, and never says how to choose 5 versus 10.** The extraction had
+already recorded that silence twice, before the question was asked:
+
+> *"It also does not say whether the 5–10 lb increment differs by lift (e.g. upper vs lower body)."*
+> — section 03, Ambiguities §9
+>
+> *"How much to add at progression. 'add 5-10lbs' (p.83) — a range, not a number."*
+> — section 06, Ambiguities §14
+
+A search of the author's own forum found no guidance either: the
+[Forced Progression thread](https://tacticalbarbell.com/forum/viewtopic.php?t=160) is community members
+only, and none of them distinguish upper from lower.
+
+### What settles the cadence: the book, actually
+
+The "every 3 to 6 weeks" range looked like it left a choice, but two other passages close it:
+
+- p.64's chapter heading: **"PROGRESSION from block to block is where the magic happens"**
+- p.90: *"progression simply consists of adding weight to your 1 rep maximum and recalculating **from
+  block to block**"*
+
+So the app progresses at **every block boundary** (3 weeks), not every other. This is book-derived, not
+a choice — an earlier draft of this decision offered "every other block" as the *more* faithful option
+and that was wrong.
+
+### The deviation: the split
+
+**Tactical Barbell I does specify it**, for the same author's Forced Progression under Operator:
+*add 5 lb to upper body lifts (Bench Press, Pull Up) and 10 lb to lower body lifts (Squat, Deadlift)*
+([Liftosaur's TB Operator reference](https://www.liftosaur.com/programs/tactical-barbell-operator)).
+
+MASS's range **is exactly those two numbers**. That reads as the author stating the bounds of a rule he
+had already published, rather than replacing it with an undifferentiated one — so the split is the most
+probable reading of this book's range rather than an import from another book.
+
+**It is still a deviation**, because MASS does not say it. Recorded here, stated on the screen itself,
+and asserted in `test/progression.test.ts`.
+
+| | Increment | In pounds | Applies to |
+|---|---|---|---|
+| Lower body | **4.5 kg** | 9.92 lb | Squat, Deadlift, Front Squat |
+| Upper body | **2.5 kg** | 5.51 lb | Bench, Overhead Press, and everything unclassified |
+
+Both land inside the printed 5–10 lb range. **5 kg was rejected**: it is 11.02 lb, over the top end.
+An exercise with no `bodyPart` gets the SMALLER increment — a user-built S exercise the app knows
+nothing about should progress conservatively.
+
+**One rate note, for honesty.** TB1's blocks are 6 weeks and MASS's are 3, so applying TB1's numbers per
+MASS block is roughly double TB1's rate. That is defensible here — MASS is run in a calorie surplus at
+submaximal loads (70–80%), and unlike TB1 this app can detect struggling and brake itself — but it is a
+real difference and should not be papered over. The brake is what follows.
+
+### The second deviation: the middle gear
+
+The book's rule is **binary** — progress, or hold. The app adds a third outcome:
+
+| Choice | When the app proposes it | Kilos |
+|---|---|---|
+| `full` | A clean block | the lift's full increment |
+| `eased` | Sets were logged short of the best set of their own session | **half**, to 0.1 kg |
+| `hold` | The lifter tapped "struggled with this" | 0 — *"use the same numbers"* (p.53) |
+
+`hold` is the book's, verbatim. **`eased` is ours.** It does not contradict p.53 so much as apply it
+more gently, and it exists because the increments above run near the top of the book's range — a faster
+base rate is only defensible if something can pull it back.
+
+The invariant that keeps it bounded, and which `test/progression.test.ts` asserts: the book sanctions
+**0** (hold) and it sanctions the **full increment**, so any value strictly between two book-sanctioned
+values is itself bracketed by the book, even though the particular number is our choice.
+
+`eased` is detected from data already logged — no extra tap. The lifter's own "struggled" mark is the
+only thing that requires an action, and it is the one judgement the book explicitly asks the lifter to
+make.
+
+### Why this shape at all
+
+Josh's requirement, in his words: *"the whole point in this app is that it takes the thinking out of
+lifting for me. I have MacroFactor to take the thought off the diet, the same needs to happen to the
+lifting app."*
+
+So the screen proposes a complete answer for every lift, with its reason, and every alternative is one
+tap away. In a normal block there is nothing to decide.

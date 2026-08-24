@@ -92,50 +92,83 @@ test('the block-boundary prompt appears on Today and reaches the progression scr
   await expect(page.getByText(/Every 3 to 6 weeks/)).toBeVisible()
 })
 
-test('a struggled lift is NOT ticked and a clean one is — read from real history', async ({
+test('each lift gets the choice the block earned it — read from real history', async ({
   page,
   seed,
 }) => {
   await seed(AT_BOUNDARY)
   await page.goto('/progression')
 
-  // This is the regression: before the fix every checkbox was ticked, because
-  // the suggestion was computed before the session history had loaded.
-  await expect(page.getByRole('checkbox', { name: 'Bench Press' })).toHaveAttribute(
-    'aria-checked',
+  // This is the regression the derived-state fix exists for: before it, every
+  // lift proposed a full increment, because the suggestion was computed before
+  // the session history had loaded.
+  await expect(page.getByRole('button', { name: 'Bench Press Full' })).toHaveAttribute(
+    'aria-pressed',
     'true',
   )
-  await expect(page.getByRole('checkbox', { name: 'Deadlift' })).toHaveAttribute(
-    'aria-checked',
+  await expect(page.getByRole('button', { name: 'Deadlift Full' })).toHaveAttribute(
+    'aria-pressed',
     'true',
   )
   // "Don't force progression for exercises you struggled with" (p.53).
-  await expect(page.getByRole('checkbox', { name: 'Overhead Press' })).toHaveAttribute(
-    'aria-checked',
-    'false',
+  await expect(page.getByRole('button', { name: 'Overhead Press Hold' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
   )
   await expect(page.getByText(/You marked this a struggle/)).toBeVisible()
-  // Logged short of the session's own best.
-  await expect(page.getByRole('checkbox', { name: 'Squat' })).toHaveAttribute(
-    'aria-checked',
-    'false',
+  // Sets logged short of the rest — the middle gear, not a full stop.
+  await expect(page.getByRole('button', { name: 'Squat Half' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
   )
+  await expect(page.getByText(/logged short of the rest/)).toBeVisible()
 })
 
-test('applying the increment writes progressedKg and stamps the block', async ({ page, seed }) => {
+test('lower body gets the top of the book’s range and upper body the bottom', async ({
+  page,
+  seed,
+}) => {
   await seed(AT_BOUNDARY)
   await page.goto('/progression')
 
-  await page.getByRole('button', { name: /Progress 2 lifts/i }).click()
+  // MASS says "5-10lbs" and never which is which; TB1 says 10 lb lower, 5 lb
+  // upper. 4.5 kg and 2.5 kg. Declared on screen as our reading, not the book's.
+  await expect(page.getByRole('button', { name: 'Deadlift Full' })).toContainText('4.5')
+  await expect(page.getByRole('button', { name: 'Bench Press Full' })).toContainText('2.5')
+  await expect(page.getByText(/our reading, not this book/i)).toBeVisible()
+})
+
+test('one tap overrides any lift the app got wrong', async ({ page, seed }) => {
+  await seed(AT_BOUNDARY)
+  await page.goto('/progression')
+
+  // Squat was eased; insist on the full increment instead.
+  await page.getByRole('button', { name: 'Squat Full' }).click()
+  await expect(page.getByRole('button', { name: 'Squat Full' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await page.getByRole('button', { name: /Apply to/ }).click()
+
+  const rows = await readOneRm(page)
+  expect(rows.find((r) => r.exerciseId === 'squat')!.progressedKg).toBe(4.5)
+})
+
+test('applying writes each lift its own increment and stamps the block', async ({ page, seed }) => {
+  await seed(AT_BOUNDARY)
+  await page.goto('/progression')
+
+  await page.getByRole('button', { name: /Apply to/ }).click()
   await expect(page).toHaveURL(/\/$|\/#\/$/)
 
   const rows = await readOneRm(page)
   const by = (id: string) => rows.find((r) => r.exerciseId === id)!
-  expect(by('bench').progressedKg).toBe(2.5)
-  expect(by('deadlift').progressedKg).toBe(2.5)
-  // Left exactly where they were, per p.53.
+  expect(by('bench').progressedKg).toBe(2.5) // clean, upper body
+  expect(by('deadlift').progressedKg).toBe(4.5) // clean, lower body
+  // Sets logged short → half, not a full stop.
+  expect(by('squat').progressedKg).toBe(2.3)
+  // Left exactly where it was, per p.53.
   expect(by('ohp').progressedKg).toBe(0)
-  expect(by('squat').progressedKg).toBe(0)
   // The tested figure is never overwritten.
   expect(by('bench').kg).toBe(100)
 
@@ -157,7 +190,7 @@ test('the progressed max reaches the session screen as a heavier bar', async ({ 
   await expect(page.getByText('70 kg', { exact: false }).first()).toBeVisible()
 
   await page.goto('/progression')
-  await page.getByRole('button', { name: /Progress 2 lifts/i }).click()
+  await page.getByRole('button', { name: /Apply to/ }).click()
 
   await page.goto(`/session/${TODAY_MONDAY}`)
   // 70% of 102.5 = 71.75, which loads as 72.5 on a standard kg bar.

@@ -44,10 +44,10 @@ import {
  * cluster — so these four are fixed.
  */
 export const GM_MAIN: ClusterExercise[] = [
-  { id: 'bench', name: 'Bench Press', short: 'BP', defaultLoading: 'barbell' },
-  { id: 'squat', name: 'Squat', short: 'SQ', defaultLoading: 'barbell' },
-  { id: 'ohp', name: 'Overhead Press', short: 'OHP', defaultLoading: 'barbell' },
-  { id: 'deadlift', name: 'Deadlift', short: 'DL', defaultLoading: 'barbell' },
+  { id: 'bench', name: 'Bench Press', short: 'BP', defaultLoading: 'barbell', bodyPart: 'upper' },
+  { id: 'squat', name: 'Squat', short: 'SQ', defaultLoading: 'barbell', bodyPart: 'lower' },
+  { id: 'ohp', name: 'Overhead Press', short: 'OHP', defaultLoading: 'barbell', bodyPart: 'upper' },
+  { id: 'deadlift', name: 'Deadlift', short: 'DL', defaultLoading: 'barbell', bodyPart: 'lower' },
 ]
 
 /**
@@ -62,13 +62,13 @@ export const GM_MAIN: ClusterExercise[] = [
  *   - dumbbells, barbells, kettlebells and bodyweight all allowed
  */
 export const GM_S1_EXAMPLE: ClusterExercise[] = [
-  { id: 's_dips', name: 'Dips', defaultLoading: 'bodyweightReps' },
-  { id: 's_incline_db_press', name: 'Incline Dumbbell Press', defaultLoading: 'dumbbell' },
-  { id: 's_front_squat', name: 'Front Squat', defaultLoading: 'barbell' },
+  { id: 's_dips', name: 'Dips', defaultLoading: 'bodyweightReps', bodyPart: 'upper' },
+  { id: 's_incline_db_press', name: 'Incline Dumbbell Press', defaultLoading: 'dumbbell', bodyPart: 'upper' },
+  { id: 's_front_squat', name: 'Front Squat', defaultLoading: 'barbell', bodyPart: 'lower' },
 ]
 export const GM_S2_EXAMPLE: ClusterExercise[] = [
-  { id: 's_db_shrugs', name: 'Dumbbell Shrugs', defaultLoading: 'dumbbell' },
-  { id: 's_db_row', name: 'Dumbbell Row', defaultLoading: 'dumbbell' },
+  { id: 's_db_shrugs', name: 'Dumbbell Shrugs', defaultLoading: 'dumbbell', bodyPart: 'upper' },
+  { id: 's_db_row', name: 'Dumbbell Row', defaultLoading: 'dumbbell', bodyPart: 'upper' },
 ]
 
 export const S_CLUSTER_MIN = 4
