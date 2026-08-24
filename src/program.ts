@@ -1,11 +1,12 @@
 import type { Settings, SessionType } from './types'
-import { addDays, diffDays, isoDate, parseISO } from './lib/date'
+import { addDays, diffDays, isoDate, mondayIndex, parseISO } from './lib/date'
 import { BEGINNER_PROTOCOL } from './beginner'
 import { GREY_MAN_PROTOCOL } from './protocols/greyman'
 import { BRIDGE_PROTOCOL } from './protocols/bridge'
 import { conditioningBriefFor, conditioningSessionFor } from './protocols/conditioningPlan'
 import type { BlockPosition, Protocol, ProtocolContext, SessionPlan } from './protocol'
 import type { OneRmEntry } from './types'
+import { PLAN_PRESETS } from './lib/planRules'
 
 // The resolved plan shapes now live in ./protocol so the protocol layer does not
 // depend on any one programme. Re-exported here because screens import them from
@@ -62,23 +63,50 @@ export interface PlannedBlock {
   weeks: number
 }
 
-/** The default first cycle: four 3-week Grey Man blocks, bridged, then repeat. */
+/**
+ * The default first cycle — the book's Standard Cycle (p.140), truncated exactly
+ * where Specificity would begin.
+ *
+ * This used to be `gm, gm, bridge, gm, gm`, which moved the bridge to week 7 and
+ * dropped the terminal one — an undeclared departure from the printed table
+ * (audit A14). It now comes from `PLAN_PRESETS`, so the shape and its page
+ * citation live together and a second preset is data rather than a rewrite.
+ *
+ * The start date is snapped to the Monday on or before the one given: Grey Man's
+ * lifting days are fixed at Days 1/3/5 (p.50) and `resolveInPlan` derives the
+ * weekday from days-since-start, so a Wednesday start silently rotated the whole
+ * training week onto Wed/Fri/Sun while still labelling it "Mon" (audit A16).
+ */
 export function defaultPlan(startDate: string): NonNullable<Settings['plan']> {
-  return {
-    startDate,
-    blocks: [
-      { protocolId: 'gm', weeks: 3 },
-      { protocolId: 'gm', weeks: 3 },
-      { protocolId: 'bridge', weeks: 1 },
-      { protocolId: 'gm', weeks: 3 },
-      { protocolId: 'gm', weeks: 3 },
-    ],
-  }
+  return { startDate: mondayOnOrBefore(startDate), blocks: [...PLAN_PRESETS[0].blocks] }
 }
+
+/**
+ * The Monday of the week containing `isoDateStr`.
+ *
+ * Every plan start goes through this. A plan is a sequence of whole weeks and
+ * every protocol names its lifting days by weekday, so a start that is not a
+ * Monday does not shift the plan — it rotates it, which is far harder to notice.
+ */
+export function mondayOnOrBefore(isoDateStr: string): string {
+  const d = parseISO(isoDateStr)
+  return isoDate(addDays(d, -mondayIndex(d)))
+}
+
+/**
+ * A block's length, coerced to a whole number of weeks ≥ 1.
+ *
+ * The planner refuses to SAVE a fractional length (`validatePlan`), but a plan
+ * already stored — from an older build, a hand-edited backup, an import — must
+ * not be able to blank the app: a 1.5-week block made `week` fractional, and
+ * `GM_GRID[1.5]` is `undefined`, so the session screen rendered nothing at all
+ * (audit A17). Every read of `weeks` goes through here.
+ */
+export const blockWeeksOf = (b: PlannedBlock): number => Math.max(1, Math.floor(b.weeks) || 1)
 
 /** Total weeks a plan spans. */
 export const planWeeks = (blocks: PlannedBlock[]): number =>
-  blocks.reduce((n, b) => n + Math.max(1, b.weeks), 0)
+  blocks.reduce((n, b) => n + blockWeeksOf(b), 0)
 
 /**
  * 0-based index of the lifting session on `day` of `week` within the block, or
@@ -160,7 +188,7 @@ function resolveInPlan(plan: NonNullable<Settings['plan']>, when: Date): Positio
   const weekIndex = Math.floor(d / 7) // 0-based across the whole plan
   let acc = 0
   for (let i = 0; i < blocks.length; i++) {
-    const len = Math.max(1, blocks[i].weeks)
+    const len = blockWeeksOf(blocks[i])
     if (weekIndex < acc + len) {
       const p = protocolFor(blocks[i].protocolId)
       const week = weekIndex - acc + 1
@@ -181,7 +209,7 @@ function resolveInPlan(plan: NonNullable<Settings['plan']>, when: Date): Positio
   // Past the end of the plan — hold on its last day rather than falling over.
   const last = blocks[blocks.length - 1]
   const p = protocolFor(last.protocolId)
-  const week = Math.max(1, last.weeks)
+  const week = blockWeeksOf(last)
   return {
     phaseId: p.id,
     week,
@@ -190,7 +218,7 @@ function resolveInPlan(plan: NonNullable<Settings['plan']>, when: Date): Positio
     status: 'complete',
     blockIndex: blocks.length - 1,
     blockCount,
-    blockStartDate: startOfBlock(acc - Math.max(1, last.weeks)),
+    blockStartDate: startOfBlock(acc - blockWeeksOf(last)),
   }
 }
 
@@ -244,8 +272,8 @@ export function justFinishedBlock(settings: Settings, when: Date): FinishedBlock
   if (protocol.liftingDays.length === 0) return null
 
   let weeksBefore = 0
-  for (let i = 0; i < index; i++) weeksBefore += Math.max(1, plan.blocks[i].weeks)
-  const weeks = Math.max(1, b.weeks)
+  for (let i = 0; i < index; i++) weeksBefore += blockWeeksOf(plan.blocks[i])
+  const weeks = blockWeeksOf(b)
   const start = addDays(parseISO(plan.startDate), weeksBefore * 7)
 
   return {

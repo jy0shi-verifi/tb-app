@@ -110,6 +110,36 @@ export default function Today() {
   // far past a lay-off. Offer to pick up where he left off rather than stranding
   // him on a finished-phase screen.
   if (pos.status === 'complete') {
+    // Under a BLOCK PLAN the plan has simply finished, and the book's own answer
+    // to that is "reassess and determine if you need to change the ratio"
+    // (p.140) — so the planner is what belongs here.
+    //
+    // `realign` must not be offered in that case: it writes `phaseStartDate`,
+    // which `resolveInPlan` never reads, so the old "Resume" button did nothing
+    // at all and left Today stuck on "It's been 0 days" (audit A15).
+    if (settings.plan?.blocks?.length) {
+      return (
+        <div className="space-y-4 stagger">
+          {progression && (
+            <ProgressionBanner blockIndex={progression.index} onOpen={() => nav('/progression')} />
+          )}
+          <Card className="space-y-2 border-warm-edge/40 bg-warm">
+            <p className="font-bold text-ink">Cycle complete 🏁</p>
+            <p className="text-sm text-muted">
+              Your plan has run its course. “After completing a standard cycle, reassess and
+              determine if you need to change the ratio of time spent in General vs Specificity.”
+              (p.140)
+            </p>
+            <button
+              onClick={() => nav('/next-cycle')}
+              className="text-brand-ink font-bold text-sm min-h-[44px] inline-flex items-center"
+            >
+              Plan the next cycle →
+            </button>
+          </Card>
+        </div>
+      )
+    }
     return (
       <Card className="space-y-2 border-warm-edge/40 bg-warm">
         <p className="font-bold text-ink">Welcome back 👋</p>
@@ -122,14 +152,6 @@ export default function Today() {
         <button onClick={realign} className="text-brand-ink font-bold text-sm min-h-[44px] inline-flex items-center">
           Resume from week {lastDoneSession?.week ?? 1} →
         </button>
-        {progression && (
-          <button
-            onClick={() => nav('/progression')}
-            className="text-brand-ink font-bold text-sm min-h-[44px] inline-flex items-center"
-          >
-            Add weight to your 1RMs first →
-          </button>
-        )}
       </Card>
     )
   }

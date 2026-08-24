@@ -1,9 +1,18 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Download, Upload } from 'lucide-react'
+import { Download, Upload, RotateCcw, ShieldCheck } from 'lucide-react'
 import { useSettings } from '../hooks'
 import { applyTheme, importBackup, parseBackup, saveSettings } from '../db'
 import { downloadBackup } from '../lib/backup'
+import {
+  KEEP_GUARD,
+  KEEP_ROUTINE,
+  listSnapshots,
+  restoreSnapshot,
+  snapshotLabel,
+  snapshotWhen,
+  takeSnapshot,
+} from '../lib/snapshots'
 import { Button, Card, SegmentedPicker } from '../components/ui'
 import { PROTOCOLS } from '../program'
 import { DEFAULT_BAR_SETUP } from '../lib/barbell'
@@ -13,7 +22,7 @@ const DEFAULT_PLATES = DEFAULT_BAR_SETUP.plates.map((p) => p.kg)
 import { beginStravaAuth, disconnectStrava, stravaCanWrite, stravaConfigured } from '../lib/strava'
 import { syncStrava, importStravaHistory } from '../lib/stravaSync'
 import { APP_VERSION } from '../version'
-import type { DbIncrement, ThemeMode } from '../types'
+import type { DbIncrement, Snapshot, ThemeMode } from '../types'
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -30,9 +39,19 @@ export default function Settings() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [msg, setMsg] = useState<string>('')
 
+  const [snaps, setSnaps] = useState<Snapshot[]>([])
+  const refreshSnaps = () => void listSnapshots().then(setSnaps)
+  useEffect(refreshSnaps, [])
+
   async function doExport() {
-    await downloadBackup()
-    setMsg('Backup downloaded.')
+    // A10: a failed export must not claim success, and must not silence the
+    // backup nudge for a fortnight.
+    try {
+      await downloadBackup()
+      setMsg('Backup downloaded.')
+    } catch (err) {
+      setMsg(`Export failed: ${(err as Error).message}`)
+    }
   }
 
   async function doImport(e: React.ChangeEvent<HTMLInputElement>) {
@@ -46,8 +65,12 @@ export default function Settings() {
           `\nfrom ${b.exportedAt.slice(0, 10)}\n\nThis REPLACES all data currently on this phone.`,
       )
       if (ok) {
+        // Snapshot BEFORE replacing everything, so an import of the wrong file
+        // is as undoable as anything else (A5).
+        await takeSnapshot('pre-import')
         await importBackup(text)
         setMsg('Backup restored.')
+        refreshSnaps()
       }
     } catch (err) {
       setMsg(`Import failed: ${(err as Error).message}`)
@@ -311,9 +334,22 @@ export default function Settings() {
             variant="secondary"
             className="flex-1"
             onClick={async () => {
+              // This wipes real training history and had NO confirm at all —
+              // it sat directly below Export and even stamped `lastBackupAt`,
+              // so the backup nudge went quiet afterwards (audit A5/code-01 F1).
+              if (
+                !window.confirm(
+                  'Replace everything on this phone with ~4 months of FAKE demo history?\n\n' +
+                    'Your real training data will be gone from the app. A snapshot is taken first, ' +
+                    'so you can restore it below.',
+                )
+              )
+                return
               setMsg('Loading demo history…')
+              await takeSnapshot('pre-demo')
               const m = await import('../dev/seed')
               setMsg(await m.seedFakeData())
+              refreshSnaps()
             }}
           >
             Load demo history
@@ -323,8 +359,10 @@ export default function Settings() {
             className="flex-1"
             onClick={async () => {
               if (!window.confirm('Wipe all data back to a clean start?')) return
+              await takeSnapshot('pre-reset')
               const m = await import('../dev/seed')
               setMsg(await m.clearAll())
+              refreshSnaps()
             }}
           >
             Reset to clean
@@ -332,7 +370,96 @@ export default function Settings() {
         </div>
       </Card>
 
+      <SnapshotCard snaps={snaps} onChanged={refreshSnaps} setMsg={setMsg} />
+
       <p className="text-center text-xs text-muted">Tactical Barbell · {APP_VERSION} · on-device</p>
     </div>
+  )
+}
+
+/**
+ * Automatic on-device backups — audit A5, docs/mass-design.md §11.1.
+ *
+ * These live in their own Dexie store, which is what makes them safe: every
+ * destructive path in the app clears tables BY NAME, so a store none of them
+ * names survives all of them without any call site having to remember.
+ *
+ * They are NOT a substitute for Export. A snapshot is on the same device and in
+ * the same browser profile as the data it protects, so it defends against a
+ * mistaken tap, not against a lost phone. The copy says so.
+ */
+function SnapshotCard({
+  snaps,
+  onChanged,
+  setMsg,
+}: {
+  snaps: Snapshot[]
+  onChanged: () => void
+  setMsg: (m: string) => void
+}) {
+  const [busy, setBusy] = useState(false)
+
+  async function restore(s: Snapshot) {
+    if (
+      !window.confirm(
+        `Restore the snapshot from ${snapshotWhen(s)} (${s.sessionCount} sessions)?\n\n` +
+          'This replaces everything currently in the app. A snapshot of the current state is taken first.',
+      )
+    )
+      return
+    setBusy(true)
+    try {
+      await restoreSnapshot(s.id!)
+      setMsg(`Restored the snapshot from ${snapshotWhen(s)}.`)
+      onChanged()
+    } catch (err) {
+      setMsg(`Restore failed: ${(err as Error).message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card>
+      <div className="flex items-center gap-2">
+        <ShieldCheck size={16} className="text-load" />
+        <p className="eyebrow text-muted">Automatic snapshots</p>
+      </div>
+      <p className="text-xs text-muted mt-1 mb-3 leading-relaxed">
+        Taken once a day when you open the app, and before anything destructive. Keeps the last{' '}
+        {KEEP_ROUTINE} daily and {KEEP_GUARD} guard snapshots.{' '}
+        <b>These are on this phone only</b> — they undo a mistaken tap, not a lost phone. Keep
+        exporting.
+      </p>
+
+      {snaps.length === 0 ? (
+        <p className="text-xs text-muted">
+          None yet. The first one is taken next time you open the app with training logged.
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          {snaps.map((s) => (
+            <div
+              key={s.id}
+              className="flex items-center gap-2 rounded-field bg-[var(--color-surface-sunk)] p-2.5"
+            >
+              <div className="flex-1 min-w-0">
+                <p className="text-[14px] text-ink truncate">{snapshotWhen(s)}</p>
+                <p className="text-[11px] text-muted">
+                  {snapshotLabel(s)} · {s.sessionCount} session{s.sessionCount === 1 ? '' : 's'}
+                </p>
+              </div>
+              <button
+                onClick={() => void restore(s)}
+                disabled={busy}
+                className="inline-flex items-center gap-1 rounded-pill bg-brand/10 text-brand-ink text-[11px] font-bold px-3 min-h-9 disabled:opacity-50"
+              >
+                <RotateCcw size={13} /> Restore
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   )
 }

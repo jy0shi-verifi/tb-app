@@ -9,6 +9,7 @@ import App from './App.tsx'
 import ErrorBoundary from './components/ErrorBoundary'
 import { applyTheme, db, ensureSeeded, requestPersistentStorage } from './db'
 import { autoCompleteRestDays } from './lib/autocomplete'
+import { snapshotOnOpen } from './lib/snapshots'
 
 ensureSeeded().then(async () => {
   const s = await db.settings.get('app')
@@ -16,6 +17,10 @@ ensureSeeded().then(async () => {
   await autoCompleteRestDays()
   // Protect the only copy of his data from silent eviction.
   await requestPersistentStorage()
+  // ...and keep a rolling on-device snapshot, so no single destructive tap in
+  // Settings is unrecoverable (audit A5). Throttled to one a day and silent on
+  // failure — a backup that breaks the app it protects is worse than none.
+  await snapshotOnOpen()
 })
 
 // dev-only: window.tbSeed() populates fake history, window.tbClear() resets

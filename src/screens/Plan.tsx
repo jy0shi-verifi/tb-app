@@ -5,15 +5,19 @@ import { saveSettings } from '../db'
 import {
   PROTOCOLS,
   SELECTABLE_PROTOCOLS,
+  blockWeeksOf,
   defaultPlan,
+  mondayOnOrBefore,
   planWeeks,
   protocolFor,
   resolvePosition,
 } from '../program'
+import { planHasErrors, validatePlan } from '../lib/planRules'
+import PlanProblems from '../components/PlanProblems'
 import { S_CLUSTER_MAX, S_CLUSTER_MIN, GM_S1_EXAMPLE, GM_S2_EXAMPLE } from '../protocols/greyman'
 import { sessionsFor, perWeekFor, defaultConditioningDays } from '../protocols/conditioning'
 import { conditioningDaysFor, conditioningPickFor } from '../protocols/conditioningPlan'
-import { today, addDays, isoDate, mondayIndex, DAY_NAMES } from '../lib/date'
+import { today, addDays, isoDate, mondayIndex, parseISO, DAY_NAMES } from '../lib/date'
 import { Card, Button } from '../components/ui'
 import type { ClusterExerciseRef } from '../types'
 
@@ -83,8 +87,21 @@ function BlockPlanner() {
   const startDate = s.plan?.startDate ?? thisMonday()
   const pos = resolvePosition(s, today())
 
+  /**
+   * Every write snaps the start to a Monday.
+   *
+   * A plan is a sequence of whole weeks and every protocol names its lifting
+   * days by weekday, so a non-Monday start does not shift the plan — it ROTATES
+   * it. Grey Man's Mon/Wed/Fri landed on Wed/Fri/Sun and was still labelled
+   * "Mon" (audit A16). The date input is constrained too, but this is the
+   * backstop, because the input can be typed into.
+   */
   const write = (next: { protocolId: string; weeks: number }[], start = startDate) =>
-    saveSettings({ plan: { startDate: start, blocks: next } })
+    saveSettings({ plan: { startDate: mondayOnOrBefore(start), blocks: next } })
+
+  const problems = validatePlan(blocks, (id) => protocolFor(id), s.plan?.startDate, (d) =>
+    mondayIndex(parseISO(d)),
+  )
 
   const add = (protocolId: string) =>
     write([...blocks, { protocolId, weeks: PROTOCOLS[protocolId]?.blockWeeks ?? 3 }])
@@ -129,7 +146,7 @@ function BlockPlanner() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium text-ink text-[15px] truncate">{p.name}</p>
                     <p className="text-xs text-muted">
-                      {b.weeks} {b.weeks === 1 ? 'week' : 'weeks'}
+                      {blockWeeksOf(b)} {blockWeeksOf(b) === 1 ? 'week' : 'weeks'}
                       {active ? ` · now, week ${pos.week}` : ''}
                     </p>
                   </div>
@@ -170,6 +187,18 @@ function BlockPlanner() {
             />
           </p>
 
+          {problems.length > 0 && (
+            <div className="mt-3">
+              <PlanProblems problems={problems} />
+              {planHasErrors(problems) && (
+                <p className="text-[11px] text-muted mt-2">
+                  Fix the blocked items — the book states those. The rest are the author’s advice and
+                  the plan will run either way.
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap gap-2 mt-3">
             {SELECTABLE_PROTOCOLS.filter((p) => p.family !== 'legacy').map((p) => (
               <button
@@ -203,8 +232,14 @@ function BlockPlanner() {
 
 function SupplementaryBuilder() {
   const s = useSettings()
+  // `?? EXAMPLE` on each list is deliberate and matches `sClusterOf` in
+  // greyman.ts — but it means emptying S1 puts the book's example straight back,
+  // which reads as the edit being ignored (audit code-03 F18). The builder says
+  // so rather than pretending it saved an empty list.
+  const edited = s.mass?.sCluster != null
   const s1 = s.mass?.sCluster?.s1 ?? GM_S1_EXAMPLE
   const s2 = s.mass?.sCluster?.s2 ?? GM_S2_EXAMPLE
+  const showsExample = (which: 's1' | 's2') => !s.mass?.sCluster?.[which]?.length
   const total = s1.length + s2.length
   const [draft, setDraft] = useState('')
   const [target, setTarget] = useState<'s1' | 's2'>('s1')
@@ -235,8 +270,14 @@ function SupplementaryBuilder() {
 
   const list = (which: 's1' | 's2', items: ClusterExerciseRef[]) => (
     <div>
-      <p className="text-xs font-bold text-ink mb-1">{which.toUpperCase()}</p>
-      {items.length === 0 && <p className="text-xs text-muted mb-1">Empty.</p>}
+      <p className="text-xs font-bold text-ink mb-1">
+        {which.toUpperCase()}
+        {edited && showsExample(which) && (
+          <span className="font-normal text-muted ml-1.5">
+            — empty, so the book’s example is running (p.49)
+          </span>
+        )}
+      </p>
       <div className="space-y-1.5">
         {items.map((e) => (
           <div key={e.id} className="flex items-center gap-2 rounded-field bg-[var(--color-surface-sunk)] p-2">
@@ -286,10 +327,12 @@ function SupplementaryBuilder() {
         {total > S_CLUSTER_MAX && ' — the book says no more than 6.'}
       </p>
 
-      <div className="flex gap-2 mt-2">
+      {/* Wraps rather than overflowing: at 390 px this row used to push the
+          "Add" button entirely off-screen (audit code-03 F7). */}
+      <div className="flex flex-wrap gap-2 mt-2">
         <input
           type="text"
-          className={`${fieldCls} flex-1`}
+          className={`${fieldCls} flex-1 min-w-0 basis-full`}
           placeholder="Add an exercise"
           aria-label="New supplementary exercise"
           value={draft}
@@ -300,7 +343,7 @@ function SupplementaryBuilder() {
           aria-label="Add to which list"
           value={target}
           onChange={(e) => setTarget(e.target.value as 's1' | 's2')}
-          className={fieldCls}
+          className={`${fieldCls} flex-1 min-w-0`}
         >
           <option value="s1">S1</option>
           <option value="s2">S2</option>
@@ -309,6 +352,13 @@ function SupplementaryBuilder() {
           Add
         </Button>
       </div>
+      {/* F17: adding used to silently no-op at 6 with no reason given. */}
+      {total >= S_CLUSTER_MAX && (
+        <p className="text-[11px] text-brand-ink mt-2">
+          That’s {S_CLUSTER_MAX} — “<b>4 to 6 exercises, no more</b>” (p.49). Remove one to add
+          another.
+        </p>
+      )}
 
       {(s.mass?.sCluster?.s1 || s.mass?.sCluster?.s2) && (
         <button

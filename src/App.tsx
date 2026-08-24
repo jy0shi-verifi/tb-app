@@ -17,6 +17,7 @@ import Guide from './screens/Guide'
 import Maxes from './screens/Maxes'
 import Plan from './screens/Plan'
 import Progression from './screens/Progression'
+import NextCycle from './screens/NextCycle'
 
 // Don't auto-sync more than once per this window (covers app reopens / remounts).
 const AUTO_SYNC_THROTTLE_MS = 10 * 60 * 1000
@@ -73,6 +74,7 @@ export default function App() {
             <Route path="/maxes" element={<Maxes />} />
             <Route path="/plan" element={<Plan />} />
             <Route path="/progression" element={<Progression />} />
+            <Route path="/next-cycle" element={<NextCycle />} />
             <Route path="/settings" element={<Settings />} />
             {/* Anything else (a bookmarked /maxes from before it was removed, a
                 stale PWA deep-link, a typo) lands on Today rather than rendering

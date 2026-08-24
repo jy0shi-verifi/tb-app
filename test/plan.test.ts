@@ -71,9 +71,16 @@ describe('block plans (MASS p.40, p.140)', () => {
     expect(resolvePosition(withPlan([{ protocolId: 'gm', weeks: 3 }]), on(-7)).status).toBe('before')
   })
 
-  it('the starter plan is 13 weeks of 3-week blocks plus one bridge', () => {
+  it('the starter plan is the p.140 Standard Cycle, truncated at the bridge', () => {
     const plan = defaultPlan('2026-08-17')
-    expect(plan.blocks.map((b) => b.weeks)).toEqual([3, 3, 1, 3, 3])
+    // p.140 prints "General — 6 Weeks" twice, which is four 3-week blocks
+    // (p.40, p.67), then "Bridge — 1 Week". We stop exactly where the printed
+    // cycle turns to Specificity, because Specificity is not built yet.
+    // The previous shape — [3, 3, 1, 3, 3] — moved the bridge to week 7 and
+    // dropped the terminal one, an undeclared departure (audit A14).
+    expect(plan.blocks.map((b) => b.protocolId)).toEqual(['gm', 'gm', 'gm', 'gm', 'bridge'])
+    expect(plan.blocks.map((b) => b.weeks)).toEqual([3, 3, 3, 3, 1])
+    expect(plan.blocks.map((b) => b.weeks)).not.toEqual([3, 3, 1, 3, 3])
     expect(planWeeks(plan.blocks)).toBe(13)
     // Every training block is 3 weeks — "Both General and Specificity consist of
     // 3-week blocks" (p.40). Only the bridge week is not.

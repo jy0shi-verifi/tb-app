@@ -4,7 +4,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import Dexie from 'dexie'
 
 /**
- * The Dexie v1 → v2 upgrade.
+ * The Dexie v1 → v3 upgrade.
  *
  * "Data loss is the highest-severity failure mode in this project" (CLAUDE.md),
  * and this is the first schema migration the app has ever had. So the test does
@@ -50,13 +50,26 @@ beforeAll(async () => {
   await mod.db.open()
 })
 
-describe('Dexie v1 → v2 upgrade', () => {
-  it('lands on version 2', () => {
-    expect(mod.db.verno).toBe(2)
+describe('Dexie v1 → v3 upgrade', () => {
+  it('lands on version 3', () => {
+    // v2 added `oneRm` (the MASS rebuild's protocol-scoped maxes), v3 added
+    // `snapshots` (automatic on-device backups, audit A5). Both are
+    // add-a-store-only migrations; a v1 database jumps straight to 3.
+    expect(mod.db.verno).toBe(3)
   })
 
   it('adds the oneRm store, empty', async () => {
     expect(await mod.db.oneRm.count()).toBe(0)
+  })
+
+  it('adds the snapshots store, empty', async () => {
+    expect(await mod.db.snapshots.count()).toBe(0)
+  })
+
+  it('does NOT bump BACKUP_VERSION — v3 changed no exported table', () => {
+    // Snapshots are never written into a backup file, so the migration contract
+    // with the live app is untouched by them.
+    expect(mod.BACKUP_VERSION).toBe(2)
   })
 
   it('keeps every session, byte for byte', async () => {

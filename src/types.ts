@@ -68,6 +68,36 @@ export interface OneRmEntry {
   progressedKg: number
 }
 
+/**
+ * An automatic on-device backup — audit A5, docs/mass-design.md §11.1.
+ *
+ * The threat being defended against is a USER-LEVEL mistake, not device loss:
+ * "Load demo history", "Reset to clean" and a bad import are all reachable from
+ * Settings and all erase real training history in one tap. Device loss is what
+ * the manual export is for, and always will be.
+ *
+ * `json` is exactly what `exportBackup()` produces, reused deliberately — it is
+ * the format `parseBackup`/`importBackup` already validate and round-trip, and
+ * the one thing in this codebase with a real regression fixture behind it.
+ *
+ * Snapshots are NEVER exported. Including them would make every backup file
+ * carry the previous ones and grow geometrically, so `exportBackup` lists its
+ * tables explicitly and `BACKUP_VERSION` stays at 2 — the backup contract is
+ * unchanged by this.
+ */
+export interface Snapshot {
+  id?: number
+  /** epoch ms */
+  takenAt: number
+  reason: 'app-open' | 'pre-demo' | 'pre-reset' | 'pre-import' | 'pre-restore' | 'manual'
+  /** `exportBackup()` output. */
+  json: string
+  /** Denormalised so the restore list can be rendered without parsing every snapshot. */
+  sessionCount: number
+  /** Bytes of `json`, for the same reason. */
+  bytes: number
+}
+
 /** One logged set the user actually performed. */
 export interface LoggedSet {
   weight?: number // kg per dumbbell (undefined for bodyweight)

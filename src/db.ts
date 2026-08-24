@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie'
-import type { MaxEntry, OneRmEntry, SessionLog, Settings } from './types'
+import type { MaxEntry, OneRmEntry, SessionLog, Settings, Snapshot } from './types'
 import { nextMonday } from './lib/date'
 import { PROTOCOLS, DEFAULT_PHASE_ID } from './program'
 
@@ -8,6 +8,7 @@ export class TBDatabase extends Dexie {
   maxes!: Table<MaxEntry, string>
   sessions!: Table<SessionLog, number>
   oneRm!: Table<OneRmEntry, [string, string]>
+  snapshots!: Table<Snapshot, number>
 
   constructor() {
     super('tb-app')
@@ -27,6 +28,20 @@ export class TBDatabase extends Dexie {
     // writes it any more, but v1 backups still round-trip through it.
     this.version(2).stores({
       oneRm: '[protocolId+exerciseId]',
+    })
+    // v3: automatic on-device backups (audit A5, docs/mass-design.md §11.1).
+    //
+    // Same shape of migration as v2 — ADD ONE STORE, TOUCH NOTHING ELSE — for
+    // the same reason: the data it sits beside is irreplaceable.
+    //
+    // Putting snapshots in their own store is the whole safety property. Every
+    // destructive path in this app clears tables BY NAME (`clearAll` and the
+    // demo seeder in src/dev/seed.ts, `importBackup` below), so a store none of
+    // them names survives all of them without any call site having to remember.
+    // That is structural, not a convention — and this codebase has been bitten
+    // four times by conventions a call site forgot.
+    this.version(3).stores({
+      snapshots: '++id, takenAt',
     })
   }
 }

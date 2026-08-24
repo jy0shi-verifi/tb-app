@@ -85,11 +85,14 @@ export async function seedState(page: Page, state: SeedState): Promise<void> {
         const open = indexedDB.open('tb-app')
         open.onsuccess = () => {
           const db = open.result
-          const tx = db.transaction(['settings', 'sessions', 'maxes', 'oneRm'], 'readwrite')
+          // `snapshots` (Dexie v3, automatic backups) is cleared too so a test
+          // never inherits another's snapshot list.
+          const tx = db.transaction(['settings', 'sessions', 'maxes', 'oneRm', 'snapshots'], 'readwrite')
           tx.objectStore('settings').clear()
           tx.objectStore('sessions').clear()
           tx.objectStore('maxes').clear()
           tx.objectStore('oneRm').clear()
+          tx.objectStore('snapshots').clear()
           tx.objectStore('settings').put({
             id: 'app',
             dbIncrement: 2,
