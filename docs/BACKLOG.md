@@ -3,23 +3,20 @@
 The durable list of outstanding work. **Nothing here is "remembered" anywhere else** — if it is not in
 this file it will be forgotten. Add to it rather than relying on a chat thread.
 
-**Last reviewed: 2026-08-24**, after working the eight-agent audit end to end. Evidence for every item
-is in `docs/audit/` — `00-summary.md` is the ranked synthesis, the other eight files carry the detail
-with page references and `file:line`. Where an item cites an ID like `A4` or `code-03 F7`, that is the
-audit's own numbering; go there for the reasoning.
+**Last reviewed: 2026-08-24**, after working the eight-agent audit end to end and then re-reading all
+eight reports finding by finding to make sure nothing was quietly dropped. IDs like `code-03 F7` are the
+audit's own numbering — `docs/audit/` has the evidence, with page references and `file:line`.
 
-Status: `open` · `blocked` · `done`.
+**Status: 295 unit + 64 e2e green** · typecheck (covering `src`, `test`, `e2e` **and** `functions`),
+lint and build clean · deployed to tb2 as **v43**.
 
 ---
 
-## Where things stand
+## How to read this
 
-The audit raised ~44 items. **All but the deliberately-deferred ones are now done.** What is left is
-listed below in three groups: work that needs Josh, work that is genuinely not started (mostly the
-other templates), and a short tail of small things.
-
-**287 unit + 62 e2e green** · typecheck (now covering `src`, `test`, `e2e` **and** `functions`), lint
-and build clean · deployed to tb2 as **v41**.
+The audit's ranked summary listed ~44 items. The individual reports contain **more than that** —
+`code-03` alone has 27. **Every ranked item is done.** The "Still open" section below is the honest
+remainder, re-derived by walking all eight reports rather than trusting the summary.
 
 ---
 
@@ -29,153 +26,211 @@ and build clean · deployed to tb2 as **v41**.
 
 | ID | Item | Commit |
 |---|---|---|
-| — | **Four design decisions recorded before any code**, per this file's own instruction. `docs/mass-design.md` §11 holds the reasoning and is binding on the implementation. | `762ddd4` |
-| **A1** | **Forced Progression — the programme now progresses.** Was *the* critical finding: nothing in `src/` wrote a non-zero `progressedKg`, so block 4 prescribed exactly what block 1 did. Block-boundary prompt at `/progression`, a per-lift "struggled" marker on the Session screen, and the 10% failure drop as an action. Blocks are stamped **by start date**, not index, so re-planning cannot mis-stamp them. | `4b0981c` |
-| **A5** | **Automatic on-device backups.** Dexie **v3** `snapshots` store, taken daily on app open and before every destructive action. Safe *by construction*: every destructive path clears tables **by name**, so a store none of them names survives all of them. Retention split 5 routine / 5 guard. Restoring takes a snapshot first. `BACKUP_VERSION` stays **2** — snapshots are never exported. | `d266e61` |
-| **A15** | **The guided planner** at `/next-cycle`, replacing the dead "Resume" button. Two-tier guardrails: hard-block what the book states, warn on what it recommends. Presets are a **list** with a mandatory page citation. | `d266e61` |
+| — | **Four design decisions recorded before any code.** `docs/mass-design.md` §11, binding on the implementation. | `762ddd4` |
+| **A1** | **Forced Progression — the programme now progresses.** *The* critical finding: nothing in `src/` wrote a non-zero `progressedKg`, so block 4 prescribed exactly what block 1 did. Block-boundary prompt, per-lift "struggled" marker, 10% failure drop as an action. Blocks stamped **by start date**, not index. | `4b0981c` |
+| — | **Forced Progression, second pass.** Increment sized by lift (4.5 kg lower / 2.5 kg upper) and a three-way `full / eased / hold` decision. The full argument — what the book does and does not say — is `docs/mass-design.md` **§12**. | `984657b` |
+| **A5** | **Automatic on-device backups.** Dexie **v3** `snapshots` store, daily on app open and before every destructive action. Safe *by construction*: every destructive path clears tables **by name**. Retention 5 routine / 5 guard. Restoring snapshots first. `BACKUP_VERSION` stays **2**. | `d266e61` |
+| **A15** | **The guided planner** at `/next-cycle`, replacing the dead "Resume" button. Two-tier guardrails; presets are a **list** with mandatory page citations. | `d266e61` |
 
 ### Book fidelity
 
 | ID | Item | Commit |
 |---|---|---|
-| A4 | Green conditioning can share a lifting day (p.99), rendered alongside the lift. Black still refused on lifting days. | `fc351b2` |
-| A9 | The 5th set is reachable — the book's only sanctioned outlet for surplus energy (p.51, pp.64–65). | `d3e0ad3` |
-| A12 | Extra-curricular activity consumes the conditioning allowance (p.110), counted from whatever Strava sends that the plan did not schedule. *(Framing corrected 2026-08-24: under MASS, Josh's cardio IS the Green work — Runna stops being the source. So this counts anything on top, not his programmed running.)* | `d3e0ad3` |
-| A13 | Duration caps reach the screen (p.111 + each session's own page); hardgainer caps restored; a stored pick is validated against the block's colour. | `d3e0ad3` |
-| A14 | `defaultPlan()` is now the p.140 Standard Cycle truncated where Specificity would begin. | `d266e61` |
-| — | Rest is per cluster — 2–5 min main, 1–2 min S (pp.52–53) — not a flat 120 s for everything. | `d3e0ad3` |
-| — | The failure ladder is in the book's **order**: lengthen rest first, drop 10% only if still failing. | `4b0981c` |
-| — | The 10-minute Recovery Run exemption (p.102). | `d3e0ad3` |
-| — | Test-set range corrected to **2–3** (p.63, p.90); p.63's post-test rest surfaced. | `d3e0ad3` |
-| — | Core work no longer eats an S-cluster slot (p.65). | `d3e0ad3` |
-| D1 | **The Guide rewritten from the extraction.** It taught Base Building, Operator, the Golden Rule and a training max — two of which Mass Protocol explicitly contradicts (p.63, p.65). | `1ecbccf` |
+| book-03 F1 (A4) | Green conditioning can share a lifting day (p.99). Black still refused on lifting days. | `fc351b2` |
+| book-01 F2 / book-02 F6 (A9) | The 5th set is reachable — the book's only sanctioned outlet for surplus energy (p.51, pp.64–65). | `d3e0ad3` |
+| book-01 F3 | Rest is per cluster — 2–5 min main, 1–2 min S (pp.52–53) — not a flat 120 s. | `d3e0ad3` |
+| book-01 F4 / book-02 F13 | The failure ladder is in the book's **order**: rest first, 10% only if still failing. | `4b0981c` |
+| book-01 F6 | A bodyweight exercise with no `maxReps` no longer plans zero reps. | `b31f5b3` |
+| book-01 F7 / book-04 F1, F10 | Doc corrections: the 3-week decision is book-cited; the "two-week grid" wording; the A/B comment. | `278c5d9`, `984657b` |
+| book-01 F10 | The dead en-dash assertion, plus the execution notes now assert the failure ladder's order. | `d3e0ad3` |
+| book-02 F4, F5 (A7, A1c) | Weighted bodyweight: bodyweight is inside the sum, and a missing one refuses rather than defaulting to 0. | `eff85ef` |
+| book-02 F7, F8 | Test-set range corrected to **2–3** (p.63, p.90); p.63's post-test rest surfaced. | `d3e0ad3` |
+| book-02 F9 | Skipping Base Building is book-sanctioned (p.18, p.151), not a deviation. | `278c5d9` |
+| book-02 F11 | Exercise order is the trainee's choice (p.63) — the Guide says so. | `1ecbccf` |
+| book-02 F12 / book-03 F12 | Core work no longer eats an S-cluster slot (p.65). | `d3e0ad3` |
+| book-02 F14 / book-04 F3, F4 (A14) | `defaultPlan()` is the p.140 Standard Cycle truncated where Specificity would begin. | `d266e61` |
+| book-03 F2 (A12) | Extra-curricular activity consumes the conditioning allowance (p.110), counted from whatever Strava sends. | `d3e0ad3` |
+| book-03 F3, F6, F8 (A13) | Duration caps reach the screen (p.111 + each session's page); hardgainer caps restored; `capMin` is read. | `d3e0ad3` |
+| book-03 F4, F11 (A13) | A stored pick is validated against the block's colour. | `d3e0ad3` |
+| book-03 F5 | The 10-minute Recovery Run exemption (p.102). | `d3e0ad3` |
+| book-03 F7 / code-02 F10 | The over-cap warning can now actually fire — it reads real weekly load. | `d3e0ad3` |
+| book-04 F6, F14 | Ratio guidance and the no-General guardrail, in the planner. | `d266e61` |
+| book-04 F9 (A15) | End of plan is the planner, not a dead button. | `d266e61` |
+| book-04 F15 | Consecutive blocks are no longer identical. | `4b0981c` |
+| code-03 F14 (D1) | **The Guide rewritten from the extraction.** It taught Base Building, Operator, the Golden Rule and a training max — two of which Mass Protocol explicitly contradicts (p.63, p.65). | `1ecbccf` |
 
 ### Correctness and data safety
 
 | ID | Item | Commit |
 |---|---|---|
-| A6 | Autosave could write two rows for one date. Saves are serialised; `sessionForDate` merges any duplicates **field by field** (a test caught why: the duplicate carrying the Strava link is usually the one with no logged sets). | `678156a` |
-| A8 | Maxes keystroke-delete destroyed `progressedKg`. Clearing is now explicit and confirmed. | `4b0981c` |
-| A10 | A failed export no longer stamps `lastBackupAt` and disarms the nudge for a fortnight. | `d266e61` |
-| A11 | The `importBackup` rollback branch — "the highest-value missing test in the repo" — now tested. | `d266e61` |
-| A16 | Plan starts snap to a Monday; a *stored* mid-week start is reported as an error. | `d266e61` |
-| A17 | `blockWeeksOf` coerces every read, so a fractional block can no longer blank the session screen. | `d266e61` |
-| — | The Strava delete invariant lives in `deleteSession`, where a call site cannot forget it. | `678156a` |
-| — | `saveSettings` is transactional, so a rotated Strava token can't be reverted by a stale render. | `678156a` |
-| — | `perSide` and `totalKg` agree on off-grid plate sizes. | `678156a` |
+| code-01 F1 (A5) | "Load demo history" wiped real history with no confirmation. | `d266e61` |
+| code-01 F2 (A6) | Autosave could write two rows for one date. Saves serialised; `sessionForDate` merges duplicates **field by field**. | `678156a` |
+| code-01 F3 (A10) | A failed export no longer stamps `lastBackupAt` and disarms the nudge for a fortnight. | `d266e61` |
+| code-01 F4 (A8) | Maxes keystroke-delete destroyed `progressedKg`. | `4b0981c` |
+| code-01 F5 (A11) | The `importBackup` rollback branch — "the highest-value missing test in the repo" — tested, and **mitigated**: a `pre-import` snapshot now lives in the DB, not just a local variable. | `d266e61` |
+| code-01 F6 | The Strava delete invariant lives in `deleteSession`, where a call site cannot forget it. | `678156a` |
+| **code-01 F7** | **A Strava run row is no longer overwritten into a lift row.** The save is refused, visibly. Under MASS this is a normal week — Green *is* the running — not a corner case. Real fix is F1. | `0a8bf9f` |
+| code-01 F8 | `saveSettings` is transactional. | `678156a` |
+| code-01 F10 | Duplicate dates no longer double-count — `sessionForDate` collapses them. | `678156a` |
+| **code-01 F11** | **`parseBackup` skipped the version gate when `version` was not a number** — a file with `"version": "3"` imported as if current. Now refused. | `0a8bf9f` |
+| code-02 F1 (A1b) | An S-cluster loading-kind change could reinterpret a stored 1RM. | `eff85ef` |
+| code-02 F3 (A16) | Plan starts snap to a Monday; a *stored* mid-week start is reported as an error. | `d266e61` |
+| code-02 F4, F6, F7 (A17) | Three ways a session rendered nonsense; `blockWeeksOf` coerces every read. | `b31f5b3`, `d266e61` |
+| code-02 F5 (A18) | `exhausted` is surfaced; so is `underFloor`, which means "you need assistance" and rendered a bare 0 kg. | `b31f5b3`, `1ecbccf` |
+| code-02 F9 | `perSide` and `totalKg` agree on off-grid plate sizes. | `678156a` |
+| code-02 F13 | The A/B rule only rotates for an **odd** weekly count. Named (`alternationRotates`) and pinned by a test rather than "fixed" — see below. | `1ecbccf` |
+| code-02 F14 | Dead code: `overCeiling` removed; `exhausted`/`underFloor`/`capMin` now read; `deltaKg`, `findExercise`, `sets()` kept — real API with test coverage. | `1ecbccf` |
+| code-02 F16 | `NaN`/`Infinity` are guarded in `loadBar`. | *(pre-existing)* |
 | — | **OAuth `state` parameter** and a **same-origin check** on `POST /api/strava/token`. | `9e49e5f` |
-| — | `functions/` is typechecked (`tsconfig.functions.json`), which immediately found a dead guard. | `9e49e5f` |
-| — | `underFloor` is surfaced — a weighted-bodyweight target below bodyweight means *assistance*, not load (p.90). It rendered a bare "0 kg". | `1ecbccf` |
+| — | `functions/` typechecked (`tsconfig.functions.json`) — which immediately found a dead guard. | `9e49e5f` |
 
 ### UI and journey
 
 | ID | Item | Commit |
 |---|---|---|
-| code-03 F4 | A new install now hears the words "Grey Man" — onboarding offers a programme and lands on `/maxes`. | `7842e04` |
-| code-03 F11 | `/maxes`, `/plan`, `/progression`, `/next-cycle` have a back link. They were dead ends on a phone. | `7842e04` |
-| code-03 F12/F13 | "Set your 1RM for X" is a link; Bridge Test Day links to `/maxes`. | `7842e04` |
-| code-03 F7 | `/plan` no longer scrolls sideways at 390 px (verified: `scrollWidth === clientWidth === 390`). | `d266e61` |
+| code-03 F1, F9 | A custom S exercise can be given a 1RM; S previews use S percentages. | `b31f5b3` |
+| code-03 F2 (A3) | `Program.tsx` reads the resolved position, not stale settings. | `b31f5b3` |
+| code-03 F3 (A15) | Today no longer bricks at the end of a plan. | `d266e61` |
+| code-03 F4 | **A new install now hears the words "Grey Man"** — onboarding offers a programme and lands on `/maxes`. | `7842e04` |
+| code-03 F5, F6, F8 | The weight input; the plate line's loaded total; an exhausted inventory. | `b31f5b3` |
+| code-03 F7 | `/plan` no longer scrolls sideways at 390 px (verified `scrollWidth === clientWidth === 390`). | `d266e61` |
 | code-03 F10 | Bodyweight exercises no longer get a "Weight on the bar" kg field. | `7842e04` |
-| code-03 F15 | Finishing a session goes to Today, not back through history. | `7842e04` |
-| code-03 F17/F18 | S-cluster add says *why* it refuses at 6; an emptied list says the book's example is running. | `d266e61` |
-| book-04 F6/F14 | Ratio guidance and the no-General guardrail, folded into A15. | `d266e61` |
+| code-03 F11 | `/maxes`, `/plan`, `/progression`, `/next-cycle` have a back link. | `7842e04` |
+| code-03 F12, F13 | "Set your 1RM for X" is a link; Bridge Test Day links to `/maxes`. | `7842e04` |
+| code-03 F15 | Finishing a session goes to Today. | `7842e04` |
+| code-03 F16 | The 5th set. | `d3e0ad3` |
+| code-03 F17, F18 | S-cluster add says why it refuses at 6; an emptied list says the example is running. | `d266e61` |
+| **code-03 F26** | **"Bridge Week" was offered as a standalone programme** in Settings. It is a block you put in a plan (p.92), not a thing you run. | `0a8bf9f` |
 
 ### Tests
 
 | ID | Item | Commit |
 |---|---|---|
-| code-04 G2 | **The mixed-protocol fixture** the audit called "precisely why the contamination bugs survived". Writing it found a real hole — see the lesson below. | `1ecbccf` |
-| code-04 G4 | Migration covered one of five states; fresh/empty and settings-only now covered too. | `1ecbccf` |
-| code-02 F13 | `ordinal % 2` only rotates for an **odd** weekly count. Named (`alternationRotates`) and pinned by a test rather than "fixed" — see below. | `1ecbccf` |
-| D2 | `e2e/COVERAGE.md` rewritten: it claimed 39 tests (there are 62) and still said `/maxes` didn't exist. | `1ecbccf` |
-| — | The design's §7 fixture list is complete. | `4b0981c` |
+| code-04 G1 | The import rollback path. | `d266e61` |
+| code-04 G2 | **The mixed-protocol fixture** — "precisely why the contamination bugs survived". Writing it found a real hole; see below. | `1ecbccf` |
+| code-04 G3 | `Program.tsx` reads the plan (assertions still thin — still open). | `b31f5b3` |
+| code-04 G4 | Migration covered one state of five; fresh/empty and settings-only added. | `1ecbccf` |
+| code-04 G6 | §7 fixtures 5 and 6 are arithmetic now, not prose. | `4b0981c` |
+| code-04 G13 | DST/year-boundary date fixtures. | *(confirmed sound in the audit)* |
+| code-04 G14 | The Guide. | `1ecbccf` |
+| code-04 G15 | `test/__tmp_downgrade.test.ts` removed. | *(gone)* |
+| code-04 G16 | `e2e/COVERAGE.md` rewritten — it claimed 39 tests; there are 64. | `1ecbccf` |
 
 ---
 
 ## Three things worth carrying forward
 
-**1. The bug that proves "verify in the running app".** The progression tick boxes were seeded from
-`suggestProgression` inside a `useEffect`, but `useSessions()` and `useAllOneRm()` both return `[]`
-while IndexedDB loads — so every lift came back ticked, **including ones explicitly marked
-"struggled"**. Every unit test passed. The screen showed it in one look. The state is now *derived*
-rather than copied, which makes the bug unrepresentable, and `e2e/progression.spec.ts` asserts the
-ticks against seeded history because unit tests structurally cannot.
+**1. The bug that proves "verify in the running app".** The progression choices were seeded from the
+suggestion inside a `useEffect`, but `useSessions()` and `useAllOneRm()` both return `[]` while
+IndexedDB loads — so every lift proposed a full increment, **including ones marked "struggled"**. Every
+unit test passed. The screen showed it in one look. The state is now *derived*, never copied, and
+`e2e/progression.spec.ts` asserts against seeded history because unit tests structurally cannot.
 
-**2. A result that looks like a bug and is not.** Four blocks of +2.5 kg give `[70, 72.5, 72.5, 75]` kg
-on the bar. 2.5 kg on the 1RM is only 1.75 kg at 70%, below what the plates can express, so some blocks
-repeat. The book has the same property in pounds and never mentions it. Forced Progression guarantees
-**non-decreasing per block and strictly heavier across the span** — not a jump every block.
-`test/progression.test.ts` says so explicitly so nobody "fixes" it by rounding up.
+**2. A result that looks like a bug and is not.** A 2.5 kg increment is only 1.75 kg at 70%, below what
+the plates can express, so the bar sometimes does not move. Forced Progression guarantees
+**non-decreasing per block and strictly heavier across the span** — not a jump every block. It is also
+part of why lower-body lifts take 4.5 kg. `test/progression.test.ts` says so explicitly.
 
-**3. A name check is not a protocol check.** `applyBeginnerProgress`'s "defence in depth" compared
-exercise names against LP_A/LP_B — but names collide across programmes *by design*: a Grey Man S
-cluster may legitimately contain `Goblet / Front-rack Squat`, which is also LP_A's first lift. A
-colliding name walked straight past the guard. It now takes `phaseId` as a **required** argument, the
-same fix `lastPerformance` already had. **Scope by protocol, never by anything else.**
+**3. A name check is not a protocol check.** `applyBeginnerProgress` compared exercise names against
+LP_A/LP_B — but names collide across programmes *by design*: a Grey Man S cluster may legitimately
+contain `Goblet / Front-rack Squat`, which is also LP_A's first lift. It now takes `phaseId` as a
+**required** argument. **Scope by protocol, never by anything else.**
 
 ---
 
-## Blocked on Josh
+## Still open
+
+### Decided, not yet built
 
 | ID | Item |
 |---|---|
-| B1 | **Second Strava API app for `tb2`** — **deferred by Josh, 2026-08-24. Don't keep raising it.** Strava does not work on tb2 at all until it exists, and that is fine while he is months from switching. When he wants it: register at `strava.com/settings/api` with callback domain `tb2.joshua-birch.co.uk`, send the **client ID** (the secret goes in the `tb-app-v2` Pages env, never the repo), and move the client ID into build config so the two variants can differ. Consequence to remember: the OAuth `state` and same-origin checks are unit-tested but have never run against real Strava. |
+| **F1** | **Two sessions per day.** Josh, 2026-08-24: *"Allow two sessions per day, in case I ever need to shorten my week by doubling everything up."* One row per date is also the root of **code-01 F7** (a Strava run in the morning and a lift in the evening — a normal MASS week, since Green *is* the running) and of a Green session sharing a day with a lift having nowhere to be ticked. The repair layer exists: saves are serialised, `sessionForDate` merges strays, and F7 now refuses rather than corrupts. What is missing is a schema that permits exactly two **on purpose** — Dexie **v4** keyed on something like `(date, kind)`, plus every read that assumes one row per date, plus `stravaSync`'s `byDate` map. **Touches the riskiest code in the project**; take a snapshot before the first write. |
 
----
-
-## Decided, not yet built
+### Required before the app is "finished" — Josh, 2026-08-24
 
 | ID | Item |
 |---|---|
-| **F1** | **Two sessions per day.** Josh, 2026-08-24: *"Allow two sessions per day, in case I ever need to shorten my week by doubling everything up."* Today a Green session sharing a day with a lift is informational only — it shows on Today and counts against the weekly allowance, but has nowhere of its own to be ticked, because the app stores **one session row per date**. This is the same root as A6: `sessions.date` is not a unique index, and nearly all read code assumes one row per date. Duplicates can no longer be *created* (saves are serialised) and stray ones are merged by `sessionForDate`, so the repair layer is in place — what is missing is a deliberate schema that permits exactly two, keyed by something like `(date, kind)`. **Touches the riskiest code in the project**: `db.ts`, every read that assumes one row per date, and `stravaSync`'s `byDate` map. Do it with a Dexie v4 migration and a fresh snapshot before the first write. |
+| **E1** | **Specificity Alpha and Bravo.** *"We need to add Specificity before this app is finished."* Without it the app cannot run the book's Standard Cycle (p.140) or any General:Specificity ratio (pp.141–142), and the default plan has to stop at the bridge. Extracted in sections 05 and 06. Alpha has separate MS and H grids plus a deadlift override (pp.74–75). Where `tm90` and the Bulgarian cluster finally matter. The planner's ratio and no-General warnings are written and waiting. **Also unblocks `book-04 F5`** — the three p.142 worked examples cannot currently be built. |
+| **E6** | **A second plan preset** once E1 lands. `PLAN_PRESETS` is already a list; add the full p.140 cycle and a 2:1 preset (p.142). Every preset carries a page citation. |
 
----
-
-## Required before the app is "finished" — Josh, 2026-08-24
-
-| ID | Item |
-|---|---|
-| E1 | **Specificity Alpha and Bravo.** Josh: *"We need to add Specificity before this app is finished."* The app cannot run the book's Standard Cycle (p.140) or any General:Specificity ratio (pp.141–142) without it, and today's default plan stops at the bridge because of its absence (`docs/mass-design.md` §11.3). Extracted in sections 05 and 06. Alpha has separate MS and H grids plus a deadlift override (pp.74–75). This is where `tm90` and the Bulgarian cluster finally matter. The planner's ratio and no-General warnings are already written and waiting for it. |
-| E6 | **A second plan preset once Specificity exists.** Josh: *"we can have more than one default (depending on current goal)."* `PLAN_PRESETS` is a list holding one entry; add the full p.140 Standard Cycle and a 2:1 preset (p.142). Every preset carries a page citation — see §11.5. |
-
----
-
-## Not built (deliberate) — the model accommodates all of these
+### Book fidelity — small, real, unaddressed
 
 | ID | Item |
 |---|---|
-| E2 | **Mass Template, Gladiator, Fighter HT** — extracted (sections 03, 04). Each is one file under `src/protocols/` plus registration. All three need AMRAP and peaking, which Grey Man does not have. **Fighter HT trains twice a week, so it hits the `alternationRotates` limitation** — read p.60 before deciding what it should do. |
-| E3 | **Base Building** — skipped by choice, and **book-sanctioned** for a runner (p.18, p.151), not a deviation. Extracted in section 02. Its real argument is connective-tissue preparation for heavy barbell work, not cardio. |
-| E4 | **Nutrition and supplements** — extracted (section 08). Two calorie/macro formulas the app could compute (pp.120–121). The Guide points at the book and MacroFactor instead. |
-| E5 | **OMS Protocol** (pp.144–145) — its 3–6 week blocks are the one book-sanctioned non-3 block length, and would need the planner's hard block-length rule relaxed for that protocol. |
+| book-01 F5 | **Main and supplementary clusters render as one flat list** on the Session screen, despite p.50 stressing they have separate structures. Rest is now per-cluster, but visually they are still one undifferentiated column. |
+| book-01 F8 | **A/B restarts at every block, so two A days meet across the seam** of adjacent blocks. The book does not address it (Ambiguity §18). Decide and declare, or leave and document. |
+| book-01 F11 | **"Four days off" (p.48) vs "3 days of conditioning" (p.39)** — the book's own tension, unresolved in our text. |
+| book-03 F9, F10, F11 | Three small transcription/wording gaps in conditioning `detail` strings, a code comment misdescribing the default-days deviation, and Endurance Predator's card rendering a stray separator. |
+| book-04 F2 | **Block numbering diverges from the author's own count** — he counts the Bridge as one of five blocks (p.141); we number training blocks. Cosmetic, but confusing read against the book. |
+| book-04 F13 | **The Consolidation checklist (p.147) is not a flow.** Ten ordered steps the app could walk a first-timer through; today it is prose in the Guide. |
+| book-04 F12 (E5) | **OMS Protocol** (pp.144–145) — its 3–6 week blocks are the one book-sanctioned non-3 length, and would need the planner's hard block-length rule relaxed per protocol. |
 
----
+### Correctness — small, real, unaddressed
 
-## Small and open
+| ID | Item |
+|---|---|
+| code-01 F9 | **`parseBackup` validates table shape but never row shape.** A malformed session row imports and blows up later, at render. The version gate is solid now (F11); the rows are not. |
+| code-02 F8 | **`before` and `complete` pin `day`/`week`**, and those values get written into history if a session is logged in either state. |
+| code-02 F12 | **Deleting every block silently reverts to the stale `phaseStartDate`**, which under a plan is months out. Should refuse, or clear both. |
+| code-02 F15 | **`loadBar` allocates memory proportional to the target weight.** Fine at human loads; unbounded in principle. |
+| code-02 F17 | **S-cluster exercise ids come from the display name with no collision check.** Two exercises slugging to the same id would share a 1RM. |
+| code-03 F19 | **Deleting a block has no confirmation**, and an empty plan turns every day into "Rest". |
+| — | **`sessions.date` is still not a unique index.** Subsumed by F1. |
 
-| Item |
-|---|
-| **`EXERCISE_INFO` has no barbell lifts.** The Guide's form-video section filters them out, so Bench/Squat/OHP/Deadlift have no form content. Adding it means sourcing real coaching content — not inventing it. |
-| **`Maxes.tsx` hardcodes `[70,75,80]`** in one place as a second copy of `GM_GRID`. `WorkingPreview` already reads the grid properly; this is the remaining literal. |
-| **One genuinely flaky e2e** — `greyman.spec.ts` died once on `page.goto` with `net::ERR_ABORTED` and passed on retry. With no CI, that trains "just re-run it". |
-| **Rate limiting on `/api/strava/token`.** The same-origin check stops cross-site abuse from other websites; it cannot stop a determined caller with curl, and nothing shipped in a public SPA can. Rate limiting is the next step if it is ever seen being hit. |
-| **Dark mode is defined twice** in `src/index.css` (`.dark` and the `prefers-color-scheme` block) — ~40 duplicated lines that must be kept in sync. |
+### UI polish — unaddressed, low severity
+
+| ID | Item |
+|---|---|
+| code-03 F20 | Beginner's dumbbell progress panel still leads History, even on Grey Man. |
+| code-03 F21 | "Barbell strength" on History lists three dumbbell lifts. |
+| code-03 F22 | The header pill shows the current phase, not the day being viewed. |
+| code-03 F23 | A flash of `DEFAULT_SETTINGS` renders before IndexedDB resolves on some screens. |
+| code-03 F24 | Small tap targets remain on Plan and Settings. |
+| code-03 F25 | Nav links expose no accessible name. |
+| code-03 F27 | S-cluster exercise names truncate. |
+| — | **Dark mode is defined twice** in `src/index.css` — ~40 duplicated lines to keep in sync. |
+| — | **`EXERCISE_INFO` has no barbell lifts**, so Bench/Squat/OHP/Deadlift have no form content. Needs real coaching content, not invented content. |
+
+### Tests — unaddressed
+
+| ID | Item |
+|---|---|
+| code-04 G5 | Switching Beginner → Grey Man is never tested through the UI. |
+| code-04 G7 | Three `planExercise` branches are never reached. |
+| code-04 G8 | `loadBar`'s `pairs` cap and `exhausted` flag are thinly tested. |
+| code-04 G10 | Strava write-back for a barbell session is untested. |
+| code-04 G11 | **One genuinely flaky e2e** — `greyman.spec.ts` died once on `page.goto` with `net::ERR_ABORTED`, passed on retry. With no CI that trains "just re-run it". |
+| code-04 G12 | Conditioning edge cases. |
+| code-04 G3 | `Program.tsx` now reads the plan but still has thin assertions. |
+
+### Deferred by Josh
+
+| ID | Item |
+|---|---|
+| B1 | **Second Strava API app for `tb2`** — **deferred 2026-08-24. Don't keep raising it.** Strava does not work on tb2 until it exists, which is fine while he is months from switching. When wanted: register at `strava.com/settings/api` with callback domain `tb2.joshua-birch.co.uk`, send the **client ID** (secret goes in the `tb-app-v2` Pages env, never the repo), and move the client ID into build config. Consequence: the OAuth `state` and same-origin checks are unit-tested but have never run against real Strava. |
+| — | **Rate limiting on `/api/strava/token`.** The same-origin check stops cross-site abuse; it cannot stop curl, and nothing in a public SPA can. Only worth doing if it is ever seen being hit. |
+
+### Not built (deliberate)
+
+| ID | Item |
+|---|---|
+| E2 | **Mass Template, Gladiator, Fighter HT** — extracted (sections 03, 04). One file each plus registration. All three need AMRAP and peaking, which Grey Man has not. **Fighter HT trains twice a week and therefore hits `alternationRotates`** — read p.60 before deciding what it should do. |
+| E3 | **Base Building** — skipped by choice and **book-sanctioned** for a runner (p.18, p.151). Extracted in section 02. Its real argument is connective-tissue preparation, not cardio. |
+| E4 | **Nutrition and supplements** — extracted (section 08). Two calorie/macro formulas (pp.120–121). The Guide points at the book and MacroFactor instead. |
 
 ---
 
 ## Questions the book itself does not answer
 
-- **Forced Progression against a training max** — does the increment apply to the true 1RM or the TM?
-  Silent. Only bites once Specificity's Bulgarian cluster exists.
-- **Which lift gets 5 lb and which gets 10** — the rule is printed six times, always identically, and
-  never differentiates. **ANSWERED as far as it can be, 2026-08-24:** Tactical Barbell I gives the same
-  author's split (10 lb lower, 5 lb upper) and MASS's range is exactly those two numbers, so the app
-  applies it as a labelled deviation. See `docs/mass-design.md` §12. The *cadence* half of the same
-  sentence turned out NOT to be open — p.64 and p.90 both say "from block to block".
+- **Forced Progression against a training max** — true 1RM, or the TM? Silent. Only bites once
+  Specificity's Bulgarian cluster exists.
+- **Which lift gets 5 lb and which gets 10** — **ANSWERED as far as it can be, 2026-08-24.** MASS never
+  differentiates; Tactical Barbell I does (10 lb lower, 5 lb upper) and MASS's range is exactly those
+  two numbers, so the app applies the split as a labelled deviation (`docs/mass-design.md` §12). The
+  *cadence* half of the same sentence turned out **not** to be open: p.64's heading and p.90 both say
+  "from block to block", so it is every block.
 - **Conditioning day placement** — the book fixes the count, not the days. Declared deviation.
-- **Weight rounding** — no rule anywhere in 160 pages. **The audit confirmed this across the whole
-  book**, so our nearest-with-ties-down deviation rests on a verified premise.
-- **No absolute load is printed for Grey Man anywhere.** Every prescription in pp.48–53 is a
-  percentage, and the p.52 worked example is percentages and reps too. So there is no printed
-  pound-denominated working weight to use as a fixture — `test/greyman.test.ts` asserts instead that
-  the arithmetic is unit-agnostic, which is what the concern was really about.
+- **Weight rounding** — no rule anywhere in 160 pages, verified across the whole book.
+- **No absolute load is printed for Grey Man anywhere** — every prescription is a percentage, so there
+  is no pound-denominated working weight to use as a fixture. `test/greyman.test.ts` asserts instead
+  that the arithmetic is unit-agnostic, which is what the concern was actually about.

@@ -87,6 +87,7 @@ every **DEVIATION** from the book labelled with why.
 | `src/protocol.ts` + `PROTOCOLS` | protocol registry; `PHASES`/`PhaseMeta` are gone |
 | `src/protocols/greyman.ts` | the p.51 grid as data, A/B clusters, load resolution |
 | `src/screens/Maxes.tsx` (`/maxes`) | 1RM entry from a 2–3 rep test set (p.63) |
+| `src/lib/progression.ts` §12 | increment sized by lift; three-way `full`/`eased`/`hold` |
 | Session screen | loading-aware units, plate line, unrounded target |
 | `src/screens/Plan.tsx` (`/plan`) | block sequence, S-cluster builder, conditioning days |
 | `src/protocols/bridge.ts` | Bridge Week (pp.92–93) |
@@ -112,7 +113,7 @@ cards, the 3-week block decision (book-cited, p.67), the absence of any rounding
 v1→v2 migration *including* a stale build opening a v2 database, and the plate math — validated against
 an independent brute-force knapsack over 13 inventories × 1,041 targets with zero mismatches.
 
-**Verified at handoff:** 287 unit + 62 e2e green, typecheck/lint/build clean, and the real 23-session
+**Verified at handoff:** 295 unit + 64 e2e green, typecheck/lint/build clean, and the real 23-session
 backup round-trips through the schema unchanged.
 
 **Not built:** the other three General templates (Mass, Gladiator, Fighter HT), Base Building
@@ -213,6 +214,15 @@ and returns `blockIndex`/`blockCount`. Without one it falls back to the original
   directly put every date in `Program.tsx` months out.
 - **A protocol's real exercise list is `protocol.exercisesFor(settings)`, not `protocol.clusters`.** Grey
   Man's S cluster is user-built (p.49); reading the static default made custom exercises un-loadable.
+- **One session row per date is a hard constraint, and it bites.** `sessions.date` is not unique and
+  nearly all read code assumes one row. A Strava run and an evening lift on the same day cannot both be
+  stored — `Session.tsx` now REFUSES to save rather than overwriting the run (code-01 F7), and
+  `sessionForDate` merges any strays field by field. Josh has asked for two rows per date (backlog
+  **F1**); it needs a Dexie v4 keyed on something like `(date, kind)`.
+- **Forced Progression's increment is sized by lift.** 4.5 kg lower body, 2.5 kg upper, from
+  `ClusterExercise.bodyPart`; absent means the smaller one. MASS never says which lift gets which end of
+  its 5–10 lb range — TB1 does, and MASS's range is exactly TB1's two numbers. Labelled deviation:
+  `docs/mass-design.md` §12. The cadence is NOT a choice — p.64 and p.90 both say "from block to block".
 - **Never seed React state from data that is still loading.** `useSettings`, `useSessions` and
   `useAllOneRm` all return a default (`DEFAULT_SETTINGS`, `[]`) before IndexedDB answers, so a
   `useEffect` that copies derived data into state runs against nothing and never re-runs. That is how
@@ -243,9 +253,11 @@ and returns `blockIndex`/`blockCount`. Without one it falls back to the original
 Most of the original list is now closed (see `docs/BACKLOG.md`). What remains:
 
 - `sessions.date` is **not a unique index**. Duplicate rows can no longer be *created* — autosave is
-  serialised — and `sessionForDate` merges any that an older build left behind, field by field. A real
-  unique index is still the proper fix, and is what a same-day conditioning session would need in order
-  to be logged separately from the lift it shares a day with.
+  serialised — and `sessionForDate` merges any that an older build left behind, field by field. Saving a
+  lift onto a date that already holds a Strava run is **refused** rather than allowed to overwrite it
+  (code-01 F7). A real second row is what both that and same-day conditioning actually need: backlog F1.
+- **`parseBackup` validates table shape but not row shape** (code-01 F9). The version gate is solid; a
+  malformed session row still imports and fails later, at render.
 - `POST /api/strava/token` now requires a same-origin request, and the OAuth flow carries a `state`
   parameter. Neither can stop a determined caller with **curl** — nothing shipped in a public SPA can,
   since the only thing that would is a secret the client holds. Rate limiting is the next step if it is
