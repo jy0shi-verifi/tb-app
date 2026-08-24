@@ -26,6 +26,7 @@ import {
 import { conditioningDaysFor, conditioningLoad, conditioningPickFor } from '../protocols/conditioningPlan'
 import { today, addDays, isoDate, mondayIndex, parseISO, DAY_NAMES } from '../lib/date'
 import { Card, Button } from '../components/ui'
+import ScreenHeader from '../components/ScreenHeader'
 import type { ClusterExerciseRef } from '../types'
 
 /**
@@ -58,6 +59,7 @@ export default function Plan() {
 
   return (
     <div className="space-y-4 stagger">
+      <ScreenHeader title="Block plan" fallback={'/settings'} />
       <Card elev="1">
         <p className="eyebrow text-muted">Programme</p>
         <h2 className="display-hero text-xl text-ink">Plan your blocks</h2>

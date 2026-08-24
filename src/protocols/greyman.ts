@@ -239,6 +239,9 @@ export function planExercise(
       if (!entry.maxReps || entry.maxReps <= 0) {
         return unresolved(`Record your max reps for ${ex.name} — bodyweight work is a percentage of that (p.90).`)
       }
+      // `loaded: false` below — there is no weight to record, and the session
+      // screen was giving these a "Weight on the bar" kg field (audit code-03
+      // F10). Weighted bodyweight is different: its added kg is a real load.
       set = { reps: bodyweightReps(entry.maxReps, percent) }
       break
     }
@@ -281,7 +284,8 @@ export function planExercise(
   return {
     name: ex.name,
     exerciseId: ex.id,
-    loaded: true,
+    // A bodyweight-reps prescription is a REP count, not a load (p.90).
+    loaded: loading.kind !== 'bodyweightReps',
     ...meta,
     sets: Array.from({ length: count }, () => ({ ...set })),
   }

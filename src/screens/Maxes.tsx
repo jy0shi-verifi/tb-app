@@ -20,6 +20,7 @@ import { estimate1RM } from '../lib/calc'
 import { loadBar, DEFAULT_BAR_SETUP, targetLoad, type BarSetup } from '../lib/barbell'
 import { db } from '../db'
 import { Card, Pill } from '../components/ui'
+import ScreenHeader from '../components/ScreenHeader'
 import { today } from '../lib/date'
 import type { OneRmEntry } from '../types'
 
@@ -170,6 +171,7 @@ export default function Maxes() {
 
   return (
     <div className="space-y-4 stagger">
+      <ScreenHeader title="1RM maxes" fallback={'/settings'} />
       <Card elev="1">
         <div className="flex items-center justify-between gap-3">
           <div>

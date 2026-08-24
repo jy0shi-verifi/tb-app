@@ -17,6 +17,7 @@ import {
 } from '../lib/progression'
 import { today } from '../lib/date'
 import { Card, Button, Checkbox } from '../components/ui'
+import ScreenHeader from '../components/ScreenHeader'
 
 /**
  * The block-boundary Forced Progression prompt — MASS p.53, p.90.
@@ -115,6 +116,7 @@ export default function Progression() {
 
   return (
     <div className="space-y-4 stagger">
+      <ScreenHeader title="Forced Progression" fallback={'/'} />
       <Card elev="1">
         <div className="flex items-center gap-2">
           <TrendingUp size={18} className="text-load" />

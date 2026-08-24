@@ -15,6 +15,7 @@ import {
 import { PLAN_PRESETS, planHasErrors, validatePlan, type PlanPreset } from '../lib/planRules'
 import { addDays, isoDate, parseISO, prettyDate, today } from '../lib/date'
 import { Card, Button } from '../components/ui'
+import ScreenHeader from '../components/ScreenHeader'
 import PlanProblems from '../components/PlanProblems'
 
 /**
@@ -78,6 +79,7 @@ export default function NextCycle() {
 
   return (
     <div className="space-y-4 stagger">
+      <ScreenHeader title="Next cycle" fallback={'/'} />
       <Card elev="1">
         <div className="flex items-center gap-2">
           <Flag size={18} className="text-load" />

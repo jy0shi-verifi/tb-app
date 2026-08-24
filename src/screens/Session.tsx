@@ -657,7 +657,10 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
       const next = applyBeginnerProgress(settings, beginnerDayLetter(pos.week, pos.day), loggedEx)
       if (next) await saveSettings({ beginner: { lifts: next } })
     }
-    nav(-1)
+    // To Today, not `nav(-1)`. Going back through history lands wherever the
+    // user happened to come from — often the session they just finished, via a
+    // History row — so finishing appeared to do nothing (audit code-03 F15).
+    nav('/')
   }
 
   const totalSets = ex.reduce((n, e) => n + e.sets.length, 0)
@@ -812,7 +815,20 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
               ) : (
                 <p className="font-bold text-ink">{e.name}</p>
               )}
-              {e.note && <p className="text-xs text-muted mt-0.5">{e.note}</p>}
+              {/* F12: an honest gap should also be a route to the fix. */}
+              {e.note &&
+                (/1RM|max reps|bodyweight in Settings/i.test(e.note) ? (
+                  <button
+                    onClick={() =>
+                      nav(/bodyweight in Settings/i.test(e.note!) ? '/settings' : '/maxes')
+                    }
+                    className="text-xs text-brand-ink font-semibold mt-0.5 text-left"
+                  >
+                    {e.note} →
+                  </button>
+                ) : (
+                  <p className="text-xs text-muted mt-0.5">{e.note}</p>
+                ))}
               <PlateLine ex={e} />
             </div>
             {beginnerLift &&

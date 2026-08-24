@@ -30,6 +30,7 @@ export function bridgeSessionFor(pos: BlockPosition): SessionPlan {
   if (TEST_DAYS.includes(pos.day)) {
     return {
       type: 'rest',
+      testDay: true,
       title: 'Bridge — test day (optional)',
       detail: `Test 1RMs for the next block if you need to. Testing is only required before you start the protocol, and maybe before your first Specificity block (p.93) — otherwise this is a rest day. ${ALLOWED}`,
       exercises: [],

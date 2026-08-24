@@ -332,6 +332,17 @@ export default function Today() {
 
           {plan.conditioning && <ConditioningAlongside c={plan.conditioning} />}
 
+          {/* F13: the one day whose whole purpose is testing 1RMs had no route
+              to the 1RM screen. */}
+          {plan.testDay && (
+            <button
+              onClick={() => nav('/maxes')}
+              className="mt-3 inline-flex items-center rounded-pill bg-brand/10 text-brand-ink text-[13px] font-bold px-4 min-h-11"
+            >
+              Test your 1RMs →
+            </button>
+          )}
+
           {plan.exercises.length > 0 && (
             <div className="mt-4 divide-y divide-line/60">
               {plan.exercises.map((ex, i) => {
@@ -340,7 +351,21 @@ export default function Today() {
                   <div key={i} className="flex items-center justify-between py-2 gap-3">
                     <div className="min-w-0">
                       <p className="font-medium text-ink text-[15px]">{ex.name}</p>
-                      {ex.note && <p className="text-xs text-muted">{ex.note}</p>}
+                      {/* F12: "Set your 1RM for X" was inert text with no route to
+                          the one screen that fixes it. */}
+                      {ex.note &&
+                        (/1RM|max reps|bodyweight in Settings/i.test(ex.note) ? (
+                          <button
+                            onClick={() =>
+                              nav(/bodyweight in Settings/i.test(ex.note!) ? '/settings' : '/maxes')
+                            }
+                            className="text-xs text-brand-ink font-semibold text-left"
+                          >
+                            {ex.note} →
+                          </button>
+                        ) : (
+                          <p className="text-xs text-muted">{ex.note}</p>
+                        ))}
                     </div>
                     <div className="text-right shrink-0">
                       <span className="text-xs text-muted block">

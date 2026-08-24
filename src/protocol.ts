@@ -203,6 +203,12 @@ export interface SessionPlan {
   /** Time-based run/walk intervals, if this session prescribes them. */
   intervals?: Interval[]
   /**
+   * This session is an opportunity to test 1RMs — Bridge Week's Days 4 and 5
+   * (p.92). Lets the UI offer a route to `/maxes` without matching on the title,
+   * which is exactly the screen the day exists for (audit code-03 F13).
+   */
+  testDay?: boolean
+  /**
    * Conditioning also scheduled today, when today is a LIFTING day (p.99).
    * On a rest day the conditioning session IS the day's session, so this stays
    * undefined and `type`/`title` carry it instead.
