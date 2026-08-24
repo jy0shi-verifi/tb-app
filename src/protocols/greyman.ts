@@ -139,6 +139,24 @@ export function greyManDay(liftingOrdinal: number): GreyManDay {
   return liftingOrdinal % 2 === 0 ? 'A' : 'B'
 }
 
+/**
+ * ⚠ THIS RULE ONLY ROTATES FOR AN ODD NUMBER OF LIFTING DAYS A WEEK.
+ *
+ * `liftingOrdinal` is `(week - 1) * liftingDays.length + indexOfDay`, so with an
+ * EVEN weekly count the parity of a given weekday never changes: with two
+ * lifting days, Monday is ordinal 0, 2, 4 … and is therefore Day A forever.
+ * Grey Man has three (p.50), which is why the printed grid alternates Monday
+ * week to week.
+ *
+ * This matters for Fighter HT, which trains twice a week (audit code-02 F13). It
+ * is deliberately NOT "fixed" here: what Fighter HT should do instead is a
+ * question for its own grid on p.60, and inventing an alternation rule before
+ * reading that page is exactly the failure this rebuild exists to undo. The
+ * property is pinned by a test so whoever builds it cannot miss it.
+ */
+export const alternationRotates = (liftingDaysPerWeek: number): boolean =>
+  liftingDaysPerWeek % 2 === 1
+
 const mainLiftsFor = (letter: GreyManDay): ClusterExercise[] =>
   letter === 'A'
     ? [GM_MAIN[0], GM_MAIN[1]] // Bench, Squat

@@ -226,7 +226,20 @@ export function applyBeginnerProgress(
   settings: Settings,
   letter: 'A' | 'B',
   logged: LoggedExercise[],
+  /**
+   * The protocol the logged session belongs to. REQUIRED, and checked, for the
+   * same reason `lastPerformance` takes one: a rule every call site must
+   * remember is a rule a call site will eventually forget.
+   *
+   * The name check below was the previous defence and it is not sufficient —
+   * exercise names collide across programmes by design (a Grey Man S cluster may
+   * legitimately contain 'Goblet / Front-rack Squat'), so a colliding name walks
+   * straight past it and writes a barbell total as a per-dumbbell weight. A
+   * mixed-protocol fixture caught that; see test/mixedProtocols.test.ts.
+   */
+  phaseId: string,
 ): Record<string, number> | null {
+  if (phaseId !== 'beginner') return null
   const lifts = letter === 'A' ? LP_A : LP_B
   const next: Record<string, number> = { ...(settings.beginner?.lifts ?? defaultBeginnerWeights()) }
   let changed = false

@@ -216,3 +216,45 @@ describe('importBackup rollback (audit A11)', () => {
     expect(await db.sessions.count()).toBe(2)
   })
 })
+
+// ---------------------------------------------------------------------------
+// code-04 G4 — migration covered one of five states.
+// ---------------------------------------------------------------------------
+
+describe('opening the database from states other than "a full v1"', () => {
+  it('a FRESH, EMPTY database opens at the current version with every store', async () => {
+    // The common case for tb2 and for any new install, and previously untested:
+    // `test/migration.test.ts` only ever built a populated v1.
+    expect(db.verno).toBe(3)
+    for (const t of ['settings', 'maxes', 'sessions', 'oneRm', 'snapshots']) {
+      expect(db.tables.map((x) => x.name)).toContain(t)
+    }
+  })
+
+  it('a SETTINGS-ONLY database (no sessions ever logged) is usable', async () => {
+    await db.transaction('rw', db.settings, db.sessions, db.oneRm, db.snapshots, async () => {
+      await Promise.all([db.sessions.clear(), db.oneRm.clear(), db.snapshots.clear()])
+      await db.settings.put(settings())
+    })
+    expect(await db.sessions.count()).toBe(0)
+    // An export still round-trips, which is what a first backup would do.
+    const json = await exportBackup()
+    const parsed = JSON.parse(json)
+    expect(parsed.sessions).toEqual([])
+    expect(parsed.oneRm).toEqual([])
+    expect(parsed.settings).toHaveLength(1)
+  })
+
+  it('an empty database takes no app-open snapshot but is not broken by trying', async () => {
+    await db.transaction('rw', db.sessions, db.snapshots, async () => {
+      await db.sessions.clear()
+      await db.snapshots.clear()
+    })
+    await snapshotOnOpen()
+    expect(await listSnapshots()).toHaveLength(0)
+    // ...and an explicit one still works, so a manual backup on a nearly-empty
+    // install is not silently a no-op.
+    expect(await takeSnapshot('manual')).toBe(true)
+    expect(await listSnapshots()).toHaveLength(1)
+  })
+})

@@ -1,32 +1,63 @@
-# TB App — E2E Coverage Backlog
+# TB App — E2E Coverage
 
-## ✅ Implemented (39 tests, all green — `npm run test:e2e`)
+**Updated 2026-08-24.** 62 e2e tests, all green (`npm run test:e2e`), alongside 270 unit tests
+(`npm run test:unit`). Run `npm run typecheck` too — it covers `test/` and `e2e/`, which `npm run
+build` does not.
 
-> **Updated 2026-08-21** after the Tactical Barbell strip. The Maxes calculator,
-> Operator/Base Building programme and load math were removed pending a rebuild
-> from the books, so `maxes.spec.ts`, `progression.spec.ts`, `progression2.spec.ts`
-> and `settings2.spec.ts` (load basis) were deleted along with the SE-circuit test.
-> This file previously claimed 41 tests and omitted `beginner.spec.ts` and
-> `splash.spec.ts` — both are listed below now.
+This file previously claimed 39 tests, was dated 2026-08-21, and still said `/maxes` did not exist
+(audit D2). Everything below §1 is the ORIGINAL backlog from the Tactical Barbell era and is kept
+only as history — see the warning at the head of §3 before acting on any of it.
 
-- **Core/originals:** rest-timer survives refresh + skip-clears; onboarding shows; every screen renders (no crash/blank/ErrorBoundary, zero console errors); a removed/unknown route falls back to Today; direct weight entry + feel/notes → History; rest-timer & theme persist; backup export downloads; malformed import rejected.
-- **Dates/phase:** before-countdown; day-0 active; 7-day week rollover; long-running programme keeps counting; an unknown stored phase id falls back instead of blanking.
-- **Today:** lapse-guard Welcome-back + resume-the-right-week; missed-session nudge + dismissal persists across reload; backup nudge.
-- **Session:** in-progress lift logging survives reload; partial "you showed up" (done=false); autosave does NOT clobber Strava enrichment (asserts Dexie row).
-- **Beginner:** "Last time" + `+2 kg` chip; Runna-owned run slot; stall → deload button; History progress view.
-- **Onboarding:** completes → Today & never returns; legacy no-`onboarded` row skips.
-- **Splash:** cold-open motto auto-clears; tap-to-skip.
-- **Backup:** rejects missing-tables / newer-version / no-app-row; a valid backup restores after confirmation.
-- **Strava (mocked):** run auto-ticks the day; lift write-back PUTs name + description; sync-failure banner; revoked-token reconnect banner.
+## Implemented, by area
 
-## ⏭ Deliberately left (better as unit tests or need extra scaffolding)
-- **Backup snapshot-rollback on a mid-import write failure (#9)** — needs an injected failure hook; hard to trigger black-box.
-- **Exact load-math** (per-week working weights, TM-vs-1RM numbers) and **streak tolerance counting** — pure functions; better as a small **Vitest unit suite** than E2E.
-- **Clock-dependent:** auto-complete today's rest after 23:55 — needs `page.clock`.
-- Device-only (see §4): real notifications, audio-through-lock, live Strava OAuth, PWA install.
+| Spec | Tests | What it covers |
+|---|---|---|
+| `smoke.spec.ts` | 3 | every screen renders with no crash, blank or console error; unknown route falls back to Today |
+| `dates.spec.ts` | 5 | `resolvePosition` boundaries: before-countdown, day 0, week rollover, long-running phase, unknown phase id |
+| `today.spec.ts` | 3 | lapse guard and resume-the-right-week; missed-session nudge and its dismissal; backup nudge |
+| `session.spec.ts` · `session2.spec.ts` | 6 | direct weight entry, feel/notes to History, reload survival, partial "you showed up", autosave not clobbering Strava enrichment |
+| `beginner.spec.ts` | 4 | "Last time" prefill and the +2 kg chip, Runna-owned run slot, stall → deload, History progress |
+| `greyman.spec.ts` | 6 | the p.51 grid on screen, A/B alternation, barbell loads not labelled kg/DB, plate breakdown, no Beginner UI leaking in |
+| `plan.spec.ts` | 10 | block sequence, S-cluster builder, conditioning days and picks |
+| `progression.spec.ts` | 5 | **Forced Progression** (A1): the block-boundary prompt, struggled lifts left alone, `progressedKg` written, the heavier bar reaching the session, "Not now" |
+| `onboarding.spec.ts` | 4 | **both** programme branches (A5/F4), landing on `/maxes` for Grey Man, and the Monday snap (A16) |
+| `backup.spec.ts` · `backup2.spec.ts` | 6 | export downloads, malformed/newer/no-app-row imports rejected, a valid backup restores after confirmation |
+| `strava.spec.ts` | 4 | run auto-ticks the day, lift write-back, sync-failure banner, revoked-token reconnect |
+| `history.spec.ts` | 2 | History list and delete |
+| `settings.spec.ts` | 2 | rest-timer and theme persistence |
+| `splash.spec.ts` | 2 | cold-open motto clears; tap to skip |
+
+## Covered by the unit suite instead (deliberately not e2e)
+
+These are pure functions or database-level guarantees where a Vitest test is both faster and a
+sharper assertion than driving a browser:
+
+- **`test/progression.test.ts`** — the increment converted from the book's pounds, the 10% drop
+  applying to the current max, the struggle rule, block-boundary detection, and the fixture proving
+  block 2 prescribes more than block 1.
+- **`test/snapshots.test.ts`** — automatic backups (A5) and, crucially, the **`importBackup`
+  rollback** (A11), which the old version of this file listed as "hard to trigger black-box". It is
+  trivial with `vi.spyOn(db.sessions, 'bulkPut').mockRejectedValueOnce(...)`.
+- **`test/dataSafety.test.ts`** — the Strava delete invariant, duplicate-row collapsing (A6),
+  transactional `saveSettings`, and plate totals agreeing with the plate line.
+- **`test/mixedProtocols.test.ts`** — a history containing BOTH protocols, which is exactly the
+  fixture whose absence let four contamination bugs survive.
+- **`test/planRules.test.ts`** — the planner's two guardrail tiers.
+- **`test/greyman.test.ts` · `test/barbell.test.ts` · `test/plan.test.ts` · `test/calc.test.ts`** —
+  the book's printed tables as fixtures.
+
+## Still genuinely uncovered
+
+- **Clock-dependent:** auto-completing today's rest day after 23:55 needs `page.clock`; there is no
+  `page.clock` usage anywhere in this suite, and dates are controlled by injecting `phaseStartDate`.
+- **The deliberate render crash** for ErrorBoundary needs the fixture's console-error auto-fail
+  suppressed for that one test.
+- **Device-only:** real notifications, audio through a locked screen, live Strava OAuth, PWA install
+  and update. See §4.
+- **One known flake:** `greyman.spec.ts` once died on `page.goto` with `net::ERR_ABORTED` and passed
+  on retry. With no CI, that trains "just re-run it" — worth watching.
 
 ---
-
 
 ## 1. Summary
 
@@ -69,6 +100,13 @@ This backlog enumerates **107 test-worthy scenarios** across 12 subsystems, on t
 ---
 
 ## 3. Full backlog
+
+> ⚠ **HISTORICAL — from the Tactical Barbell era, before the MASS rebuild.** Large parts of this
+> section describe screens and behaviour that no longer exist: the Operator progression ladder, Base
+> Building, the old Maxes calculator and the training-max rescale were all removed on `strip-tb`.
+> The scenarios that remain valid have mostly been implemented, either above or in the unit suite.
+> **Do not work through this list as if it were current** — `docs/BACKLOG.md` is the live one.
+
 
 ### Today screen
 

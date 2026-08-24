@@ -52,6 +52,8 @@ interface ExState {
   targetKg?: number
   /** Target is lighter than the empty bar (MASS p.31). */
   belowBar?: boolean
+  /** Weighted-bodyweight target is below bodyweight — assistance, not load (p.90). */
+  underFloor?: boolean
   /** Plate inventory could not reach the target. */
   exhausted?: boolean
   /**
@@ -143,6 +145,19 @@ const STEP =
  * silently into a single number.
  */
 function PlateLine({ ex }: { ex: ExState }) {
+  // A weighted-bodyweight target BELOW your own bodyweight means the percentage
+  // does not reach an unassisted rep — you need assistance, not weight on a belt.
+  // The flag was computed and never read, so this rendered as a flat "0 kg" with
+  // no explanation, on exactly the calculation p.90 gives a full-page warning
+  // about (audit A18's sibling; `underFloor` in protocol.ts).
+  if (ex.underFloor) {
+    return (
+      <p className="text-[11px] text-brand-ink mt-1">
+        This percentage lands below your bodyweight — use a band or the assisted machine rather than
+        adding weight (p.90).
+      </p>
+    )
+  }
   if (ex.belowBar) {
     return (
       <p className="text-[11px] text-muted mt-1">
@@ -323,6 +338,7 @@ export default function Session() {
           perSide: first?.perSide,
           targetKg: first?.targetKg,
           belowBar: first?.belowBar,
+          underFloor: first?.underFloor,
           exhausted: first?.exhausted,
           plannedKg: first?.weight,
           setsMin: e.setsMin,
@@ -654,7 +670,12 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
           done: s.done,
         })),
       }))
-      const next = applyBeginnerProgress(settings, beginnerDayLetter(pos.week, pos.day), loggedEx)
+      const next = applyBeginnerProgress(
+        settings,
+        beginnerDayLetter(pos.week, pos.day),
+        loggedEx,
+        pos.phaseId,
+      )
       if (next) await saveSettings({ beginner: { lifts: next } })
     }
     // To Today, not `nav(-1)`. Going back through history lands wherever the

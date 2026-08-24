@@ -131,7 +131,6 @@ export interface PlannedSet {
   /** kg. Per dumbbell when `perDumbbell`, otherwise the total on the bar. */
   weight?: number
   perDumbbell?: boolean
-  overCeiling?: boolean
   underFloor?: boolean
   /** Unrounded percentage target, so the UI can show it next to the loaded weight. */
   targetKg?: number

@@ -200,11 +200,11 @@ describe('Beginner progression cannot be fed by another protocol', () => {
   ]
 
   it('ignores a Grey Man log entirely', () => {
-    expect(applyBeginnerProgress(withLifts(), 'A', greyManDayALog)).toBeNull()
+    expect(applyBeginnerProgress(withLifts(), 'A', greyManDayALog, 'gm')).toBeNull()
   })
 
   it('specifically does not write a barbell total as a per-dumbbell weight', () => {
-    const next = applyBeginnerProgress(withLifts(), 'A', greyManDayALog)
+    const next = applyBeginnerProgress(withLifts(), 'A', greyManDayALog, 'gm')
     // The exact corruption observed: bg_squat 20 -> 55, bg_bench 18 -> 70.
     expect(next?.bg_squat).not.toBe(55)
     expect(next?.bg_bench).not.toBe(70)
@@ -215,7 +215,7 @@ describe('Beginner progression cannot be fed by another protocol', () => {
       name: l.name,
       sets: Array.from({ length: 3 }, () => ({ weight: beginnerLifts[l.id as keyof typeof beginnerLifts], reps: 12, done: true })),
     }))
-    const next = applyBeginnerProgress(withLifts(), 'A', log)
+    const next = applyBeginnerProgress(withLifts(), 'A', log, 'beginner')
     // All three sets at the top of the range → +step on every lift.
     expect(next).not.toBeNull()
     for (const l of LP_A) {
@@ -228,6 +228,6 @@ describe('Beginner progression cannot be fed by another protocol', () => {
       name: `${l.name} (variation)`,
       sets: Array.from({ length: 3 }, () => ({ weight: 99, reps: 12, done: true })),
     }))
-    expect(applyBeginnerProgress(withLifts(), 'A', renamed)).toBeNull()
+    expect(applyBeginnerProgress(withLifts(), 'A', renamed, 'beginner')).toBeNull()
   })
 })

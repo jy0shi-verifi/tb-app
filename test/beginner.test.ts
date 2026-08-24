@@ -59,16 +59,28 @@ describe('LP double progression', () => {
     LP_A.map((l) => ({ name: l.name, sets: [1, 2, 3].map(() => ({ weight: weightOf(l.startKg), reps, done: true })) }))
 
   it('bumps a lift by its step once all 3 sets hit 12', () => {
-    const next = applyBeginnerProgress(base, 'A', loggedAt(12, (kg) => kg))
+    const next = applyBeginnerProgress(base, 'A', loggedAt(12, (kg) => kg), 'beginner')
     expect(next?.[LP_A[0].id]).toBe(LP_A[0].startKg + LP_A[0].step) // squat 10 → 12
   })
   it('holds the weight when reps are below the top of the range', () => {
-    const next = applyBeginnerProgress(base, 'A', loggedAt(9, (kg) => kg))
+    const next = applyBeginnerProgress(base, 'A', loggedAt(9, (kg) => kg), 'beginner')
     expect(next).toBeNull() // used weight == stored weight, top not cleared
   })
   it('adopts the weight actually used (self-calibrates on edits)', () => {
-    const next = applyBeginnerProgress(base, 'A', loggedAt(8, () => 14))
+    const next = applyBeginnerProgress(base, 'A', loggedAt(8, () => 14), 'beginner')
     expect(next?.[LP_A[0].id]).toBe(14)
+  })
+
+  it('refuses any protocol but Beginner, whatever the exercise names are', () => {
+    // The name check alone is not enough: exercise names collide across
+    // programmes by design, so a Grey Man S cluster containing one of Beginner's
+    // lifts walked straight past it. `phaseId` is the guard that actually holds.
+    // See test/mixedProtocols.test.ts for the colliding-name case.
+    const log = loggedAt(12, (kg) => kg)
+    expect(applyBeginnerProgress(base, 'A', log, 'gm')).toBeNull()
+    expect(applyBeginnerProgress(base, 'A', log, 'bridge')).toBeNull()
+    // ...and still works for the one it is for.
+    expect(applyBeginnerProgress(base, 'A', log, 'beginner')).not.toBeNull()
   })
 })
 

@@ -4,9 +4,30 @@ import { Card } from '../components/ui'
 import ExerciseDetail from '../components/ExerciseDetail'
 import { EXERCISE_INFO } from '../exerciseInfo'
 
+/**
+ * The Guide — rewritten from `docs/MASS/MASS-extraction.md` (audit D1).
+ *
+ * It used to teach Base Building, Operator, the Golden Rule and a training max:
+ * a programme this app no longer runs, and in places one Mass Protocol
+ * explicitly contradicts — p.63 says the Golden Rule is NOT in effect, and p.65
+ * says outright not to compare the two.
+ *
+ * Every programme claim below carries a page reference, per the fidelity rule in
+ * CLAUDE.md. Where something is the app's choice rather than the book's, it says
+ * so — Beginner Mode is labelled as not from the book, and the truncated default
+ * plan is labelled as a consequence of Specificity not being built.
+ */
+
 type Section = { id: string; emoji: string; title: string; body: ReactNode }
 
-// The lifts/moves in a sensible teaching order.
+/**
+ * The moves with form content, in a sensible teaching order.
+ *
+ * These are all dumbbell/bodyweight: `EXERCISE_INFO` has no entries for the four
+ * MASS main lifts, so the list filters them out rather than showing empty cards.
+ * Adding barbell form content is tracked in the backlog — inventing it here
+ * would be exactly the kind of unverified content this rebuild exists to remove.
+ */
 const MOVE_ORDER = [
   'DB Bench Press',
   'Two-DB Front-rack Squat',
@@ -24,340 +45,405 @@ const SECTIONS: Section[] = [
   {
     id: 'what',
     emoji: '🎯',
-    title: 'What is Tactical Barbell?',
+    title: 'What this programme is',
     body: (
       <>
         <p>
-          Tactical Barbell (TB) is a strength + conditioning system built for people who need to be
-          good at <b>everything</b> — strong, and well-conditioned — not specialised in one thing.
-          Your north star: always a training block away from being ready for anything.
+          This app runs <b>Tactical Barbell: Mass Protocol</b> — a hypertrophy programme built on a
+          barbell. It rests on three things: <b>lifting</b> for the stimulus, <b>food</b> for the
+          material, and <b>conditioning</b> kept light enough not to fight the other two.
         </p>
         <p className="mt-2">
-          The big idea is <b>“practice strength, don’t work out.”</b> Instead of smashing yourself to
-          failure once a week, you lift a handful of core movements <b>often</b> (3×/week) at
-          submaximal weights, always stopping fresh. Frequent, heavy-enough, never-to-failure. That’s
-          what builds strength fast without burning you out — and it leaves gas in the tank for your
-          running and conditioning.
+          Mass Protocol has two halves. <b>General</b> builds overall size; <b>Specificity</b> is
+          detail work on lagging areas. The book puts it in one line:{' '}
+          <i>“General Mass is for building overall size and bulk. Specificity is the detail work.”</i>{' '}
+          (p.143)
         </p>
-        <p className="mt-2">
-          Strength is the <b>skeleton</b>; conditioning, work capacity and endurance get draped over
-          it. This app runs the two TB phases you need right now: <b>Base Building</b> then{' '}
-          <b>Operator</b>.
+        <p className="mt-2 text-muted">
+          The app runs the General side, using the <b>Grey Man</b> template. Specificity isn’t built
+          yet.
         </p>
       </>
     ),
   },
   {
-    id: 'app',
+    id: 'loop',
     emoji: '📱',
     title: 'How to use this app (the daily loop)',
     body: (
       <>
-        <p>Every morning it’s the same three steps — no thinking required before coffee:</p>
-        <ol className="list-decimal list-inside mt-2 flex flex-col gap-1.5">
+        <p>
+          Open it in the morning. <b>Today</b> tells you what the session is and every weight, worked
+          out from your 1RMs. Tap in, tick sets off as you go, and the rest timer starts itself.
+        </p>
+        <ul className="list-disc list-inside flex flex-col gap-1.5 mt-2">
           <li>
-            Open <b>Today</b>. It shows exactly what today is (lift, circuit, run, HIC or rest).
+            <b>1RM maxes</b> (Settings → 1RM maxes) is where every weight comes from. Nothing works
+            without them.
           </li>
           <li>
-            Tap in to the session. For lifts/circuits, do the sets and <b>tick each one off</b> — the
-            rest timer starts itself. For runs/HIC, just go, then <b>Mark complete</b>.
+            <b>Block plan</b> (Settings → Block plan) sequences your blocks, builds your
+            supplementary cluster and picks your conditioning days.
           </li>
           <li>
-            Tap <b>how it felt</b> + any notes, then <b>Done</b>. That’s it.
-          </li>
-        </ol>
-        <p className="mt-2">The other tabs:</p>
-        <ul className="list-disc list-inside mt-1 flex flex-col gap-1">
-          <li>
-            <b>Program</b> — the whole block laid out; tap any day to preview it (and see the weights).
+            When a block ends, the app asks whether to <b>add weight to your 1RMs</b>. That prompt
+            <i> is</i> the programme — see “Getting stronger” below.
           </li>
           <li>
-            <b>History</b> — your streak, PRs, strength trend, running stats.
-          </li>
-          <li>
-            <b>Maxes</b> — where your tested numbers live and where the working weights are calculated.
-          </li>
-          <li>
-            <b>Settings</b> — rest-timer length, theme, Strava, and <b>Back up your data</b> (export a
-            file now and then — it’s the only copy).
+            When a whole cycle ends, it asks what to run next — which is what the book asks you to do
+            at that point (p.140).
           </li>
         </ul>
-        <p className="mt-2 text-muted text-xs">
-          Tip: add the app to your home screen and set a phone alarm for your training mornings — the
-          habit is the whole game.
+      </>
+    ),
+  },
+  {
+    id: 'greyman',
+    emoji: '🏋️',
+    title: 'Grey Man — the week',
+    body: (
+      <>
+        <p>
+          Three lifting days: <b>Monday, Wednesday, Friday</b> (p.50). Each day trains two main lifts
+          plus a supplementary group, and the two days alternate:
+        </p>
+        <ul className="list-disc list-inside flex flex-col gap-1.5 mt-2">
+          <li>
+            <b>Day A</b> — Bench Press + Squat, then your <b>S1</b> exercises
+          </li>
+          <li>
+            <b>Day B</b> — Overhead Press + Deadlift, then your <b>S2</b> exercises
+          </li>
+        </ul>
+        <p className="mt-2">
+          They alternate strictly — A, B, A, B… — so Monday is A one week and B the next. That is why
+          the pattern looks like it repeats fortnightly (p.50).
+        </p>
+        <p className="mt-2">
+          The <b>main cluster is fixed</b>, “the same for everyone” (p.48). The <b>S cluster is
+          yours</b>: pick <b>4 to 6 exercises, no more</b>, split across S1 and S2 (p.49). Dumbbells,
+          barbells, kettlebells and bodyweight all qualify; for a pure mass result the author
+          suggests sticking to conventional dumbbell and barbell work.
         </p>
       </>
     ),
   },
   {
-    id: 'map',
-    emoji: '🗺️',
-    title: 'The plan, start to finish',
+    id: 'grid',
+    emoji: '📊',
+    title: 'The three weeks of a block',
+    body: (
+      <>
+        <p>
+          A block is <b>three weeks</b> (p.40). Load climbs, reps fall — and the supplementary work
+          runs on its own, lighter numbers (p.51):
+        </p>
+        <div className="overflow-x-auto mt-3">
+          <table className="w-full text-left text-xs">
+            <thead className="text-muted">
+              <tr>
+                <th className="py-1 pr-3 font-bold">Week</th>
+                <th className="py-1 pr-3 font-bold">Main lifts</th>
+                <th className="py-1 font-bold">Supplementary</th>
+              </tr>
+            </thead>
+            <tbody className="num-display text-ink">
+              <tr className="border-t border-line/60">
+                <td className="py-1.5 pr-3">1</td>
+                <td className="py-1.5 pr-3">4–5 × 8 @ 70%</td>
+                <td className="py-1.5">4 × 12 @ 55%</td>
+              </tr>
+              <tr className="border-t border-line/60">
+                <td className="py-1.5 pr-3">2</td>
+                <td className="py-1.5 pr-3">4–5 × 6 @ 75%</td>
+                <td className="py-1.5">4 × 10 @ 60%</td>
+              </tr>
+              <tr className="border-t border-line/60">
+                <td className="py-1.5 pr-3">3</td>
+                <td className="py-1.5 pr-3">4–5 × 3 @ 80%</td>
+                <td className="py-1.5">4 × 8 @ 65%</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3">
+          Percentages are of your <b>1 rep max</b> — there is no training max in this programme. Four
+          sets is the default; the book’s own walkthrough says “4 sets of 8/70%” (p.52). The fifth is
+          there for a day you feel good.
+        </p>
+        <p className="mt-2 text-muted">
+          There’s no deload inside a block. After week 3 you add weight to your 1RMs and run the same
+          three weeks again (p.53).
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'execution',
+    emoji: '⏱️',
+    title: 'How to run a session',
     body: (
       <>
         <ul className="list-disc list-inside flex flex-col gap-1.5">
           <li>
-            <b>Base Building — 8 weeks.</b> Rebuild your engine (easy running) + strength-endurance
-            circuits. No heavy lifting or maxes yet.
+            <b>Both main lifts first</b>, then the supplementary work (p.50).
           </li>
           <li>
-            <b>Test Day</b> (end of week 8). Find a ~5-rep max on your 3 lifts → enter them in Maxes.
+            All sets of one exercise before moving to the next (p.52). The order of the exercises
+            themselves is yours — <i>“Ultimately it doesn’t matter – it’s entirely up to you.”</i>{' '}
+            (p.63)
           </li>
           <li>
-            <b>Operator — 6-week blocks.</b> The strength engine: 3 lifts, 3×/week, waved intensity,
-            with conditioning (runs + HIC) around it. Repeat blocks through the cut.
+            <b>Rest 2–5 minutes</b> between main sets, longer if you need it; 3–5 minutes is the
+            sweet spot on heavier days (pp.63–64). <b>1–2 minutes</b> on supplementary work, and you
+            may superset it (p.53).
+          </li>
+          <li>
+            <b>The Golden Rule from TB1 doesn’t apply here.</b> <i>“This isn’t Operator template or
+            Tactical Barbell I.”</i> (p.63)
+          </li>
+          <li>
+            Finish all the reps <b>without going to failure</b>. A little struggle on the last couple
+            is fine, so long as you complete them (pp.52, 64).
           </li>
         </ul>
-        <p className="mt-2">
-          After the first 12 weeks of Operator you retest and keep rolling. Longer term TB flexes into
-          other templates (e.g. a Mass block when you switch to building) — we’ll set that up when the
-          cut wraps.
+        <p className="mt-3">
+          <b>Failing reps?</b> In this order: lengthen the rest to five minutes or more first; only
+          if you’re <i>still</i> failing consistently, drop that lift’s 1RM by 10% and recalculate
+          (pp.52–53). The app has a button for the second step, on the lift itself.
         </p>
       </>
     ),
   },
   {
-    id: 'base',
-    emoji: '🌱',
-    title: 'Base Building — what & how',
+    id: 'maxes',
+    emoji: '🧮',
+    title: 'Testing your 1RMs',
     body: (
       <>
         <p>
-          Eight weeks to build an aerobic base and toughen your joints/tendons before the heavy work.
-          A typical week (weeks 1–5):
+          Every weight comes off a 1RM, so they have to exist before a block starts.{' '}
+          <i>“Calculate 1 rep maximums for all exercises in your cluster prior to beginning… a 2-3
+          rep maximum to calculate a 1RM is fine. But DO test. Don’t guess.”</i> (p.63)
         </p>
-        <ul className="list-disc list-inside mt-2 flex flex-col gap-1">
-          <li><b>Mon</b> — SE circuit (3 rounds)</li>
-          <li><b>Tue / Wed</b> — easy run</li>
-          <li><b>Thu</b> — SE circuit (2 rounds)</li>
-          <li><b>Fri</b> — recovery (light / optional)</li>
-          <li><b>Sat</b> — the long easy run</li>
-          <li><b>Sun</b> — rest</li>
+        <ul className="list-disc list-inside flex flex-col gap-1.5 mt-2">
+          <li>
+            <b>You never have to lift a true single.</b> Enter a 2–3 rep set and the app estimates
+            the 1RM (p.90).
+          </li>
+          <li>
+            Test in one session or over two, then <b>take two or three days off</b> before starting
+            the block (p.63).
+          </li>
+          <li>
+            <b>Start conservative.</b> <i>“Whatever you do, DON’T start too heavy or overestimate
+            your 1RMs.”</i> (p.64)
+          </li>
+          <li>
+            <b>Bodyweight exercises</b> use max REPS instead of a weight — 55% of a 20-rep max is 11
+            reps, not a load (p.90).
+          </li>
+          <li>
+            <b>Weighted bodyweight</b> (dips, weighted pull-ups) puts your bodyweight inside the sum,
+            so set your weight in Settings or the app can’t work it out (p.90).
+          </li>
         </ul>
-        <p className="mt-2">
-          <b>Running is all easy (LSS).</b> Conversational pace — you should be able to talk. Flat
-          ground for now. Can’t run the whole time? <b>Run-walk</b> — that’s expected and still builds
-          the base. Work for <b>time, not distance</b>; the durations step up each week.
-        </p>
-        <p className="mt-2">
-          Weeks 6–8 shift: two light <b>strength intro</b> days appear (grooving your 3 lifts), plus
-          two short <b>HIC</b> sessions, leading into Test Day.
+        <p className="mt-2 text-muted">
+          You don’t retest on a schedule — only when changing phase or adding a new exercise (p.90).
         </p>
       </>
     ),
   },
   {
-    id: 'circuit',
-    emoji: '🔁',
-    title: 'How to run an SE circuit',
+    id: 'progression',
+    emoji: '📈',
+    title: 'Getting stronger: Forced Progression',
     body: (
       <>
-        <p>
-          SE (strength-endurance) is done <b>circuit style</b> — one set of each move in order, then
-          repeat. It’s about beating the clock, not the weight.
-        </p>
-        <ol className="list-decimal list-inside mt-2 flex flex-col gap-1.5">
-          <li>
-            <b>Set up all your stations first</b> so you can move between them quickly.
-          </li>
-          <li>
-            <b>One light weight, set once.</b> The only loaded move is the DB Romanian Deadlift — pick
-            a light weight and leave it for the whole block. Everything else is bodyweight.
-          </li>
-          <li>
-            Do one set of <b>each</b> move in order (that’s one round). Short rests between moves
-            (aim to keep them tight, ~30–120s); up to <b>2–3 min between rounds</b>.
-          </li>
-          <li>
-            The card shows the reps (e.g. 3 rounds × 20). Ramps 20 → 30 → 40 → 50 over the weeks.
-          </li>
-          <li>
-            Can’t finish a set unbroken? <b>Rest-pause</b> — pause a few seconds and squeeze the rest
-            out. Totally normal, especially at the higher reps.
-          </li>
-        </ol>
-        <p className="mt-2 text-muted text-xs">
-          The challenge is the clock and the reps — keep the weight light and your form calm.
-        </p>
-      </>
-    ),
-  },
-  {
-    id: 'test',
-    emoji: '📏',
-    title: 'Test Day (end of Base Building)',
-    body: (
-      <>
-        <p>
-          You don’t max out a single rep. For each lift you work up to a weight you can do about{' '}
-          <b>5 clean reps</b> on, leaving 1–2 in the tank — stop before your form breaks.
-        </p>
-        <ol className="list-decimal list-inside mt-2 flex flex-col gap-1.5">
-          <li>Rest up (2–3 easy days beforehand).</li>
-          <li>Warm up, then build up in a few sets to your ~5-rep weight.</li>
-          <li>Note the <b>weight per dumbbell × reps</b> for each lift.</li>
-          <li>Enter them in the <b>Maxes</b> tab — the app calculates your training max and every working weight.</li>
-        </ol>
+        <p>This is the mechanism the whole protocol runs on, and it’s one sentence:</p>
         <p className="mt-2">
-          That unlocks Operator. You’ll retest the same way every so often — you never lift a true
-          one-rep max in TB.
+          <i>“Every 3 to 6 weeks, add 5-10lbs to 1RMs. Recalculate and repeat. Don’t force
+          progression for exercises you struggled with — use the same numbers for the next block.”</i>{' '}
+          (p.53)
         </p>
-      </>
-    ),
-  },
-  {
-    id: 'operator',
-    emoji: '🏋️',
-    title: 'Operator — the strength engine',
-    body: (
-      <>
-        <p>
-          Three lifts (DB Bench, Two-DB Front-rack Squat, 1-Arm DB Row), performed <b>3×/week</b>{' '}
-          (Mon / Wed / Fri), with a rest day between strength days. Each 6-week block waves the
-          intensity:
-        </p>
-        <div className="mt-2 rounded-field bg-[var(--color-surface-sunk)] p-3 text-sm num-display">
-          Wk1 70% · Wk2 80% · <b>Wk3 90%</b> · Wk4 75% · Wk5 85% · <b>Wk6 95%</b>
-        </div>
-        <ul className="list-disc list-inside mt-2 flex flex-col gap-1">
-          <li><b>Same weight for all sets</b> of a lift that day.</li>
-          <li>Reps drop as the weight climbs (5s early, down to 2–3 on the heavy weeks).</li>
-          <li>Weeks 3 & 6 are the <b>heavy weeks</b> — rest longer (3–5 min) and go easy on conditioning.</li>
+        <ul className="list-disc list-inside flex flex-col gap-1.5 mt-2">
+          <li>
+            5–10 lb is about <b>2.5–4.5 kg</b>. The app suggests 2.5 and lets you change it.
+          </li>
+          <li>
+            Anything you tapped <b>“Struggled with this”</b> on during the block is left alone. That’s
+            the second half of the rule, not a courtesy.
+          </li>
+          <li>
+            <b>You don’t retest.</b> The stored 1RM drifts upward and every weight follows from it
+            (p.90).
+          </li>
         </ul>
-        <p className="mt-2">
-          The weights come off a <b>90% training max</b> (a slightly conservative number). That’s
-          deliberate — it keeps every session hittable even on a rough morning, which is exactly how a
-          frequent template like Operator is meant to run. Trust the lighter early weeks.
+        <p className="mt-3 text-muted">
+          Early blocks are <i>meant</i> to feel light. <i>“Your very first block is like practice +
+          work-capacity-building with lighter weight.”</i> (p.64)
         </p>
       </>
     ),
   },
   {
-    id: 'golden',
-    emoji: '⏱️',
-    title: 'The Golden Rule: rest & no failure',
+    id: 'extra',
+    emoji: '🚫',
+    title: 'What NOT to add',
     body: (
       <>
-        <p className="font-semibold text-ink">Rest at least 2 minutes between strength sets. Always.</p>
-        <p className="mt-2">
-          Not 90 seconds — a minimum of two minutes, even if you feel ready sooner. The point is to be
-          <b> fully recovered for every set</b> so you never grind to failure. Failure is for
-          bodybuilding; for strength it just digs a fatigue hole.
+        <p>
+          <i>“Avoid extra work in the gym during General. No bicep curls, no donkey calf raises, no
+          bodyweight work, nothing. If you have surplus energy to burn – add extra sets to your main
+          lifts.”</i> (pp.64–65)
         </p>
         <p className="mt-2">
-          2–3 min is the sweet spot on the lighter weeks; go <b>3–5 min</b> on the heavy 90/95% weeks
-          (it also keeps size gain down, which suits the cut). You can set your default in{' '}
-          <b>Settings → Rest timer</b>.
+          That’s why the app has a <b>+ Set</b> button and no accessories screen. The extra set is the
+          sanctioned outlet.
+        </p>
+        <p className="mt-2">
+          <b>Core work is the exception</b> — bodyweight ab and lower-back work is allowed: hanging
+          leg raises, hyperextensions, face-pulls, ab roller (p.65). It doesn’t need a slot in your
+          supplementary cluster.
         </p>
       </>
     ),
   },
   {
     id: 'conditioning',
+    emoji: '🥾',
+    title: 'Conditioning: keep it green',
+    body: (
+      <>
+        <p>
+          Conditioning here exists to <b>support</b> muscle gain, not to burn calories. General
+          blocks use the <b>Green</b> sessions — walk, ruck, recovery run, endurance predator (p.20,
+          p.98).
+        </p>
+        <ul className="list-disc list-inside flex flex-col gap-1.5 mt-2">
+          <li>
+            <b>1 to 3 Green sessions a week, no more than 3</b>, and they may sit on lifting days or
+            non-lifting days (p.99).
+          </li>
+          <li>
+            <b>Green shouldn’t exceed 60 minutes</b> (p.111). Individual sessions cap tighter — a
+            recovery run stops at 30 minutes, 20 if you’re a hardgainer (p.102).
+          </li>
+          <li>
+            <b>Your own running counts.</b> <i>“Anytime you do that extra-curricular activity it
+            counts as one conditioning session. Cross off one Green/Black session for that week.”</i>{' '}
+            (p.110) The Plan screen totals it up, Runna sessions included.
+          </li>
+          <li>
+            A <b>10-minute easy run either side of a lift doesn’t count</b> — two of them still count
+            as zero (p.102).
+          </li>
+        </ul>
+        <p className="mt-2 text-muted">
+          Black sessions (sprints, hill sprints, Reset-20, Fobbits) belong to Specificity and stay on
+          non-lifting days (p.99). They arrive when Specificity does.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'blocks',
+    emoji: '🗓️',
+    title: 'Blocks, bridges and cycles',
+    body: (
+      <>
+        <p>
+          Everything is built from <b>3-week blocks</b> (p.40). A longer stint of General is{' '}
+          <i>more blocks</i>, never a longer one. The book’s recommended first cycle (p.140):
+        </p>
+        <p className="mt-2 text-ink">
+          General 6 weeks → General 6 weeks → Bridge 1 week → Specificity 3 weeks → Specificity 3
+          weeks
+        </p>
+        <p className="mt-2 text-muted">
+          Specificity isn’t built yet, so the app’s default plan runs the four General blocks and the
+          bridge week, then asks what to do next.
+        </p>
+        <p className="mt-3">
+          <b>Bridge Week</b> is a week off between blocks: deload, let the work come to fruition, and
+          test 1RMs if the next block needs it (p.92). The author suggests one every two to three
+          months — and if you need a few more days, take them.{' '}
+          <i>“Too much rest is better than not enough.”</i> (p.147)
+        </p>
+        <p className="mt-2">
+          After a full cycle, reassess the balance of General and Specificity. The long-term default
+          the author calls a “solid balanced approach” is <b>2:1 General to Specificity</b>, and{' '}
+          <i>“spend more time in General the farther away you are from your target weight”</i>{' '}
+          (pp.141–142).
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'food',
+    emoji: '🍚',
+    title: 'Food — where most people fail',
+    body: (
+      <>
+        <p>
+          The book is blunt:{' '}
+          <i>“Nutrition is usually where the average bear fails – not time spent in the gym or on the
+          road.”</i> (p.132)
+        </p>
+        <ul className="list-disc list-inside flex flex-col gap-1.5 mt-2">
+          <li>You can’t add muscle without a calorie surplus. Track it.</li>
+          <li>
+            Stay on top of protein, and if you do extra activity, eat back what it cost you{' '}
+            <i>and then some</i> (p.110).
+          </li>
+          <li>
+            <b>Don’t cut during a rest week.</b> <i>“Do NOT drop or change your calorie/macro intake
+            during rest periods.”</i> (p.147)
+          </li>
+        </ul>
+        <p className="mt-2 text-muted">
+          The book gives two calorie/macro formulas (pp.120–121). The app doesn’t calculate them —
+          use MacroFactor and the book’s own chapter.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'base',
     emoji: '🏃',
-    title: 'Conditioning: runs (E) & HIC',
-    body: (
-      <>
-        <p>Two flavours of conditioning sit around your lifting in Operator:</p>
-        <ul className="list-disc list-inside mt-2 flex flex-col gap-1.5">
-          <li>
-            <b>E (Endurance)</b> — an easy, conversational run. Keeps the aerobic base ticking.
-          </li>
-          <li>
-            <b>HIC (High-Intensity Conditioning)</b> — hard, short efforts: hill sprints, 600m
-            resets, a fast tempo run. Run each at its prescribed effort and take the full recovery.
-          </li>
-        </ul>
-        <p className="mt-2">
-          Your week is the endurance-leaning setup: <b>2 HIC + 1 easy run</b> (Tue HIC · Thu run · Sat
-          HIC), which suits you as a runner. On weeks 3 & 6 the conditioning goes <b>easy</b> — half
-          the rounds/effort — because that’s when your lifting is heaviest. Runs auto-import from
-          Strava; you just tick lifts and circuits.
-        </p>
-      </>
-    ),
-  },
-  {
-    id: 'progress',
-    emoji: '📈',
-    title: 'Getting stronger: retest vs forced progression',
+    title: 'Do I need Base Building first?',
     body: (
       <>
         <p>
-          At the end of an Operator block the app tells you what to do — you don’t have to work it out:
+          <b>No.</b> <i>“If you already have a current/established endurance base of some kind, (i.e.
+          runner…) feel free to skip it.”</i> (p.18) — and the FAQ agrees: <i>“No. Base Building is
+          optional…”</i> (p.151)
         </p>
-        <ul className="list-disc list-inside mt-2 flex flex-col gap-1.5">
-          <li>
-            <b>First 12 weeks:</b> run two blocks on the same numbers, then <b>retest</b>. Early gains
-            are fast, and a retest captures them (often more than a fixed bump would).
-          </li>
-          <li>
-            <b>After that:</b> retest every 6 weeks while the gains keep coming.
-          </li>
-          <li>
-            <b>Forced progression</b> (adding a small fixed amount) is a <i>later</i> tool for when a
-            lift stalls — the app watches for that and flags it, then points you back to me to set up
-            the next stage.
-          </li>
-        </ul>
-        <p className="mt-2 text-muted text-xs">
-          On a cut, don’t expect big PRs — the goal is to <b>keep</b> your strength while the fat comes
-          off. Holding steady is a win.
+        <p className="mt-2 text-muted">
+          Worth knowing what it’s actually for, though: not cardio. Its strength-endurance work
+          prepares connective tissue for heavy barbell work. If you’re coming off a long layoff
+          rather than off a running plan, that argument carries more weight.
         </p>
       </>
     ),
   },
   {
-    id: 'pullup',
-    emoji: '💪',
-    title: 'Your pull: row now, pull-ups later',
+    id: 'beginner',
+    emoji: '🔩',
+    title: 'Beginner Mode (no barbell yet?)',
     body: (
       <>
         <p>
-          The book’s Operator pull is a <b>weighted pull-up</b>. You’re running a <b>1-Arm DB Row</b>{' '}
-          for now because it loads cleanly with your dumbbells and you can’t do a strict pull-up yet —
-          it trains the same pulling muscles and balances your bench.
+          Beginner Mode is <b>not from the book</b>. It’s the fallback for training without a barbell
+          and rack: two alternating dumbbell sessions, <b>3 sets of 8–12</b>, and when you clear all
+          three sets at 12 the app adds 2 kg for you.
         </p>
         <p className="mt-2">
-          The <b>goal</b> is the pull-up. Chip away on your beam — negatives (jump up, lower slow) and
-          chair-assisted reps. When you can do <b>~10 bodyweight pull-ups</b>, we’ll swap the cluster’s pull
-          to a weighted pull-up at a block boundary — bang on the book.
+          Switch between it and Grey Man in Settings → Programme. They keep entirely separate maxes,
+          because Beginner’s weights are <b>per dumbbell</b> and Grey Man’s are <b>total on the
+          bar</b> — letting those meet would be wrong by a factor of two on every set.
         </p>
       </>
-    ),
-  },
-  {
-    id: 'rest',
-    emoji: '🌙',
-    title: 'Easy weeks & time off',
-    body: (
-      <>
-        <p>
-          TB is “for life,” not a bootcamp — recovery is built in, not earned:
-        </p>
-        <ul className="list-disc list-inside mt-2 flex flex-col gap-1.5">
-          <li><b>Every 3rd week</b> the conditioning eases off (it lands on your heavy lifting weeks).</li>
-          <li>At least <b>one full rest day</b> a week.</li>
-          <li>Take <b>a few weeks off</b> every 3–6 months to let your nervous system recharge — plan it around a holiday.</li>
-        </ul>
-        <p className="mt-2">
-          If you’re fatigued, cut the <b>conditioning</b> first — never drop the weight on your lifts to
-          cope. Recovery is training too.
-        </p>
-      </>
-    ),
-  },
-  {
-    id: 'diet',
-    emoji: '🍽️',
-    title: 'Food (MacroFactor)',
-    body: (
-      <p>
-        Diet lives in <b>MacroFactor</b>, not here. Log everything honestly and weigh in most mornings
-        (same time, after the loo, before food) and it auto-adjusts your targets. Keep protein up
-        (~180–200g) to hold onto muscle on the cut, and don’t under-eat around the conditioning —
-        that’s the classic mistake that tanks your lifts.
-      </p>
     ),
   },
   {
@@ -385,20 +471,29 @@ const SECTIONS: Section[] = [
     body: (
       <ul className="list-disc list-inside flex flex-col gap-1.5">
         <li>
-          <b>Missed a day?</b> Nothing’s lost — just open it the next morning and carry on. Your streak
+          <b>Missed a day?</b> Nothing’s lost — open it the next morning and carry on. Your streak
           tolerates short gaps, and rest days won’t break it.
         </li>
         <li>
-          <b>Missed a chunk / been away?</b> The app eases you back in rather than dropping you into a
-          heavy week — follow what Today says.
+          <b>Missed a chunk / been away?</b> The app eases you back in rather than dropping you into
+          a heavy week — follow what Today says.
         </li>
         <li>
-          <b>A weight feels too heavy / too light?</b> Early Operator weeks are <i>meant</i> to feel
-          light (that’s the training max doing its job). If it’s genuinely wrong, re-check your Maxes
-          entry.
+          <b>The weights feel too light?</b> Early blocks are supposed to.{' '}
+          <i>“That’s normal and desirable… we’re starting light to build work capacity.”</i> (p.64)
+          If you genuinely have energy left, add a set — don’t add exercises (pp.64–65).
         </li>
         <li>
-          <b>Can’t finish an SE circuit unbroken?</b> Rest-pause and finish the reps — expected.
+          <b>Failing reps?</b> Rest five minutes or more first. Only if you’re still failing, use the
+          “Drop 1RM 10%” button on that lift (pp.52–53).
+        </li>
+        <li>
+          <b>Had a hard block on one lift?</b> Tap <b>“Struggled with this”</b> on it. When the block
+          ends, the app will leave that 1RM alone (p.53).
+        </li>
+        <li>
+          <b>Need more than a bridge week?</b> Take it — <i>“Too much rest is better than not
+          enough”</i> — but don’t drop your calories while you do (p.147).
         </li>
         <li>
           <b>Tapped the wrong thing?</b> Re-open the session to edit, or delete the log from History.
@@ -420,7 +515,7 @@ export default function Guide() {
       <Card elev="hero" pad="lg" className="topo-hero text-white">
         <h2 className="display-hero text-2xl text-white hero-text">Your TB guide</h2>
         <p className="text-white/90 text-sm mt-1 hero-text">
-          The whole system, in plain English. Tap a topic — this is here so you rarely need to ask.
+          Mass Protocol in plain English, with the page it comes from. Tap a topic.
         </p>
       </Card>
 
