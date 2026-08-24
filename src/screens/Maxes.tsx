@@ -108,36 +108,48 @@ export default function Maxes() {
   const stored = (id: string) =>
     rows.find((r) => r.protocolId === protocol.maxScope && r.exerciseId === id)
 
+  /**
+   * The only path that removes a stored max. Confirmed, because the row carries
+   * `progressedKg` — every increment Forced Progression has added since the test
+   * — and losing that silently rewinds the programme to where it started.
+   */
+  async function clearMax(ex: ClusterExercise) {
+    if (!window.confirm(`Forget your ${ex.name} max? Any progression added since the test goes with it.`))
+      return
+    await db.oneRm.delete([protocol.maxScope, ex.id])
+    setFields({ ...fields!, [ex.id]: EMPTY_FIELD })
+  }
+
   async function write(ex: ClusterExercise, patch: Partial<Field>) {
     const next = { ...(fields![ex.id] ?? EMPTY_FIELD), ...patch }
     setFields({ ...fields!, [ex.id]: next })
 
     if (isBodyweight(ex)) {
       const reps = Number(next.maxReps)
-      if (reps > 0) {
-        await db.oneRm.put({
-          protocolId: protocol.maxScope,
-          exerciseId: ex.id,
-          exerciseName: ex.name,
-          kg: 0,
-          unit: 'total',
-          source: 'tested',
-          maxReps: reps,
-          testedAt: new Date().toISOString().slice(0, 10),
-          progressedKg: 0,
-        })
-      } else {
-        await db.oneRm.delete([protocol.maxScope, ex.id])
-      }
+      // An empty or zero field is someone part-way through retyping, NOT an
+      // instruction to forget the max. Deleting here destroyed `progressedKg` —
+      // the only record of accumulated Forced Progression — and `testedAt` with
+      // it (audit A8). Clearing a max is now an explicit act; see `clearMax`.
+      if (!(reps > 0)) return
+      await db.oneRm.put({
+        protocolId: protocol.maxScope,
+        exerciseId: ex.id,
+        exerciseName: ex.name,
+        kg: 0,
+        unit: 'total',
+        source: 'tested',
+        maxReps: reps,
+        testedAt: new Date().toISOString().slice(0, 10),
+        // A fresh test supersedes accumulated Forced Progression.
+        progressedKg: 0,
+      })
       return
     }
 
     const w = Number(next.w)
     const r = Number(next.r)
-    if (!(w > 0)) {
-      await db.oneRm.delete([protocol.maxScope, ex.id])
-      return
-    }
+    // Same as above: mid-edit is not a delete instruction (audit A8).
+    if (!(w > 0)) return
     // Reps blank or 1 => the number typed IS the 1RM. Otherwise estimate it.
     const kg = r > 1 ? estimate1RM(w, r) : w
     const entry: OneRmEntry = {
@@ -192,8 +204,22 @@ export default function Maxes() {
                   <div className="flex items-baseline justify-between gap-2 mb-2">
                     <p className="font-medium text-ink text-[15px]">{ex.name}</p>
                     {e && (
-                      <span className="text-[11px] num-display text-load">
+                      <span className="text-[11px] num-display text-load flex items-baseline gap-1">
+                        {/* Show the drift, not just the total: the tested number and
+                            what Forced Progression has made of it are different facts
+                            and the book treats them as such (p.90). */}
+                        {!bw && e.progressedKg !== 0 && (
+                          <span className="text-muted">{round1(e.kg)} →</span>
+                        )}
                         {bw ? `${e.maxReps} rep max` : `1RM ${round1(e.kg + e.progressedKg)} kg`}
+                        <button
+                          type="button"
+                          onClick={() => void clearMax(ex)}
+                          aria-label={`Clear ${ex.name} max`}
+                          className="text-muted font-sans font-bold px-1"
+                        >
+                          ×
+                        </button>
                       </span>
                     )}
                   </div>

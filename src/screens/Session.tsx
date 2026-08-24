@@ -11,11 +11,12 @@ import { db, DEFAULT_SETTINGS, saveSettings } from '../db'
 import IntervalTimer from '../components/IntervalTimer'
 import { applyBeginnerProgress, beginnerDayLetter, beginnerLiftId, beginnerStall, REP_HI } from '../beginner'
 import { estimate1RM } from '../lib/calc'
+import { GM_FAILURE_DROP_PCT, currentMaxKg, withFailureDrop } from '../lib/progression'
 import { bestEst1RM, lastPerformance } from '../lib/stats'
 import { Button, Card, SegmentedPicker, SetCheck, SessionIcon } from '../components/ui'
 import Celebration, { type CelebrationContent } from '../components/Celebration'
 import ShareWin from '../components/ShareWin'
-import type { LoggedExercise, SessionLog } from '../types'
+import type { LoggedExercise, OneRmEntry, SessionLog } from '../types'
 
 interface SetState {
   weight: string
@@ -24,9 +25,21 @@ interface SetState {
 }
 interface ExState {
   name: string
+  /**
+   * Stable id, when the plan carries one. Needed to find this exercise's stored
+   * 1RM — history is keyed by display NAME, but a max is keyed by id.
+   */
+  exerciseId?: string
   note?: string
   loaded: boolean
   sets: SetState[]
+  /**
+   * "Don't force progression for exercises you struggled with" (MASS p.53).
+   * The book's test is the lifter's judgement, so this is a tick he sets, not
+   * something inferred from the numbers. Read at the block boundary by
+   * `markedStruggled` in `src/lib/progression.ts`.
+   */
+  struggled: boolean
   /**
    * How this exercise is loaded. The screen used to hardcode "kg/DB" under every
    * weight, which is wrong by a factor of two for a barbell lift.
@@ -293,8 +306,10 @@ export default function Session() {
         const first = e.sets[0]
         return {
           name: e.name,
+          exerciseId: e.exerciseId,
           note: e.note,
           loaded: e.loaded,
+          struggled: saved?.struggled ?? false,
           perDumbbell: first?.perDumbbell === true,
           perSide: first?.perSide,
           targetKg: first?.targetKg,
@@ -391,6 +406,9 @@ export default function Session() {
           reps: Number(s.reps) || 0,
           done: s.done,
         })),
+        // Only written when true, so a session logged before this existed and one
+        // where he simply didn't tick it stay indistinguishable in the file.
+        ...(e.struggled ? { struggled: true } : {}),
       }))
       const total = ex.reduce((n, e) => n + e.sets.length, 0)
       const done = ex.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0)
@@ -439,6 +457,14 @@ export default function Session() {
   const barStep = 2 * Math.min(...(settings.bar?.platePairsKg?.length ? settings.bar.platePairsKg : [1.25]))
   // See the note at the other `beginnerLift` above: protocol-scoped, not type-scoped.
   const beginnerLift = pos?.phaseId === 'beginner' && plan.type === 'lift'
+  /**
+   * A lift under a protocol whose loads come from a stored 1RM — which is what
+   * Forced Progression acts on. Scoped by PROTOCOL, never by `type === 'lift'`:
+   * Grey Man and Beginner sessions are both `type: 'lift'`, and that single
+   * conflation is the root cause behind four separate bugs in this codebase, one
+   * of which rewrote Beginner's real training weights from barbell totals.
+   */
+  const massLift = plan.type === 'lift' && protocolFor(pos?.phaseId).family !== 'legacy'
 
   const setSet = (ei: number, si: number, patch: Partial<SetState>) => {
     touched.current = true
@@ -447,6 +473,43 @@ export default function Session() {
         i === ei ? { ...e, sets: e.sets.map((s, j) => (j === si ? { ...s, ...patch } : s)) } : e,
       ),
     )
+  }
+
+  /**
+   * "Don't force progression for exercises you struggled with" (MASS p.53).
+   *
+   * Recorded here, at the moment he knows, and read back at the block boundary by
+   * the Forced Progression prompt — asking three weeks later "which of these was
+   * hard?" would be asking him to remember something the app could have written
+   * down.
+   */
+  const toggleStruggled = (ei: number) => {
+    touched.current = true
+    setEx((prev) => prev!.map((e, i) => (i === ei ? { ...e, struggled: !e.struggled } : e)))
+  }
+
+  /**
+   * The failure remedy, as an action rather than prose: "lower your 1 rep
+   * maximum by 10% and recalculate" (p.53).
+   *
+   * The book puts a step BEFORE this one and the app used to skip it — pp.52-53
+   * say to lengthen the rest interval to five minutes or more first, and only
+   * drop the max "if you're still failing consistently". The confirm carries that
+   * order, because a 10% cut taken on a bad day is a month of progress undone.
+   */
+  async function dropMax(exerciseId?: string) {
+    if (!exerciseId) return
+    const entry = maxes[exerciseId]
+    if (!entry) return
+    const now = currentMaxKg(entry)
+    const next = currentMaxKg(withFailureDrop(entry))
+    const ok = window.confirm(
+      `The book says lengthen your rest to 5 minutes or more first, and only drop the max if you are STILL failing consistently (p.53).
+
+Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 10) / 10} kg to ${Math.round(next * 10) / 10} kg?`,
+    )
+    if (!ok) return
+    await db.oneRm.put(withFailureDrop(entry))
   }
   // Deload a stalled beginner lift: drop this session's sets to the lighter weight AND
   // persist it as the new working weight, so LP resumes building from there.
@@ -756,6 +819,14 @@ export default function Session() {
                 />
               ))}
             </div>
+            {massLift && (
+              <StruggleControls
+                struggled={e.struggled}
+                onToggle={() => toggleStruggled(ei)}
+                entry={e.exerciseId ? maxes[e.exerciseId] : undefined}
+                onDrop={() => void dropMax(e.exerciseId)}
+              />
+            )}
           </Card>
           )
         })
@@ -890,6 +961,55 @@ export default function Session() {
       )}
 
       {celebration && <Celebration content={celebration} onClose={() => setCelebration(null)} />}
+    </div>
+  )
+}
+
+/**
+ * The two things MASS asks a lifter to record about a hard set, both from p.53.
+ *
+ * Hoisted to module scope for the same reason `SetRow` is (see the note there):
+ * an inlined component remounts on every render, and the rest timer re-renders
+ * this screen four times a second.
+ */
+function StruggleControls({
+  struggled,
+  onToggle,
+  entry,
+  onDrop,
+}: {
+  struggled: boolean
+  onToggle: () => void
+  entry?: OneRmEntry
+  onDrop: () => void
+}) {
+  return (
+    <div className="mt-3 pt-3 border-t border-line flex flex-wrap items-center gap-2">
+      <button
+        type="button"
+        onClick={onToggle}
+        aria-pressed={struggled}
+        className={`rounded-pill text-[11px] font-bold px-3 min-h-9 ${
+          struggled ? 'bg-brand/15 text-brand-ink' : 'bg-[var(--color-surface-sunk)] text-muted'
+        }`}
+      >
+        {struggled ? '✓ Struggled with this' : 'Struggled with this'}
+      </button>
+      {entry && (
+        <button
+          type="button"
+          onClick={onDrop}
+          className="rounded-pill bg-[var(--color-surface-sunk)] text-muted text-[11px] font-bold px-3 min-h-9"
+        >
+          Failing? Drop 1RM {GM_FAILURE_DROP_PCT}%
+        </button>
+      )}
+      {struggled && (
+        <p className="text-[11px] text-muted basis-full">
+          Its 1RM will be left alone at the end of the block — “use the same numbers for the next
+          block” (p.53).
+        </p>
+      )}
     </div>
   )
 }

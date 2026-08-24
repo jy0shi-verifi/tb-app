@@ -194,6 +194,84 @@ function resolveInPlan(plan: NonNullable<Settings['plan']>, when: Date): Positio
   }
 }
 
+// ---------------------------------------------------------------------------
+// Block boundaries — where Forced Progression fires
+// ---------------------------------------------------------------------------
+
+/**
+ * A block that has finished, and the dates it spanned.
+ *
+ * `startDate` is the identity used to record that its progression has been
+ * handled. The block INDEX is not, because a plan can be appended to and
+ * re-planned, whereas the Monday a block began is a fact that never moves.
+ */
+export interface FinishedBlock {
+  index: number
+  protocolId: string
+  startDate: string
+  /** The Monday AFTER the block — exclusive, so it is also the next block's start. */
+  endDateExclusive: string
+  weeks: number
+}
+
+/**
+ * The block that has just ended, if one has.
+ *
+ * Only meaningful under a block plan: without one there is a single open-ended
+ * phase and no boundary to fire on. That is Beginner's mode and it has its own
+ * progression (double progression, `src/beginner.ts`), which is why this returns
+ * null rather than inventing a boundary for it.
+ *
+ * A Bridge Week is never reported. It trains nothing (p.92), so there is nothing
+ * to progress off the back of — and the block before it already fired when the
+ * bridge itself began.
+ */
+export function justFinishedBlock(settings: Settings, when: Date): FinishedBlock | null {
+  const plan = settings.plan
+  if (!plan?.blocks?.length) return null
+
+  const pos = resolvePosition(settings, when)
+  if (pos.status === 'before') return null
+
+  // Past the end of the plan the last block is the one that finished; inside it,
+  // the finished block is the one before the current position.
+  const index = pos.status === 'complete' ? pos.blockIndex : pos.blockIndex - 1
+  if (index < 0) return null
+
+  const b = plan.blocks[index]
+  if (!b) return null
+  const protocol = protocolFor(b.protocolId)
+  if (protocol.liftingDays.length === 0) return null
+
+  let weeksBefore = 0
+  for (let i = 0; i < index; i++) weeksBefore += Math.max(1, plan.blocks[i].weeks)
+  const weeks = Math.max(1, b.weeks)
+  const start = addDays(parseISO(plan.startDate), weeksBefore * 7)
+
+  return {
+    index,
+    protocolId: b.protocolId,
+    startDate: isoDate(start),
+    endDateExclusive: isoDate(addDays(start, weeks * 7)),
+    weeks,
+  }
+}
+
+/**
+ * Whether the block-boundary progression prompt is still outstanding.
+ *
+ * Recorded per block start date in `settings.mass.progressedBlocks`, which is
+ * stamped whether he progressed every lift or none of them: the prompt is a
+ * decision point, and "I looked and chose not to" is an answer. Only an explicit
+ * "not now" leaves it unstamped.
+ */
+export function progressionPending(settings: Settings, when: Date): FinishedBlock | null {
+  const finished = justFinishedBlock(settings, when)
+  if (!finished) return null
+  const done = settings.mass?.progressedBlocks ?? []
+  return done.includes(finished.startDate) ? null : finished
+}
+
 const TYPE_LABEL: Record<SessionType, string> = {
   lift: 'Lift',
   se: 'SE',

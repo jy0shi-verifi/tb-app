@@ -79,6 +79,17 @@ export interface LoggedSet {
 export interface LoggedExercise {
   name: string
   sets: LoggedSet[]
+  /**
+   * The lifter's own "I struggled with this" mark, which Forced Progression
+   * needs: "Don't force progression for exercises you struggled with - use the
+   * same numbers for the next block" (MASS p.53).
+   *
+   * The book's test is a judgement, not a rep threshold, so the app asks rather
+   * than inferring. Optional and additive: absent on every session logged before
+   * this existed, and `BACKUP_VERSION` stays 2 because nothing already in a
+   * backup file is reinterpreted by it.
+   */
+  struggled?: boolean
 }
 
 /** A saved workout record. */
@@ -164,6 +175,16 @@ export interface Settings {
     conditioningDays?: number[]
     /** Chosen session per weekday, e.g. `{ 1: 'ruck' }`. Falls back to the first Green. */
     conditioningPick?: Record<number, string>
+    /**
+     * Start dates (ISO yyyy-mm-dd) of blocks whose Forced Progression prompt has
+     * been answered — see `progressionPending` in `src/program.ts`.
+     *
+     * Keyed by START DATE rather than by block index because a plan can be
+     * appended to and re-planned, whereas the Monday a block began never moves.
+     * Stamped whether he progressed every lift or none: the prompt is a decision
+     * point, and choosing not to progress is an answer to it.
+     */
+    progressedBlocks?: string[]
   }
   /**
    * The block sequence. When present it supersedes `currentPhaseId` /

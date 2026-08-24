@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
-import { CheckCircle2, ExternalLink, AlertTriangle, X, Flame } from 'lucide-react'
+import { CheckCircle2, ExternalLink, AlertTriangle, X, Flame, TrendingUp } from 'lucide-react'
 import { useSettings, useSessions, useSessionByDate, useMaxesFor } from '../hooks'
-import { PROTOCOLS, resolvePosition, sessionFor } from '../program'
+import { PROTOCOLS, progressionPending, resolvePosition, sessionFor } from '../program'
 import { isoDate, today, prettyDate, parseISO, diffDays, addDays, mondayIndex } from '../lib/date'
 import { db, saveSettings } from '../db'
 import { beginStravaAuth } from '../lib/strava'
@@ -40,6 +40,10 @@ export default function Today() {
   // Scoped to the RESOLVED protocol, not to settings — under a block plan the
   // two differ, and the wrong scope means every load renders "set your 1RM".
   const maxes = useMaxesFor(pos.phaseId)
+  // A block has ended and Forced Progression has not been answered for it. The
+  // book calls this the mechanism the protocol works by (p.90), so it is a
+  // prompt, not a settings screen the user has to know exists.
+  const progression = progressionPending(settings, now)
 
   // undefined until IndexedDB loads — avoids a flash of the wrong phase on DEFAULT_SETTINGS
   const settingsLoading = useLiveQuery(() => db.settings.get('app'), []) === undefined
@@ -117,6 +121,14 @@ export default function Today() {
         <button onClick={realign} className="text-brand-ink font-bold text-sm min-h-[44px] inline-flex items-center">
           Resume from week {lastDoneSession?.week ?? 1} →
         </button>
+        {progression && (
+          <button
+            onClick={() => nav('/progression')}
+            className="text-brand-ink font-bold text-sm min-h-[44px] inline-flex items-center"
+          >
+            Add weight to your 1RMs first →
+          </button>
+        )}
       </Card>
     )
   }
@@ -180,6 +192,8 @@ export default function Today() {
 
   return (
     <div className="space-y-4 stagger">
+      {progression && <ProgressionBanner blockIndex={progression.index} onOpen={() => nav('/progression')} />}
+
       {/* streak strip */}
       <div className="flex items-center gap-3">
         <Card pad="sm" className="flex-1 flex items-center gap-2.5">
@@ -375,5 +389,36 @@ export default function Today() {
         Consistency is the whole program. One session at a time.
       </p>
     </div>
+  )
+}
+
+/**
+ * The Forced Progression prompt: "Every 3 to 6 weeks, add 5-10lbs to 1RMs.
+ * Recalculate and repeat." (MASS p.53)
+ *
+ * On Today rather than buried in Settings because it is the mechanism the whole
+ * protocol runs on (p.90) — an app that hides it is an app that never gets
+ * heavier, which is exactly the state this one was in.
+ */
+function ProgressionBanner({ blockIndex, onOpen }: { blockIndex: number; onOpen: () => void }) {
+  return (
+    <Card className="border-warm-edge/40 bg-warm">
+      <div className="flex items-start gap-3">
+        <TrendingUp size={20} className="text-brand-ink mt-0.5 shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="font-bold text-ink">Block {blockIndex + 1} is done — add weight</p>
+          <p className="text-sm text-muted mt-0.5">
+            Forced Progression: add 5–10 lb to your 1RMs and every working weight follows (p.53).
+            Skip anything you struggled with.
+          </p>
+          <button
+            onClick={onOpen}
+            className="text-brand-ink font-bold text-sm min-h-[44px] inline-flex items-center"
+          >
+            Review your maxes →
+          </button>
+        </div>
+      </div>
+    </Card>
   )
 }
