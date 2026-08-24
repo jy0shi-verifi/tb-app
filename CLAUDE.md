@@ -95,6 +95,7 @@ every **DEVIATION** from the book labelled with why.
 | `src/lib/progression.ts` + `src/screens/Progression.tsx` (`/progression`) | Forced Progression (p.53, p.90) |
 | `src/lib/snapshots.ts` | automatic on-device backups (Dexie v3) |
 | `src/lib/planRules.ts` + `src/screens/NextCycle.tsx` (`/next-cycle`) | plan presets and two-tier guardrails |
+| `src/lib/sessions.ts` | **two sessions a day** (F1) — one lift, one conditioning; pull tomorrow's forward |
 
 **Audited (2026-08-24):** eight agents — four against the book, four against the code. Reports in
 `docs/audit/`, ranked synthesis in `docs/audit/00-summary.md`, outstanding items in `docs/BACKLOG.md`.
@@ -113,7 +114,12 @@ cards, the 3-week block decision (book-cited, p.67), the absence of any rounding
 v1→v2 migration *including* a stale build opening a v2 database, and the plate math — validated against
 an independent brute-force knapsack over 13 inventories × 1,041 targets with zero mismatches.
 
-**Verified at handoff:** 295 unit + 64 e2e green, typecheck/lint/build clean, and the real 23-session
+**F1 is built (2026-08-24).** A date now holds one lifting row and one conditioning row, so a morning
+Strava run and an evening lift coexist (closing code-01 F7 properly rather than by refusing), Green
+conditioning sharing a lifting day can be ticked (p.99), and tomorrow's session can be pulled forward
+when Josh is short of time. **No Dexie migration was required** — see `docs/mass-design.md` §13.
+
+**Verified at handoff:** 322 unit + 68 e2e green, typecheck/lint/build clean, and the real 23-session
 backup round-trips through the schema unchanged.
 
 **Not built:** the other three General templates (Mass, Gladiator, Fighter HT), Base Building
@@ -158,7 +164,8 @@ React 19 + TypeScript + Vite 8 · Tailwind v4 · **Dexie/IndexedDB** · react-ro
 
 **No global state store.** Every screen reads Dexie via `useLiveQuery` and writes back imperatively. Don't add a store without a specific reason.
 
-**Five tables** (`src/db.ts`), schema at **version 3**. Both migrations are add-a-store-only:
+**Five tables** (`src/db.ts`), schema at **version 3** — F1 (two sessions a day) deliberately added no
+version, see below. Both migrations are add-a-store-only:
 
 ```
 settings:  'id'                       // single row, id: 'app'
@@ -214,11 +221,15 @@ and returns `blockIndex`/`blockCount`. Without one it falls back to the original
   directly put every date in `Program.tsx` months out.
 - **A protocol's real exercise list is `protocol.exercisesFor(settings)`, not `protocol.clusters`.** Grey
   Man's S cluster is user-built (p.49); reading the static default made custom exercises un-loadable.
-- **One session row per date is a hard constraint, and it bites.** `sessions.date` is not unique and
-  nearly all read code assumes one row. A Strava run and an evening lift on the same day cannot both be
-  stored — `Session.tsx` now REFUSES to save rather than overwriting the run (code-01 F7), and
-  `sessionForDate` merges any strays field by field. Josh has asked for two rows per date (backlog
-  **F1**); it needs a Dexie v4 keyed on something like `(date, kind)`.
+- **A date holds at most ONE lift-family row and ONE cardio-family row** — never two lifts (backlog F1,
+  `docs/mass-design.md` §13). Josh's rule: *"I cannot be allowed to lift twice in one day."* That is why
+  there is no slot index: `(date, family)` is the identity, and two lifts in a day is not a state the
+  data can represent. `familyOf` (`src/lib/sessions.ts`) is coarser than `SessionType` on purpose —
+  `'se'` is a lift, `'hic'` is cardio. **Look a row up by family**: `sessionForDate(date, 'lift')`, or
+  `sessionsForDate(date)` for both. A bare `.first()` on a date is now a bug — it returns whichever of
+  the two came first. **This needed no Dexie migration**: `sessions.date` was always non-unique and the
+  assumption lived in the reads. A unique compound index was rejected — it populates over existing rows,
+  so one stray duplicate would make the database fail to open.
 - **Forced Progression's increment is sized by lift.** 4.5 kg lower body, 2.5 kg upper, from
   `ClusterExercise.bodyPart`; absent means the smaller one. MASS never says which lift gets which end of
   its 5–10 lb range — TB1 does, and MASS's range is exactly TB1's two numbers. Labelled deviation:
@@ -252,10 +263,9 @@ and returns `blockIndex`/`blockCount`. Without one it falls back to the original
 
 Most of the original list is now closed (see `docs/BACKLOG.md`). What remains:
 
-- `sessions.date` is **not a unique index**. Duplicate rows can no longer be *created* — autosave is
-  serialised — and `sessionForDate` merges any that an older build left behind, field by field. Saving a
-  lift onto a date that already holds a Strava run is **refused** rather than allowed to overwrite it
-  (code-01 F7). A real second row is what both that and same-day conditioning actually need: backlog F1.
+- `sessions.date` is **not a unique index** — now deliberately, since a date legitimately holds two rows
+  (F1). Duplicates *within* a family can no longer be created — autosave is serialised — and
+  `repairDate` merges any an older build left behind, field by field, scoped to the family.
 - **`parseBackup` validates table shape but not row shape** (code-01 F9). The version gate is solid; a
   malformed session row still imports and fails later, at render.
 - `POST /api/strava/token` now requires a same-origin request, and the OAuth flow carries a `state`

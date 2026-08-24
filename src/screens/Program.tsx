@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useSettings, useSessions, useMaxesFor } from '../hooks'
 import { PROTOCOLS, resolvePosition, sessionFor } from '../program'
-import { addDays, DAY_NAMES, isoDate, parseISO, today } from '../lib/date'
+import { addDays, DAY_NAMES, isoDate, parseISO, prettyDate, today } from '../lib/date'
+import { coverFor } from '../lib/sessions'
 import { Card, Pill, SegmentedPicker, SessionIcon, SESSION_META } from '../components/ui'
 
 const DAY_LETTERS = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
@@ -29,8 +30,29 @@ export default function Program() {
   // jump to the real current week when it resolves / changes
   useEffect(() => setWeek(pos.week), [pos.week])
 
-  const doneDates = new Set(sessions.filter((s) => s.done).map((s) => s.date))
-  const loggedDates = new Set(sessions.map((s) => s.date))
+  // A date is "done" when every row on it is done — a day can now hold both a
+  // lift and a conditioning session (backlog F1), and one of two ticked is not a
+  // finished day. A day whose session was pulled forward and trained early counts
+  // as done from the covering row's state, since nothing will ever be logged
+  // against the date itself.
+  const byDate = new Map<string, { logged: number; done: number }>()
+  const tally = (at: string, done: boolean) => {
+    const cur = byDate.get(at) ?? { logged: 0, done: 0 }
+    cur.logged++
+    if (done) cur.done++
+    byDate.set(at, cur)
+  }
+  for (const x of sessions) {
+    tally(x.date, x.done)
+    // A pulled-forward row counts twice on purpose: on the day it was trained,
+    // because it was, and on the day it was borrowed from, because nothing will
+    // ever be logged against that date and it is not a gap in the programme.
+    if (x.pulledFrom) tally(x.pulledFrom, x.done)
+  }
+  const doneDates = new Set(
+    [...byDate.entries()].filter(([, v]) => v.logged > 0 && v.done === v.logged).map(([k]) => k),
+  )
+  const loggedDates = new Set(byDate.keys())
   // Beginner is open-ended (blockWeeks 999), so the block view shows a rolling
   // window around where you are rather than every week to the horizon. A real
   // MASS block is 3 weeks and shows in full.
@@ -107,6 +129,13 @@ export default function Program() {
                     {plan.scheme && <p className="text-xs text-muted">{plan.scheme}</p>}
                     {/* Green may share a lifting day (p.99) — say so, or the
                         Plan screen's day picker is lying about what it schedules. */}
+                    {/* Trained early (backlog F1). Without this the week reads as
+                        though the session is still outstanding. */}
+                    {coverFor(sessions, iso) && (
+                      <p className="text-xs text-brand-ink font-semibold">
+                        Brought forward to {prettyDate(parseISO(coverFor(sessions, iso)!.date))}
+                      </p>
+                    )}
                     {plan.conditioning && (
                       <p className="text-xs text-accent-ink">+ {plan.conditioning.name}</p>
                     )}

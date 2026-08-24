@@ -140,6 +140,23 @@ export interface SessionLog {
   stravaId?: number
   feel?: 'easy' | 'ok' | 'hard'
   notes?: string
+  /**
+   * This row is the session PRESCRIBED for another date, trained early — Josh's
+   * "shorten my week by doubling everything up" (backlog F1).
+   *
+   * The ISO date the work was borrowed from. `date` stays the day it was
+   * actually done (so streaks, weekly counts and Strava all see the truth) while
+   * `week`/`day`/`phaseId` describe the slot it FULFILS, so the prescription and
+   * the Strava activity name are the borrowed day's, not today's.
+   *
+   * Reading it back: `coverFor` in `src/lib/sessions.ts` is how the borrowed day
+   * knows it is covered instead of nagging as missed.
+   *
+   * Additive and optional. Nothing already in a backup file is reinterpreted by
+   * it, so `BACKUP_VERSION` stays 2 — the same call made for
+   * `LoggedExercise.struggled`.
+   */
+  pulledFrom?: string
   createdAt: number
 }
 

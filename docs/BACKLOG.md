@@ -3,12 +3,12 @@
 The durable list of outstanding work. **Nothing here is "remembered" anywhere else** — if it is not in
 this file it will be forgotten. Add to it rather than relying on a chat thread.
 
-**Last reviewed: 2026-08-24**, after working the eight-agent audit end to end and then re-reading all
+**Last reviewed: 2026-08-24** (F1 closed the same day), after working the eight-agent audit end to end and then re-reading all
 eight reports finding by finding to make sure nothing was quietly dropped. IDs like `code-03 F7` are the
 audit's own numbering — `docs/audit/` has the evidence, with page references and `file:line`.
 
-**Status: 295 unit + 64 e2e green** · typecheck (covering `src`, `test`, `e2e` **and** `functions`),
-lint and build clean · deployed to tb2 as **v43**.
+**Status: 322 unit + 68 e2e green** · typecheck (covering `src`, `test`, `e2e` **and** `functions`),
+lint and build clean · deployed to tb2 as **v44**.
 
 ---
 
@@ -31,6 +31,7 @@ remainder, re-derived by walking all eight reports rather than trusting the summ
 | — | **Forced Progression, second pass.** Increment sized by lift (4.5 kg lower / 2.5 kg upper) and a three-way `full / eased / hold` decision. The full argument — what the book does and does not say — is `docs/mass-design.md` **§12**. | `984657b` |
 | **A5** | **Automatic on-device backups.** Dexie **v3** `snapshots` store, daily on app open and before every destructive action. Safe *by construction*: every destructive path clears tables **by name**. Retention 5 routine / 5 guard. Restoring snapshots first. `BACKUP_VERSION` stays **2**. | `d266e61` |
 | **A15** | **The guided planner** at `/next-cycle`, replacing the dead "Resume" button. Two-tier guardrails; presets are a **list** with mandatory page citations. | `d266e61` |
+| **F1** | **Two sessions in one day.** A date now holds one lift-family row and one cardio-family row — never two lifts, which is Josh's own rule and therefore the discriminator, so there is no slot index. Closes **code-01 F7** properly (a Strava run and an evening lift coexist) and gives same-day Green conditioning somewhere to be ticked (p.99). Adds pulling tomorrow's session forward, with the borrowed day showing as covered. **No Dexie migration** — `sessions.date` was already non-unique and the assumption lived in the reads; a unique compound index was rejected because it populates over existing rows and one stray duplicate would stop the database opening. `docs/mass-design.md` §13. | *this session* |
 
 ### Book fidelity
 
@@ -69,7 +70,7 @@ remainder, re-derived by walking all eight reports rather than trusting the summ
 | code-01 F4 (A8) | Maxes keystroke-delete destroyed `progressedKg`. | `4b0981c` |
 | code-01 F5 (A11) | The `importBackup` rollback branch — "the highest-value missing test in the repo" — tested, and **mitigated**: a `pre-import` snapshot now lives in the DB, not just a local variable. | `d266e61` |
 | code-01 F6 | The Strava delete invariant lives in `deleteSession`, where a call site cannot forget it. | `678156a` |
-| **code-01 F7** | **A Strava run row is no longer overwritten into a lift row.** The save is refused, visibly. Under MASS this is a normal week — Green *is* the running — not a corner case. Real fix is F1. | `0a8bf9f` |
+| **code-01 F7** | **A Strava run row is no longer overwritten into a lift row.** First by refusing the save, visibly; then **properly**, by letting both rows exist (F1 above). Under MASS this is a normal week — Green *is* the running — not a corner case. | `0a8bf9f`, *this session* |
 | code-01 F8 | `saveSettings` is transactional. | `678156a` |
 | code-01 F10 | Duplicate dates no longer double-count — `sessionForDate` collapses them. | `678156a` |
 | **code-01 F11** | **`parseBackup` skipped the version gate when `version` was not a number** — a file with `"version": "3"` imported as if current. Now refused. | `0a8bf9f` |
@@ -140,12 +141,6 @@ contain `Goblet / Front-rack Squat`, which is also LP_A's first lift. It now tak
 
 ## Still open
 
-### Decided, not yet built
-
-| ID | Item |
-|---|---|
-| **F1** | **Two sessions per day.** Josh, 2026-08-24: *"Allow two sessions per day, in case I ever need to shorten my week by doubling everything up."* One row per date is also the root of **code-01 F7** (a Strava run in the morning and a lift in the evening — a normal MASS week, since Green *is* the running) and of a Green session sharing a day with a lift having nowhere to be ticked. The repair layer exists: saves are serialised, `sessionForDate` merges strays, and F7 now refuses rather than corrupts. What is missing is a schema that permits exactly two **on purpose** — Dexie **v4** keyed on something like `(date, kind)`, plus every read that assumes one row per date, plus `stravaSync`'s `byDate` map. **Touches the riskiest code in the project**; take a snapshot before the first write. |
-
 ### Required before the app is "finished" — Josh, 2026-08-24
 
 | ID | Item |
@@ -175,7 +170,7 @@ contain `Goblet / Front-rack Squat`, which is also LP_A's first lift. It now tak
 | code-02 F15 | **`loadBar` allocates memory proportional to the target weight.** Fine at human loads; unbounded in principle. |
 | code-02 F17 | **S-cluster exercise ids come from the display name with no collision check.** Two exercises slugging to the same id would share a 1RM. |
 | code-03 F19 | **Deleting a block has no confirmation**, and an empty plan turns every day into "Rest". |
-| — | **`sessions.date` is still not a unique index.** Subsumed by F1. |
+| — | **`sessions.date` is not a unique index** — now deliberate (F1): a date legitimately holds two rows, and uniqueness is a property of `(date, family)` that the code enforces. An engine-level unique index was considered and rejected; `docs/mass-design.md` §13 says why. |
 
 ### UI polish — unaddressed, low severity
 

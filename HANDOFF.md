@@ -1,8 +1,9 @@
 # HANDOFF
 
-**Last updated:** 2026-08-24 · **Branch:** `mass-extraction` · **Deployed to `tb2` as v43.**
+**Last updated:** 2026-08-24 · **Branch:** `mass-extraction` · **Deployed to `tb2` as v44.**
 
-**Status: the eight-agent audit has been worked end to end.** Every item in its ranked summary is done.
+**Status: the audit is closed out, and backlog F1 (two sessions in one day) is built.** Every item in
+the audit's ranked summary is done.
 The individual reports carry more findings than that summary did, and those were then re-read one by one
 — what genuinely remains is listed in `docs/BACKLOG.md`, honestly, including the small and cosmetic ones.
 
@@ -25,8 +26,8 @@ Josh uses every morning.
 deadline pressure — but **Beginner Mode must keep working**, and its real history must keep rendering.
 Four of the worst findings this project has had were Beginner being corrupted or misread by MASS code.
 
-**Josh reviewed v41 and said it all looked good.** v42 and v43 landed after that review, so the
-progression screen's new shape and the three tail fixes have not been looked at yet.
+**Josh reviewed v41, then v42/v43 (2026-08-24) — "looked, all good".** So the reworked Forced
+Progression screen and the three tail fixes are signed off. v44 (F1) has NOT been reviewed yet.
 
 ### Two standing assumptions corrected this session
 
@@ -40,7 +41,36 @@ MASS-side copy that assumes a Runna plan.
 asks. Consequence worth remembering: the OAuth `state` and same-origin checks added this session are
 unit-tested but have never run against real Strava.
 
-### The headline change
+### F1 — two sessions in one day (built this session)
+
+Josh's rule decided the whole shape: *"I cannot be allowed to lift twice in one day."* So a date holds
+**at most one lift-family row and one cardio-family row**, `(date, family)` is the identity, and there
+is **no slot index** — two lifts in a day is not a state the data can represent.
+
+**No Dexie migration was needed, and none was made.** `sessions.date` was already non-unique and
+`where('date').equals(…)` already returned every row; the one-row-per-date assumption lived entirely in
+the reads. It ships as one additive optional field, `SessionLog.pulledFrom`, so `BACKUP_VERSION` stays
+**2** and v1/v2 files round-trip untouched. A unique compound index was considered and **rejected**: it
+populates over existing rows, so one duplicate an older build left behind would stop the database
+opening at all. The full argument is `docs/mass-design.md` **§13**.
+
+What it closes and adds:
+
+- **code-01 F7, properly.** A morning Strava run and an evening lift coexist. The save used to be
+  refused; now both rows exist. Under MASS this is a normal week — Green conditioning *is* the running.
+- **Green sharing a lifting day (p.99) can be ticked.** It was informational only, because the lift
+  already owned the date's single row.
+- **Pull tomorrow's session forward** when short of time — a quiet line at the bottom of Today, never a
+  suggestion. The row carries `pulledFrom`, so the borrowed day shows "Done on …" instead of nagging,
+  and the Program week list says "Brought forward to …".
+- **`stravaSync`'s `byDate` map is keyed `(date, family)`.** It used to hold whichever row came last, so
+  on a day carrying both, reconciliation was a coin toss.
+
+Where it lives: `src/lib/sessions.ts` (all the pure logic — `familyOf`, `repairDate`, `mergeRows`,
+`coverFor`, `pullForwardBlocker`), `sessionsForDate`/`sessionForDate(date, family?)` in `src/db.ts`,
+`useSessionsByDate` in `src/hooks.ts`, and the screens.
+
+### The headline change of the previous session
 
 **The programme now progresses.** Before this session nothing in `src/` wrote a non-zero `progressedKg`,
 so a fourth block prescribed exactly what the first one did. Forced Progression (p.53, p.90) is the
@@ -61,8 +91,9 @@ question about increment size sent it back for a second pass.
 | The Guide, rewritten from the book | `src/screens/Guide.tsx` |
 | OAuth `state` + same-origin token endpoint | `src/lib/strava.ts`, `functions/api/strava/token.ts` |
 
-**Verified:** 295 unit + 64 e2e green · `npm run typecheck` clean and now covering `functions/` too ·
-lint and build clean · every change confirmed in a real browser, not only in tests.
+**Verified:** 322 unit + 68 e2e green · `npm run typecheck` clean and covering `functions/` too · lint
+and build clean · F1 confirmed in a real browser (two rows written on one date, the pulled-forward card,
+the session header naming whose session it is), not only in tests.
 
 ---
 
@@ -70,19 +101,15 @@ lint and build clean · every change confirmed in a real browser, not only in te
 
 **`docs/BACKLOG.md` is the list.** In rough priority order:
 
-1. **Josh reviews v42/v43** — the new progression screen especially, since it changed after his review.
-2. **F1 — two sessions per day.** Decided by Josh: *"in case I ever need to shorten my week by doubling
-   everything up."* Also the root of code-01 F7 (a morning run and an evening lift, which under MASS is
-   a normal week) and of a same-day Green session having nowhere to be ticked. Needs Dexie **v4** keyed
-   on something like `(date, kind)`, plus every read that assumes one row per date, plus `stravaSync`'s
-   `byDate` map. **The riskiest code in the project** — snapshot before the first write.
-3. **E1 — Specificity Alpha and Bravo.** Josh ruled it required before the app is finished. The
+1. **Josh reviews v44** — the F1 work: bring a session forward from Today, and check a Strava run and a
+   lift can sit on one day.
+2. **E1 — Specificity Alpha and Bravo.** Josh ruled it required before the app is finished. The
    planner's ratio guidance and no-General warning are written and waiting; the default plan has to stop
    at the bridge without it. Extracted in sections 05 and 06.
-4. **E6 — a second plan preset** once E1 lands. `PLAN_PRESETS` is already a list.
-5. **The small correctness tail** — `parseBackup` row-shape validation (code-01 F9), deleting every
+3. **E6 — a second plan preset** once E1 lands. `PLAN_PRESETS` is already a list.
+4. **The small correctness tail** — `parseBackup` row-shape validation (code-01 F9), deleting every
    block reverting to a stale `phaseStartDate` (code-02 F12), S-cluster id collisions (code-02 F17).
-6. **E2 — the other three General templates.** Fighter HT trains twice a week and hits the
+5. **E2 — the other three General templates.** Fighter HT trains twice a week and hits the
    `alternationRotates` limitation; read p.60 first.
 
 ---
@@ -109,8 +136,10 @@ lint and build clean · every change confirmed in a real browser, not only in te
   client secret.
 - **A plan start that is not a Monday does not shift the plan, it ROTATES it.** Grey Man's Mon/Wed/Fri
   lands on Wed/Fri/Sun and is still labelled "Mon". Every write snaps; a stored one is flagged.
-- **One row per date is a hard constraint.** It is why a lift cannot be saved over a Strava run, and why
-  a same-day Green session cannot be ticked. Backlog F1.
+- **A date holds at most ONE lift row and ONE cardio row — never two lifts.** Look a row up by family
+  (`sessionForDate(date, 'lift')`, `sessionsForDate(date)`); a bare `.first()` on a date is now a bug,
+  because it returns whichever of the two came first. `familyOf` is coarser than `SessionType` on
+  purpose: `'se'` is a lift, `'hic'` is cardio.
 
 ---
 

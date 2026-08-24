@@ -1,6 +1,7 @@
 import Dexie, { type Table } from 'dexie'
 import type { MaxEntry, OneRmEntry, SessionLog, Settings, Snapshot } from './types'
 import { nextMonday } from './lib/date'
+import { repairDate, rowOfFamily, type SessionFamily } from './lib/sessions'
 import { PROTOCOLS, DEFAULT_PHASE_ID } from './program'
 
 export class TBDatabase extends Dexie {
@@ -150,56 +151,48 @@ export async function deleteSession(id: number): Promise<DeleteSessionResult> {
 }
 
 /**
- * The session logged for a date, collapsing any duplicates.
+ * Every session logged on a date, repaired.
  *
- * `sessions.date` is not a unique index, and un-serialised autosave could write
- * two rows for one date (audit A6). The second was unreachable — `.first()`
- * returns the lowest id — undeletable from the UI, and `stravaSync`'s `byDate`
- * map kept the LAST, so Strava enrichment landed on the invisible one.
+ * A date can now hold TWO rows on purpose — one lifting, one conditioning
+ * (backlog F1). `sessions.date` was always a non-unique index and this query
+ * always returned every match; what changed is that the callers stopped
+ * assuming there is one.
  *
- * Writes are serialised now, so new duplicates are not created. This repairs the
- * ones an older build may already have written: keep the row carrying the most
- * information (a Strava link first, then the most logged sets), fold in the
- * others' Strava data, and delete them.
+ * The repair itself is pure and lives in `src/lib/sessions.ts` (`repairDate`),
+ * which merges duplicates WITHIN a family and drops an empty auto-completed
+ * rest row once real work shares its date. Rows of different families are never
+ * merged — that is the whole point of the change. Writes are serialised, so the
+ * duplicates being repaired are only ones an older build left behind (audit A6).
  */
-export async function sessionForDate(date: string): Promise<SessionLog | undefined> {
+export async function sessionsForDate(date: string): Promise<SessionLog[]> {
   const rows = await db.sessions.where('date').equals(date).toArray()
-  if (rows.length <= 1) return rows[0]
-
-  // Merge FIELD BY FIELD, not row by row. Picking a single "best" row loses
-  // whatever the others held: the duplicate that carries the Strava link is
-  // usually the one with no logged sets, so keeping it wholesale would throw the
-  // training away, and keeping the other would throw the sync link away.
-  const doneSets = (r: SessionLog): number =>
-    r.exercises.reduce((n, e) => n + e.sets.filter((x) => x.done).length, 0)
-
-  const byId = [...rows].sort((a, b) => (a.id ?? 0) - (b.id ?? 0))
-  // The row the UI has been editing: `.first()` returns the lowest id, so that
-  // is the one the user can see. Its id is kept so nothing else has to re-point.
-  const base = byId[0]
-  const richest = [...byId].sort((a, b) => doneSets(b) - doneSets(a))[0]
-  const synced = byId.find((r) => r.stravaId != null)
-
-  const merged: SessionLog = {
-    ...base,
-    id: base.id,
-    exercises: doneSets(richest) > doneSets(base) ? richest.exercises : base.exercises,
-    done: byId.some((r) => r.done),
-    stravaId: base.stravaId ?? synced?.stravaId,
-    title: base.stravaId == null && synced ? (synced.title ?? base.title) : base.title,
-    durationMin: base.durationMin ?? synced?.durationMin,
-    distanceKm: base.distanceKm ?? synced?.distanceKm,
-    avgHr: base.avgHr ?? synced?.avgHr,
-    feel: base.feel ?? richest.feel ?? synced?.feel,
-    notes: base.notes ?? richest.notes ?? synced?.notes,
-    createdAt: Math.min(...byId.map((r) => r.createdAt || Date.now())),
+  const { keep, deleteIds } = repairDate(rows)
+  // A merge always retires at least one row and dropping a stale rest row always
+  // names one, so an empty `deleteIds` means nothing changed — and this runs on
+  // every read of a date, so it must not write on the happy path.
+  if (deleteIds.length) {
+    await db.transaction('rw', db.sessions, async () => {
+      for (const row of keep) await db.sessions.put(row)
+      await db.sessions.bulkDelete(deleteIds)
+    })
   }
+  return keep
+}
 
-  await db.transaction('rw', db.sessions, async () => {
-    await db.sessions.put(merged)
-    await db.sessions.bulkDelete(byId.slice(1).map((r) => r.id!).filter((id) => id != null))
-  })
-  return merged
+/**
+ * The row holding one kind of work on a date.
+ *
+ * `family` is what makes a lift and a run coexist: pass `'lift'` and a Strava
+ * run on the same date is invisible to you, so writing your lift can no longer
+ * overwrite it (audit code-01 F7). Omit it and you get the date's first row,
+ * which is what the single-session screens want.
+ */
+export async function sessionForDate(
+  date: string,
+  family?: SessionFamily,
+): Promise<SessionLog | undefined> {
+  const rows = await sessionsForDate(date)
+  return family ? rowOfFamily(rows, family) : rows[0]
 }
 
 // ---- backup ----

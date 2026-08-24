@@ -7,6 +7,7 @@ import {
   updateStravaActivityName,
 } from './strava'
 import { parseISO } from './date'
+import { familyOf, type SessionFamily } from './sessions'
 import { musclesForExercises } from '../exerciseInfo'
 import type { LoggedExercise, SessionLog } from '../types'
 
@@ -57,7 +58,20 @@ export async function syncStrava(): Promise<number> {
   const afterEpoch = Math.min(Math.floor(start.getTime() / 1000) - 86400, nowEpoch - 86400)
   const activities = await fetchStravaActivities(token, afterEpoch)
 
-  const byDate = new Map((await db.sessions.toArray()).map((s) => [s.date, s]))
+  /**
+   * Logged rows keyed by DATE AND FAMILY — backlog F1.
+   *
+   * Keyed by date alone this map held whichever row came last, so on a day
+   * carrying both a lift and a run it was a coin toss which one an incoming
+   * activity was reconciled against: a gym upload could find the run and bail,
+   * and a run could find the lift and be skipped as "don't clobber a logged
+   * lift". Both are now looked up by the family they belong to, so each kind of
+   * activity sees only rows of its own kind.
+   */
+  const key = (date: string, family: SessionFamily) => `${date}#${family}`
+  const byDate = new Map(
+    (await db.sessions.toArray()).map((s) => [key(s.date, familyOf(s.type)), s]),
+  )
   const canWrite = stravaCanWrite(settings)
 
   let synced = 0
@@ -72,9 +86,8 @@ export async function syncStrava(): Promise<number> {
     // set/rep breakdown back onto Strava so it shows in the feed.
     if (isLift) {
       const date = a.start_date_local.slice(0, 10)
-      const logged = byDate.get(date)
-      if (!logged?.id || (logged.type !== 'lift' && logged.type !== 'se') || !logged.exercises.length)
-        continue
+      const logged = byDate.get(key(date, 'lift'))
+      if (!logged?.id || !logged.exercises.length) continue
 
       const patch: Partial<SessionLog> = {}
       if (logged.stravaId == null) patch.stravaId = a.id
@@ -82,7 +95,7 @@ export async function syncStrava(): Promise<number> {
       if (logged.avgHr == null && a.average_heartrate) patch.avgHr = Math.round(a.average_heartrate)
       if (Object.keys(patch).length) {
         await db.sessions.update(logged.id, patch)
-        byDate.set(date, { ...logged, ...patch })
+        byDate.set(key(date, 'lift'), { ...logged, ...patch })
         synced++
       }
 
@@ -106,9 +119,12 @@ export async function syncStrava(): Promise<number> {
     const pos = resolvePosition(settings, parseISO(date))
     if (pos.status !== 'active') continue
 
-    const prev = byDate.get(date)
+    // The CONDITIONING row for the day, never the lift. The old lookup found
+    // whichever row happened to be there and then refused to touch a lift — which
+    // meant that on a day holding both, an incoming run was silently dropped.
+    // Under MASS that is a normal week: Green conditioning IS the running (p.99).
+    const prev = byDate.get(key(date, 'cardio'))
     if (prev?.stravaId) continue // already synced this day
-    if (prev && (prev.type === 'lift' || prev.type === 'se')) continue // don't clobber a logged lift
 
     // Running is owned by Runna: log ANY run (whatever day it lands on) and keep
     // Runna's own activity name — never rename it on Strava.
@@ -118,9 +134,12 @@ export async function syncStrava(): Promise<number> {
     const rec: SessionLog = {
       ...(prev?.id ? { id: prev.id } : {}),
       date,
-      phaseId: pos.phaseId,
-      week: pos.week,
-      day: pos.day,
+      // A conditioning row pulled forward from another day keeps the slot it
+      // fulfils; only a brand-new row takes today's position.
+      phaseId: prev?.pulledFrom ? prev.phaseId : pos.phaseId,
+      week: prev?.pulledFrom ? prev.week : pos.week,
+      day: prev?.pulledFrom ? prev.day : pos.day,
+      ...(prev?.pulledFrom ? { pulledFrom: prev.pulledFrom } : {}),
       type: recType,
       title: name,
       exercises: [],
@@ -132,7 +151,7 @@ export async function syncStrava(): Promise<number> {
       createdAt: Date.now(),
     }
     await db.sessions.put(rec)
-    byDate.set(date, rec)
+    byDate.set(key(date, 'cardio'), rec)
     synced++
     // Never rename a run on Strava — Runna owns those names.
   }

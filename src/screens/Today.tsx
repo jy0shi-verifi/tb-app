@@ -2,16 +2,26 @@ import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, ExternalLink, AlertTriangle, X, Flame, TrendingUp } from 'lucide-react'
-import { useSettings, useSessions, useSessionByDate, useMaxesFor } from '../hooks'
-import { PROTOCOLS, progressionPending, resolvePosition, sessionFor } from '../program'
+import { useSettings, useSessions, useSessionsByDate, useAllOneRm } from '../hooks'
+import {
+  PROTOCOLS,
+  conditioningAlongside,
+  narrowMaxes,
+  progressionPending,
+  protocolFor,
+  resolvePosition,
+  sessionFor,
+} from '../program'
 import { isoDate, today, prettyDate, parseISO, diffDays, addDays, mondayIndex } from '../lib/date'
 import { db, deleteSession, saveSettings } from '../db'
+import { coverFor, familyOf, pulledForwardDates, rowOfFamily, type SessionFamily } from '../lib/sessions'
 import { beginStravaAuth } from '../lib/strava'
 import { shouldNudgeBackup, downloadBackup } from '../lib/backup'
 import { computeStreak, longestStreak, sessionsThisWeek } from '../lib/stats'
 import { Button, Card, Pill, SessionIcon, SESSION_META } from '../components/ui'
 import ConditioningAlongside from '../components/ConditioningAlongside'
 import type { SessionLog } from '../types'
+import type { SessionPlan } from '../protocol'
 
 /** One line of context per protocol, shown under the date. */
 const BLURBS: Record<string, string> = {
@@ -28,7 +38,10 @@ export default function Today() {
   const nav = useNavigate()
   const now = today()
   const iso = isoDate(now)
-  const logged = useSessionByDate(iso)
+  // Every row on today — up to two, one lifting and one conditioning (backlog
+  // F1). `undefined` until IndexedDB answers.
+  const dayRowsLoading = useSessionsByDate(iso)
+  const dayRows = dayRowsLoading ?? []
   const [dismissedDate, setDismissedDate] = useState<string | null>(() =>
     localStorage.getItem('tb-dismiss-missed'),
   )
@@ -40,7 +53,15 @@ export default function Today() {
   const pos = resolvePosition(settings, now)
   // Scoped to the RESOLVED protocol, not to settings — under a block plan the
   // two differ, and the wrong scope means every load renders "set your 1RM".
-  const maxes = useMaxesFor(pos.phaseId)
+  //
+  // Read once and narrowed per position rather than through `useMaxesFor`,
+  // because this screen now resolves THREE positions: today, tomorrow (the
+  // rest-day peek and the bring-forward offer) and whichever day a pulled-forward
+  // session was borrowed from. Those can sit in different blocks, and a pull
+  // across a block seam would otherwise be narrowed with the wrong protocol.
+  const allOneRm = useAllOneRm()
+  const maxesFor = (phaseId: string) => narrowMaxes(allOneRm, protocolFor(phaseId))
+  const maxes = maxesFor(pos.phaseId)
   // A block has ended and Forced Progression has not been answered for it. The
   // book calls this the mechanism the protocol works by (p.90), so it is a
   // prompt, not a settings screen the user has to know exists.
@@ -48,7 +69,10 @@ export default function Today() {
 
   // undefined until IndexedDB loads — avoids a flash of the wrong phase on DEFAULT_SETTINGS
   const settingsLoading = useLiveQuery(() => db.settings.get('app'), []) === undefined
-  if (settingsLoading)
+  // Wait for the day's rows too. Rendering "Start session" and then flipping it
+  // to "Completed" a beat later is the same class of bug as seeding state from
+  // data that is still loading (CLAUDE.md) — the screen shows something untrue.
+  if (settingsLoading || dayRowsLoading === undefined)
     return (
       <div className="space-y-4" aria-busy="true" aria-label="Loading">
         <div className="skeleton h-24 rounded-card" />
@@ -158,6 +182,30 @@ export default function Today() {
 
   // ---- an active training day ----
   const plan = sessionFor(pos.phaseId, pos.week, pos.day, settings, maxes)
+  const planFamily = familyOf(plan.type)
+  // The row this day's own session writes to. Matched BY FAMILY, so a Strava run
+  // sitting on the same date is invisible to the lift and vice versa — which is
+  // what stopped one overwriting the other (audit code-01 F7, backlog F1).
+  const logged = rowOfFamily(dayRows, planFamily)
+
+  // Conditioning the book puts on this LIFTING day: "sessions can be conducted on
+  // non-lifting or lifting days" (p.99). It gets a row of its own now, so it can
+  // actually be ticked instead of being a note under the lift.
+  const condPlan = conditioningAlongside(pos.phaseId, pos.week, pos.day, settings)
+  const condRow = condPlan ? rowOfFamily(dayRows, 'cardio') : undefined
+
+  // A session borrowed from a later day and trained today — Josh's way of
+  // shortening a week when he is short of time (backlog F1).
+  const extraRow = dayRows.find((r) => r.pulledFrom)
+  const extraPos = extraRow?.pulledFrom ? resolvePosition(settings, parseISO(extraRow.pulledFrom)) : null
+  const extraPlan =
+    extraRow && extraPos && extraPos.status === 'active'
+      ? sessionFor(extraPos.phaseId, extraPos.week, extraPos.day, settings, maxesFor(extraPos.phaseId))
+      : null
+
+  // The reverse: today's own session was trained on an earlier day, so this day
+  // is covered and must not nag.
+  const coveredBy = coverFor(sessions, iso)
   // Protocol-specific, not hardcoded — this line described Beginner's linear
   // progression and was showing above Grey Man sessions.
   const blurb = BLURBS[pos.phaseId] ?? BLURBS.beginner
@@ -168,51 +216,124 @@ export default function Today() {
   const bestStreak = longestStreak(sessions)
   const weekCount = sessionsThisWeek(sessions)
 
-  // missed-session catch-up: most recent unlogged lift/SE day in the last week
+  // missed-session catch-up: most recent unlogged lift/SE day in the last week.
+  // A day whose session was pulled forward and trained early is NOT missed —
+  // that is the whole point of pulling it forward (backlog F1).
   const loggedDates = new Set(sessions.map((s) => s.date))
+  const coveredDates = pulledForwardDates(sessions)
   let missed: { date: string; title: string } | null = null
   for (let back = 1; back <= 7 && !missed; back++) {
     const d = addDays(now, -back)
     const p = resolvePosition(settings, d)
     if (p.status !== 'active') continue
     const pl = sessionFor(p.phaseId, p.week, p.day, settings, maxes)
-    if ((pl.type === 'lift' || pl.type === 'se') && !loggedDates.has(isoDate(d))) {
+    if (
+      (pl.type === 'lift' || pl.type === 'se') &&
+      !loggedDates.has(isoDate(d)) &&
+      !coveredDates.has(isoDate(d))
+    ) {
       missed = { date: isoDate(d), title: pl.title }
     }
   }
 
-  // tomorrow's session (for rest-day peek)
+  // tomorrow's session (for the rest-day peek, and for bringing it forward)
   const tmr = addDays(now, 1)
+  const tmrIso = isoDate(tmr)
   const tmrPos = resolvePosition(settings, tmr)
   const tmrPlan =
-    tmrPos.status === 'active' ? sessionFor(tmrPos.phaseId, tmrPos.week, tmrPos.day, settings, maxes) : null
+    tmrPos.status === 'active'
+      ? sessionFor(tmrPos.phaseId, tmrPos.week, tmrPos.day, settings, maxesFor(tmrPos.phaseId))
+      : null
 
-  async function markDone() {
-    if (logged?.id && logged.done) {
+  /**
+   * Can tomorrow's session be trained today? — backlog F1.
+   *
+   * Josh, 2026-08-24, on why he wants this: *"Let's say on Wednesday I'm waking
+   * up early to travel to the other side of the country, I would want to push the
+   * lifting on Wednesday forward to Tuesday, so I'd run in the morning and lift
+   * in the night."*
+   *
+   * The gate is what today already ASKS of him, not just what he has logged: the
+   * day's own session, any conditioning riding alongside it (p.99), and anything
+   * already on the date. If tomorrow's session is the same kind as one of those,
+   * the offer is not made — *"I cannot be allowed to lift twice in one day."*
+   */
+  const occupied = new Set<SessionFamily>(dayRows.map((r) => familyOf(r.type)))
+  occupied.add(planFamily)
+  if (condPlan) occupied.add('cardio')
+  const tmrFamily = tmrPlan ? familyOf(tmrPlan.type) : null
+  const canPullTomorrow =
+    tmrPlan != null &&
+    tmrFamily != null &&
+    tmrFamily !== 'rest' &&
+    !occupied.has(tmrFamily) &&
+    !coverFor(sessions, tmrIso) &&
+    !sessions.some((x) => x.date === tmrIso)
+
+  async function pullTomorrowForward() {
+    if (!tmrPlan) return
+    // Written as a scheduled-but-unfinished row rather than logged complete:
+    // bringing a session forward is a scheduling decision, doing it is not.
+    await db.sessions.add({
+      date: iso,
+      phaseId: tmrPos.phaseId,
+      week: tmrPos.week,
+      day: tmrPos.day,
+      type: tmrPlan.type,
+      title: tmrPlan.title,
+      exercises: [],
+      done: false,
+      pulledFrom: tmrIso,
+      createdAt: Date.now(),
+    })
+  }
+
+  async function sendExtraBack() {
+    if (extraRow?.id != null) await deleteSession(extraRow.id)
+  }
+
+  /**
+   * Tick (or un-tick) one of the day's sessions.
+   *
+   * Takes the plan and the row it belongs to rather than closing over the day's
+   * only session, because a day can now hold two: the prescribed one, the
+   * conditioning session sharing a lifting day (p.99), and a session pulled
+   * forward from a later date. `at` carries the position the session FULFILS,
+   * which for a pulled-forward row is the borrowed day, not today.
+   */
+  async function toggleDone(
+    p: SessionPlan,
+    row: SessionLog | undefined,
+    at: { phaseId: string; week: number; day: number },
+    from?: string,
+  ) {
+    if (row?.id && row.done) {
       // `deleteSession` un-ticks a Strava-linked row rather than removing it.
       // The invariant used to live only here, which is how Session and History
       // came to delete unconditionally (audit code-01 F6).
-      await deleteSession(logged.id)
+      await deleteSession(row.id)
       return
     }
     const rec: SessionLog = {
       date: iso,
-      phaseId: pos.phaseId,
-      week: pos.week,
-      day: pos.day,
-      type: plan.type,
-      title: logged?.stravaId ? (logged.title ?? plan.title) : plan.title,
+      phaseId: at.phaseId,
+      week: at.week,
+      day: at.day,
+      type: p.type,
+      title: row?.stravaId ? (row.title ?? p.title) : p.title,
       exercises: [],
       done: true,
       // keep any Strava-synced conditioning data
-      durationMin: logged?.durationMin,
-      distanceKm: logged?.distanceKm,
-      avgHr: logged?.avgHr,
-      stravaId: logged?.stravaId,
-      createdAt: logged?.createdAt ?? Date.now(),
+      durationMin: row?.durationMin,
+      distanceKm: row?.distanceKm,
+      avgHr: row?.avgHr,
+      stravaId: row?.stravaId,
+      ...(from ?? row?.pulledFrom ? { pulledFrom: from ?? row?.pulledFrom } : {}),
+      createdAt: row?.createdAt ?? Date.now(),
     }
-    await db.sessions.put(logged?.id ? { ...rec, id: logged.id } : rec)
+    await db.sessions.put(row?.id ? { ...rec, id: row.id } : rec)
   }
+  const markDone = () => toggleDone(plan, logged, pos)
 
   return (
     <div className="space-y-4 stagger">
@@ -330,7 +451,15 @@ export default function Today() {
 
           {plan.detail && <p className="text-sm text-muted mt-3 leading-relaxed">{plan.detail}</p>}
 
-          {plan.conditioning && <ConditioningAlongside c={plan.conditioning} />}
+          {plan.conditioning && (
+            <ConditioningAlongside
+              c={plan.conditioning}
+              done={condRow?.done ?? false}
+              onToggle={
+                condPlan ? () => toggleDone(condPlan, condRow, pos) : undefined
+              }
+            />
+          )}
 
           {/* F13: the one day whose whole purpose is testing 1RMs had no route
               to the 1RM screen. */}
@@ -388,7 +517,19 @@ export default function Today() {
 
         {/* action bar */}
         <div className="bg-[var(--color-surface-sunk)] px-5 py-4 border-t border-line/60">
-          {isLoggable ? (
+          {coveredBy ? (
+            /* Trained early, on purpose (backlog F1). Showing "Start session"
+               here would ask him to do it twice — the opposite of shortening
+               the week. */
+            <div className="text-center">
+              <p className="text-sm text-ink font-semibold">
+                {coveredBy.done ? 'Done' : 'Scheduled'} on {prettyDate(parseISO(coveredBy.date))}
+              </p>
+              <p className="text-xs text-muted mt-0.5">
+                You brought this session forward{coveredBy.done ? '' : ' — it is waiting on that day'}.
+              </p>
+            </div>
+          ) : isLoggable ? (
             <>
               <Button className="w-full text-lg" onClick={() => nav(`/session/${iso}`)}>
                 {logged?.exercises?.length ? 'Continue session' : 'Start session'}
@@ -435,6 +576,76 @@ export default function Today() {
           )}
         </div>
       </Card>
+
+      {/* A session borrowed from a later day (backlog F1). Its own card, because
+          it is genuinely a second session — not a note on the first one. */}
+      {extraRow && extraPlan && (
+        <Card pad="none" className="overflow-hidden">
+          <div className="p-5">
+            <div className="flex items-start gap-3">
+              <SessionIcon type={extraPlan.type} size={26} />
+              <div className="flex-1">
+                <p className="eyebrow text-brand-ink">
+                  Brought forward from {prettyDate(parseISO(extraRow.pulledFrom!))}
+                </p>
+                <h2 className="display-hero text-xl text-ink leading-tight">{extraPlan.title}</h2>
+                {extraPlan.scheme && (
+                  <p className={`text-sm font-bold ${SESSION_META[extraPlan.type].color}`}>
+                    {extraPlan.scheme}
+                  </p>
+                )}
+              </div>
+              {extraRow.done && <CheckCircle2 className="text-load" />}
+            </div>
+          </div>
+          <div className="bg-[var(--color-surface-sunk)] px-5 py-4 border-t border-line/60 space-y-2">
+            {extraPlan.exercises.length > 0 ? (
+              <Button
+                className="w-full"
+                variant={extraRow.done ? 'secondary' : 'primary'}
+                onClick={() => nav(`/session/${iso}?from=${extraRow.pulledFrom}`)}
+              >
+                {extraRow.done
+                  ? 'Review session'
+                  : extraRow.exercises.length
+                    ? 'Continue session'
+                    : 'Start session'}
+              </Button>
+            ) : (
+              <Button
+                className="w-full"
+                variant={extraRow.done ? 'secondary' : 'primary'}
+                onClick={() =>
+                  toggleDone(extraPlan, extraRow, extraPos!, extraRow.pulledFrom)
+                }
+              >
+                {extraRow.done ? 'Completed' : 'Mark complete'}
+              </Button>
+            )}
+            {!extraRow.done && (
+              <button
+                onClick={sendExtraBack}
+                className="w-full text-xs text-muted min-h-[44px]"
+              >
+                Put it back on {prettyDate(parseISO(extraRow.pulledFrom!))}
+              </button>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Short of time? Bring tomorrow's session forward. Deliberately quiet and
+          deliberately last: Josh asked for this as an escape hatch — "I will only
+          ever reschedule my week like that if I am genuinely struggling for time"
+          — so the app must never look like it is proposing a double day. */}
+      {canPullTomorrow && tmrPlan && (
+        <button
+          onClick={pullTomorrowForward}
+          className="w-full text-xs text-muted min-h-[44px] px-6"
+        >
+          Short of time tomorrow? Do {tmrPlan.title} today as well →
+        </button>
+      )}
 
       <p className="text-center text-xs text-muted px-6">
         Consistency is the whole program. One session at a time.

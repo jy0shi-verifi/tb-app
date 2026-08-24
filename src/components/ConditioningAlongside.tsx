@@ -1,4 +1,5 @@
 import { Footprints } from 'lucide-react'
+import { SetCheck } from './ui'
 import type { ConditioningBrief } from '../protocol'
 
 /**
@@ -12,12 +13,24 @@ import type { ConditioningBrief } from '../protocol'
  * structurally confined to rest days and the Plan screen's day picker lied
  * (audit A4).
  *
- * Deliberately informational: the app stores one session row per date, so a
- * conditioning session sharing a day with a lift has nowhere of its own to be
- * ticked. Giving it one means allowing two rows per date, which is the same
- * change A6 is about — see docs/BACKLOG.md.
+ * It is TICKABLE now. It used to be informational only, because the app stored
+ * one session row per date and so this session had nowhere of its own to be
+ * completed. Backlog F1 gave a date room for a lifting row and a conditioning
+ * row, and this is the second one — a real session the book prescribes, with a
+ * real completion state, not a note under the lift.
+ *
+ * `onToggle` is optional so the component still renders read-only where no
+ * conditioning plan could be resolved.
  */
-export default function ConditioningAlongside({ c }: { c: ConditioningBrief }) {
+export default function ConditioningAlongside({
+  c,
+  done = false,
+  onToggle,
+}: {
+  c: ConditioningBrief
+  done?: boolean
+  onToggle?: () => void
+}) {
   return (
     <div className="mt-3 rounded-field bg-[var(--color-surface-sunk)] p-3">
       <div className="flex items-start gap-2.5">
@@ -34,6 +47,11 @@ export default function ConditioningAlongside({ c }: { c: ConditioningBrief }) {
             Conditioning can share a day with a lift (p.99). Lift first.
           </p>
         </div>
+        {onToggle && (
+          <div className="shrink-0">
+            <SetCheck done={done} onToggle={onToggle} label={`Mark ${c.name} done`} />
+          </div>
+        )}
       </div>
     </div>
   )

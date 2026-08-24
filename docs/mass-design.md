@@ -761,3 +761,90 @@ lifting app."*
 
 So the screen proposes a complete answer for every lift, with its reason, and every alternative is one
 tap away. In a normal block there is nothing to decide.
+
+---
+
+## 13. Two sessions in one day (backlog F1)
+
+**Decided with Josh, 2026-08-24.** This is a data-model change to the riskiest table in the project, so
+the reasoning is recorded before the code rather than after it.
+
+### The requirement, in his words
+
+> *"Allow two sessions per day, in case I ever need to shorten my week by doubling everything up."*
+> — and, asked what that should look like:
+>
+> *"Let's say it's a Tuesday, and I am supposed to do conditioning in the morning & Wednesday is my next
+> lifting day. Let's say that on Wednesday I'm waking up early to travel to the other side of the
+> country, I would want to push the lifting on Wednesday forward to Tuesday so I'd: run in the morning &
+> lift in the night. Same thing goes in reverse if the morning session is lifting and I had to push
+> tomorrow's running session forward to accommodate, I'd lift in the morning and run in the evening.
+> **I cannot be allowed to lift twice in one day.**"*
+
+Two things follow, and they are both binding:
+
+1. **The escape hatch is optional and rare.** *"I will only ever reschedule my week like that if I am
+   genuinely struggling for time."* The programme must never prescribe two sessions; the app must never
+   look like it is proposing a double day. The offer is one quiet line at the bottom of Today.
+2. **The second session is always a different KIND.** Never two lifts.
+
+### Why there is no slot index
+
+That second rule is the discriminator. A date holds **at most one lift-family row and at most one
+cardio-family row**, so `(date, family)` identifies a row uniquely and "two lifts in a day" is not a
+state the data can represent at all.
+
+That is a stronger guarantee than a check, and this codebase has been bitten five times by rules that
+lived in a call site rather than in the shape of the data. An integer `slot` would have been more
+general and strictly worse: it would have permitted exactly the thing Josh ruled out, and every read
+would then have needed to ask *which* of two lifts it meant.
+
+`familyOf` is deliberately coarser than `SessionType`: `'se'` is a lift and `'hic'` is cardio, so the two
+legacy types Josh's logged history still carries keep behaving like the ones that replaced them.
+
+### DEVIATION from the backlog: no Dexie v4
+
+`docs/BACKLOG.md` specified *"Dexie v4 keyed on something like (date, kind)"*. **It was not needed, and
+it was not done.**
+
+`sessions.date` was already a **non-unique** index and `where('date').equals(…)` already returned every
+matching row. The one-row-per-date assumption lived entirely in the READS. So this ships as an additive
+optional field, `SessionLog.pulledFrom`, exactly the way `LoggedExercise.struggled` did:
+
+- no version bump, no index rebuild, no `upgrade()` callback;
+- `BACKUP_VERSION` stays **2**, and v1/v2 files round-trip untouched;
+- nothing already in a backup file is reinterpreted.
+
+A **unique compound index** was the obvious alternative and was rejected outright. Creating one populates
+it over existing rows, so a database an older build had already left a duplicate in would fail to open
+**at all** — and duplicates are known to exist in the wild, which is why `sessionForDate` has a merge
+repair. Trading "can never open your only copy of real training history" for "the engine enforces a rule
+the shape of the data already enforces" is not a trade this project makes: *data loss is the
+highest-severity failure mode* (CLAUDE.md).
+
+### The model
+
+| | |
+|---|---|
+| `src/lib/sessions.ts` | pure: `familyOf`, `repairDate`, `mergeRows`, `coverFor`, `pullForwardBlocker` |
+| `sessionsForDate(date)` | every row on a date, repaired |
+| `sessionForDate(date, family?)` | the row holding one kind of work |
+| `SessionLog.pulledFrom` | ISO date this session was **prescribed for**, when trained early |
+
+On a pulled-forward row, `date` is the day it was **done** — so streaks, weekly counts and Strava all see
+the truth — while `phaseId`/`week`/`day` describe the slot it **fulfils**, so the prescription and the
+Strava activity name are the borrowed day's.
+
+`repairDate` does two things and only two: it merges duplicates **within** a family (the audit A6 repair,
+now correctly scoped), and it drops an **empty** auto-completed rest row once real work shares its date —
+a day you trained on is not a rest day. A rest row carrying a Strava link, notes or a duration is kept,
+because something put it there.
+
+### What this closes
+
+- **code-01 F7** — properly, not by refusing. A morning Strava run and an evening lift now coexist. Under
+  MASS that is a normal week, not a corner case: Green conditioning **is** the running (p.99).
+- **The Green session sharing a lifting day** (p.99) has a row of its own and can be ticked. It had been
+  informational only, which made the Plan screen's day picker lie about what it scheduled.
+- **`stravaSync`'s `byDate` map**, which held whichever row came last and so reconciled activities
+  against a coin toss on any day carrying both.

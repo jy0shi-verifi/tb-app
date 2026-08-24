@@ -370,6 +370,36 @@ export function sessionFor(
 }
 
 /**
+ * The conditioning session sharing a LIFTING day, as a session plan of its own.
+ *
+ * `sessionFor` attaches this day's conditioning to the lift as a
+ * `ConditioningBrief` — informational, because until backlog F1 the app could
+ * store only one row per date and so the Green session had nowhere of its own to
+ * be ticked. Two rows per date fixes that, and this is how the second one gets
+ * its plan: same session the book prescribes, resolved as a full plan so it can
+ * be completed and matched to a Strava activity like any other run.
+ *
+ * Returns undefined on a rest day, where the conditioning session IS the day's
+ * session and `sessionFor` already returns it.
+ */
+export function conditioningAlongside(
+  phaseId: string,
+  week: number,
+  day: number,
+  settings: Settings,
+): SessionPlan | undefined {
+  const protocol = protocolFor(phaseId)
+  if (protocol.conditioning === 'none') return undefined
+  const pos = { week, day, liftingOrdinal: liftingOrdinalFor(protocol, week, day) }
+  // Gate on the brief, not on the session: `conditioningBriefFor` is what
+  // enforces the colour rule ("perform Black sessions on non-lifting days",
+  // p.99) and the lifting-day test. Calling the session builder directly would
+  // put a Black session alongside a lift.
+  if (!conditioningBriefFor(protocol, pos, settings)) return undefined
+  return conditioningSessionFor(protocol, pos, settings)
+}
+
+/**
  * Narrow a flat list of stored 1RMs to one protocol's scope, keyed by exercise
  * id — the shape `sessionFor` wants.
  *

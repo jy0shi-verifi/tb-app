@@ -1,6 +1,7 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { db, DEFAULT_SETTINGS } from './db'
+import { db, DEFAULT_SETTINGS, sessionsForDate } from './db'
 import { narrowMaxes, protocolFor } from './program'
+import { rowOfFamily, type SessionFamily } from './lib/sessions'
 import type { MaxEntry, OneRmEntry, SessionLog, Settings } from './types'
 
 export function useSettings(): Settings {
@@ -39,6 +40,28 @@ export function useSessions(): SessionLog[] {
   )
 }
 
-export function useSessionByDate(date: string): SessionLog | undefined {
-  return useLiveQuery(() => db.sessions.where('date').equals(date).first(), [date], undefined)
+/**
+ * Every session logged on a date — up to two, one lifting and one conditioning
+ * (backlog F1).
+ *
+ * Returns `undefined` while IndexedDB answers, deliberately: a screen that
+ * cannot tell "no sessions" from "not loaded yet" renders the empty state first
+ * and then flickers, and this project has a standing rule against seeding state
+ * from data that is still loading (CLAUDE.md).
+ */
+export function useSessionsByDate(date: string): SessionLog[] | undefined {
+  return useLiveQuery(() => sessionsForDate(date), [date], undefined)
+}
+
+/**
+ * The row holding one kind of work on a date.
+ *
+ * Pass the family of the session you mean. Without it you get the date's first
+ * row, which since F1 may be the OTHER session of the day — so every caller that
+ * knows what it is looking at should say so.
+ */
+export function useSessionByDate(date: string, family?: SessionFamily): SessionLog | undefined {
+  const rows = useSessionsByDate(date)
+  if (!rows) return undefined
+  return family ? rowOfFamily(rows, family) : rows[0]
 }

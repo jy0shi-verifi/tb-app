@@ -1,6 +1,14 @@
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach } from 'vitest'
-import { db, deleteSession, parseBackup, saveSettings, sessionForDate, DEFAULT_SETTINGS } from '../src/db'
+import {
+  db,
+  deleteSession,
+  parseBackup,
+  saveSettings,
+  sessionForDate,
+  sessionsForDate,
+  DEFAULT_SETTINGS,
+} from '../src/db'
 import { loadBar } from '../src/lib/barbell'
 import type { SessionLog } from '../src/types'
 
@@ -116,6 +124,71 @@ describe('sessionForDate collapses duplicate rows (audit A6)', () => {
     await sessionForDate('2026-08-17')
     expect(await db.sessions.count()).toBe(2)
     expect(await db.sessions.where('date').equals('2026-08-19').count()).toBe(1)
+  })
+})
+
+describe('two sessions in one day (backlog F1)', () => {
+  const run = (over: Partial<SessionLog> = {}): SessionLog =>
+    session({ type: 'run', title: 'Morning 5k', exercises: [], stravaId: 555, distanceKm: 5.2, ...over })
+
+  it('a Strava run and a lift on one date BOTH survive', async () => {
+    // audit code-01 F7, and the reason F1 exists. Under MASS this is a normal
+    // week, not a corner case: Green conditioning IS Josh's running (p.99), so a
+    // morning run and an evening lift land on one date routinely.
+    await db.sessions.add(run())
+    await db.sessions.add(session())
+
+    const rows = await sessionsForDate('2026-08-17')
+    expect(rows).toHaveLength(2)
+    expect(rows).not.toHaveLength(1) // what the old merge did — and it cost the run
+    expect(await db.sessions.count()).toBe(2)
+  })
+
+  it('hands back the row you asked for, by kind', async () => {
+    await db.sessions.add(run())
+    await db.sessions.add(session())
+
+    const lift = await sessionForDate('2026-08-17', 'lift')
+    const cardio = await sessionForDate('2026-08-17', 'cardio')
+    expect(lift!.type).toBe('lift')
+    expect(lift!.exercises).toHaveLength(1)
+    expect(lift!.stravaId).toBeUndefined() // the run's link must NOT leak onto it
+    expect(cardio!.type).toBe('run')
+    expect(cardio!.stravaId).toBe(555)
+    expect(cardio!.distanceKm).toBe(5.2)
+  })
+
+  it('still collapses two rows of the SAME kind on that date', async () => {
+    // The A6 repair has to keep working per family, or duplicates come back.
+    await db.sessions.add(run())
+    await db.sessions.add(session({ exercises: [], done: false }))
+    await db.sessions.add(session())
+
+    const rows = await sessionsForDate('2026-08-17')
+    expect(rows).toHaveLength(2)
+    expect(await db.sessions.count()).toBe(2)
+    expect((await sessionForDate('2026-08-17', 'lift'))!.exercises).toHaveLength(1)
+  })
+
+  it('drops an auto-completed rest row once real work lands on that date', async () => {
+    // Pulling a session forward onto a day already ticked off as rest.
+    await db.sessions.add(session({ type: 'rest', title: 'Rest', exercises: [] }))
+    await db.sessions.add(session({ pulledFrom: '2026-08-18' }))
+
+    const rows = await sessionsForDate('2026-08-17')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].type).toBe('lift')
+    expect(rows[0].pulledFrom).toBe('2026-08-18')
+    expect(await db.sessions.count()).toBe(1)
+  })
+
+  it('a pulled-forward session round-trips through the backup format', async () => {
+    // `pulledFrom` is additive, so BACKUP_VERSION stays 2 — but it must actually
+    // survive an export/import, or shortening a week is undone by a restore.
+    await db.sessions.add(session({ pulledFrom: '2026-08-19' }))
+    const parsed = parseBackup(await (await import('../src/db')).exportBackup())
+    expect(parsed.version).toBe(2)
+    expect(parsed.sessions[0].pulledFrom).toBe('2026-08-19')
   })
 })
 

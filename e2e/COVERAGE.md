@@ -1,6 +1,6 @@
 # TB App — E2E Coverage
 
-**Updated 2026-08-24.** 62 e2e tests, all green (`npm run test:e2e`), alongside 270 unit tests
+**Updated 2026-08-24.** 68 e2e tests, all green (`npm run test:e2e`), alongside 322 unit tests
 (`npm run test:unit`). Run `npm run typecheck` too — it covers `test/` and `e2e/`, which `npm run
 build` does not.
 
@@ -26,6 +26,7 @@ only as history — see the warning at the head of §3 before acting on any of i
 | `history.spec.ts` | 2 | History list and delete |
 | `settings.spec.ts` | 2 | rest-timer and theme persistence |
 | `splash.spec.ts` | 2 | cold-open motto clears; tap to skip |
+| `twoSessions.spec.ts` | 4 | **F1**: a lift and a Strava run coexist on one date; bringing tomorrow's session forward; the borrowed day showing as covered; ticking Green conditioning that shares a lifting day (p.99) |
 
 ## Covered by the unit suite instead (deliberately not e2e)
 

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createPortal } from 'react-dom'
 import { Check, Timer, X, Plus, Minus, Smile, Meh, Frown, ChevronDown, AlertTriangle } from 'lucide-react'
@@ -8,6 +8,7 @@ import { EXERCISE_INFO } from '../exerciseInfo'
 import ExerciseDetail from '../components/ExerciseDetail'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
 import { db, DEFAULT_SETTINGS, deleteSession, saveSettings, sessionForDate } from '../db'
+import { familyOf } from '../lib/sessions'
 import IntervalTimer from '../components/IntervalTimer'
 import { applyBeginnerProgress, beginnerDayLetter, beginnerLiftId, beginnerStall, REP_HI } from '../beginner'
 import { estimate1RM } from '../lib/calc'
@@ -279,17 +280,24 @@ function SetRow({
 export default function Session() {
   const nav = useNavigate()
   const params = useParams()
+  const [search] = useSearchParams()
   const iso = params.date ?? isoDate(today())
-  const when = parseISO(iso)
+  /**
+   * Pulling a session forward — backlog F1. `?from=YYYY-MM-DD` means "this is the
+   * session PRESCRIBED for that date, being trained today instead", which is how
+   * Josh shortens a week when he is short of time.
+   *
+   * The prescription therefore comes from the borrowed day, while the row is
+   * written against today. Ignored unless it actually parses as a date, so a
+   * hand-typed URL cannot render a session from nowhere.
+   */
+  const pulledFrom = /^\d{4}-\d{2}-\d{2}$/.test(search.get('from') ?? '') ? search.get('from')! : null
+  const when = parseISO(pulledFrom ?? iso)
 
   const settings = useLiveQuery(async () => (await db.settings.get('app')) ?? DEFAULT_SETTINGS, [])
   // Protocol-scoped 1RMs. `narrowMaxes` keeps Beginner's per-dumbbell maxes away
   // from MASS's total-on-the-bar ones.
   const oneRm = useLiveQuery(() => db.oneRm.toArray(), [])
-  const logged = useLiveQuery(
-    async () => (await db.sessions.where('date').equals(iso).first()) ?? null,
-    [iso],
-  )
   const allSessions = useLiveQuery(() => db.sessions.toArray(), [], [])
 
   const [ex, setEx] = useState<ExState[] | null>(null)
@@ -306,10 +314,21 @@ export default function Session() {
   const celebrated = useRef<Set<string>>(new Set())
   const touched = useRef(false)
 
-  const ready = settings !== undefined && oneRm !== undefined && logged !== undefined
-  const pos = ready ? resolvePosition(settings, when) : null
-  const maxes = ready && pos ? narrowMaxes(oneRm, protocolFor(pos.phaseId)) : {}
-  const plan = ready && pos ? sessionFor(pos.phaseId, pos.week, pos.day, settings, maxes) : null
+  // The plan is resolved BEFORE the logged row, not after, because which row this
+  // screen owns depends on the plan: a date can hold a lifting row and a
+  // conditioning row at once (backlog F1), so the family of the planned session
+  // is what picks between them. Reading `.first()` here is what let a lift
+  // overwrite a Strava run (audit code-01 F7).
+  const planReady = settings !== undefined && oneRm !== undefined
+  const pos = planReady ? resolvePosition(settings, when) : null
+  const maxes = planReady && pos ? narrowMaxes(oneRm, protocolFor(pos.phaseId)) : {}
+  const plan = planReady && pos ? sessionFor(pos.phaseId, pos.week, pos.day, settings, maxes) : null
+  const family = plan ? familyOf(plan.type) : undefined
+  const logged = useLiveQuery(
+    async () => (family ? ((await sessionForDate(iso, family)) ?? null) : undefined),
+    [iso, family],
+  )
+  const ready = planReady && logged !== undefined
 
   // hydrate once from an existing log or the plan
   useEffect(() => {
@@ -432,7 +451,7 @@ export default function Session() {
       //
       // `sessionForDate` rather than `.first()`: it also collapses any duplicate
       // rows an older build left behind (audit A6).
-      const existing = await sessionForDate(iso)
+      const existing = await sessionForDate(iso, family)
       const exercises: LoggedExercise[] = ex.map((e) => ({
         name: e.name,
         sets: e.sets.map((s) => ({
@@ -444,22 +463,25 @@ export default function Session() {
         // where he simply didn't tick it stay indistinguishable in the file.
         ...(e.struggled ? { struggled: true } : {}),
       }))
-      // A Strava-synced session of a DIFFERENT kind already owns this date.
+      // A DIFFERENT session of the same kind already owns this date.
       //
-      // One row per date cannot represent a run and a lift, so writing the lift
-      // here would keep the run's id, stravaId, distance and HR but overwrite
-      // its `type` and `exercises` — the run stops counting as a run, its
-      // distance sits orphaned on a lift row, and the History entry still
-      // carries the Runna title (audit code-01 F7). Under MASS this is not a
-      // corner case: Green conditioning IS the running, so a morning run and an
-      // evening lift on one day is a normal week.
+      // This used to refuse any clash at all, because one row per date could not
+      // represent a run and a lift: writing the lift kept the run's id, stravaId,
+      // distance and HR but overwrote its `type` and `exercises`, so the run
+      // stopped counting as a run and its distance sat orphaned on a lift row
+      // (audit code-01 F7). Two rows per date dissolves that case — `existing` is
+      // now looked up BY FAMILY, so a Strava run is not even visible here.
       //
-      // Refusing to save is the lesser harm — the logged run is real history and
-      // the lift can be re-entered. The real fix is two rows per date, which is
-      // backlog F1 and needs a schema change.
-      if (existing?.stravaId != null && existing.type !== plan.type && plan.type === 'lift') {
+      // What survives is Josh's own rule: *"I cannot be allowed to lift twice in
+      // one day."* A row of this family that belongs to a different session —
+      // today's own lift when you are trying to pull tomorrow's forward, or the
+      // reverse — is a genuine clash, and refusing is the lesser harm: what is
+      // stored is real history and this session can be logged on its own day.
+      if (existing && (existing.pulledFrom ?? null) !== pulledFrom) {
         setSaveBlocked(
-          `A Strava ${existing.type === 'run' ? 'run' : 'session'} is already logged on ${iso}. Logging a lift here would overwrite it, so nothing has been saved.`,
+          family === 'lift'
+            ? `You have already got a lifting session logged on ${iso}, and you can’t lift twice in one day. Nothing has been saved.`
+            : `You have already got a conditioning session logged on ${iso}. Nothing has been saved.`,
         )
         return
       }
@@ -483,6 +505,10 @@ export default function Session() {
         stravaId: existing?.stravaId,
         feel: meta.feel === '' ? undefined : meta.feel,
         notes: meta.notes === '' ? undefined : meta.notes,
+        // `date` is the day it was DONE; `week`/`day`/`phaseId` above are the slot
+        // it FULFILS. Keeping both is what lets the borrowed day show as covered
+        // while streaks, weekly counts and Strava all see the truth (backlog F1).
+        ...(pulledFrom ? { pulledFrom } : {}),
         createdAt: existing?.createdAt ?? Date.now(),
       }
       await db.sessions.put(rec)
@@ -732,9 +758,16 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
           <div>
             <h2 className="display-hero text-2xl text-ink leading-tight">{plan.title}</h2>
             <p className="text-sm text-muted">
-              {prettyDate(when)}
+              {prettyDate(parseISO(iso))}
               {plan.scheme ? ` · ${plan.scheme}` : ''}
             </p>
+            {/* Pulled forward: the header must say WHOSE session this is, or a
+                Wednesday lift logged on Tuesday looks like a mistake. */}
+            {pulledFrom && (
+              <p className="text-xs text-brand-ink font-semibold">
+                {prettyDate(parseISO(pulledFrom))}’s session, brought forward
+              </p>
+            )}
           </div>
         </div>
         {isLifting && (
