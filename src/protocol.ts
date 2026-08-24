@@ -152,6 +152,27 @@ export interface PlannedExercise {
   sets: PlannedSet[]
 }
 
+/**
+ * A conditioning session scheduled for the same day as a lift.
+ *
+ * It rides ALONGSIDE the lift rather than replacing it, because the book
+ * explicitly allows both on one day: "Sessions can be conducted on non-lifting
+ * **or lifting** days" (p.99, Green). The app used to inject conditioning only
+ * when the day resolved to `rest`, which structurally confined it to rest days
+ * and made the Plan screen's day picker lie — Grey Man's Mon/Wed/Fri could be
+ * lit and produce nothing (audit A4).
+ *
+ * Black is NOT eligible: "Perform Black sessions on non-lifting days" (p.99).
+ */
+export interface ConditioningBrief {
+  id: string
+  name: string
+  /** The book's card lines, joined. */
+  scheme?: string
+  detail?: string
+  colour: 'green' | 'black'
+}
+
 export interface SessionPlan {
   type: SessionType
   title: string
@@ -160,6 +181,12 @@ export interface SessionPlan {
   exercises: PlannedExercise[]
   /** Time-based run/walk intervals, if this session prescribes them. */
   intervals?: Interval[]
+  /**
+   * Conditioning also scheduled today, when today is a LIFTING day (p.99).
+   * On a rest day the conditioning session IS the day's session, so this stays
+   * undefined and `type`/`title` carry it instead.
+   */
+  conditioning?: ConditioningBrief
 }
 
 // ---------------------------------------------------------------------------

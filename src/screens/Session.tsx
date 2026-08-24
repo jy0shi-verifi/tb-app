@@ -15,6 +15,7 @@ import { GM_FAILURE_DROP_PCT, currentMaxKg, withFailureDrop } from '../lib/progr
 import { bestEst1RM, lastPerformance } from '../lib/stats'
 import { Button, Card, SegmentedPicker, SetCheck, SessionIcon } from '../components/ui'
 import Celebration, { type CelebrationContent } from '../components/Celebration'
+import ConditioningAlongside from '../components/ConditioningAlongside'
 import ShareWin from '../components/ShareWin'
 import type { LoggedExercise, OneRmEntry, SessionLog } from '../types'
 
@@ -639,6 +640,7 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
         )}
         {plan.detail && !isLifting && <p className="text-sm text-muted mt-2">{plan.detail}</p>}
         {isLifting && plan.detail && <p className="text-xs text-muted mt-2">{plan.detail}</p>}
+        {plan.conditioning && <ConditioningAlongside c={plan.conditioning} />}
       </div>
 
       {/* completion / PR moment — PRs show as soon as a top set beats your best */}

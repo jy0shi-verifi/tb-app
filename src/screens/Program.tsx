@@ -105,6 +105,11 @@ export default function Program() {
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-ink text-[15px]">{plan.title}</p>
                     {plan.scheme && <p className="text-xs text-muted">{plan.scheme}</p>}
+                    {/* Green may share a lifting day (p.99) — say so, or the
+                        Plan screen's day picker is lying about what it schedules. */}
+                    {plan.conditioning && (
+                      <p className="text-xs text-accent-ink">+ {plan.conditioning.name}</p>
+                    )}
                     {loads && <p className="num-display text-xs text-load mt-0.5">{loads}</p>}
                   </div>
                   {doneDates.has(iso) ? (

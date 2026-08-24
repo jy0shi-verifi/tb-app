@@ -8,7 +8,7 @@ import {
   BLACK_PER_WEEK,
   conditioningById,
 } from '../src/protocols/conditioning'
-import { conditioningDaysFor } from '../src/protocols/conditioningPlan'
+import { conditioningBriefFor, conditioningDaysFor } from '../src/protocols/conditioningPlan'
 import { DEFAULT_SETTINGS } from '../src/db'
 import type { Settings } from '../src/types'
 
@@ -165,6 +165,65 @@ describe('conditioning (pp.98–99)', () => {
     for (const d of PROTOCOLS.gm.liftingDays) {
       expect(sessionFor('gm', 1, d, s).type).toBe('lift')
     }
+  })
+
+  // -------------------------------------------------------------------------
+  // A4: "Sessions can be conducted on non-lifting OR LIFTING days" (p.99)
+  // -------------------------------------------------------------------------
+
+  it('lets Green share a lifting day — the book explicitly permits it (p.99)', () => {
+    const s = settings({ mass: { conditioningDays: [0, 2, 4] } })
+    const plan = sessionFor('gm', 1, 0, s) // Monday: a lifting day
+
+    // Alongside, not instead of. The lift is untouched...
+    expect(plan.type).toBe('lift')
+    expect(plan.exercises.length).toBeGreaterThan(0)
+    // ...and the conditioning rides with it.
+    expect(plan.conditioning).toBeDefined()
+    expect(plan.conditioning!.colour).toBe('green')
+    // The bug A4 exists for: conditioning was only ever injected into a `rest`
+    // day, so a lit Mon/Wed/Fri produced nothing at all.
+    expect(plan.conditioning).not.toBeUndefined()
+  })
+
+  it('does NOT attach conditioning to a lifting day that was not picked', () => {
+    const s = settings({ mass: { conditioningDays: [1, 3, 5] } }) // Tue/Thu/Sat
+    expect(sessionFor('gm', 1, 0, s).conditioning).toBeUndefined()
+  })
+
+  it('a rest day still carries the conditioning as the day’s own session', () => {
+    const s = settings({ mass: { conditioningDays: [1] } })
+    const plan = sessionFor('gm', 1, 1, s)
+    expect(plan.type).toBe('run')
+    // On a rest day the session IS the conditioning, so there is nothing to
+    // hang alongside — the brief stays undefined rather than duplicating it.
+    expect(plan.conditioning).toBeUndefined()
+  })
+
+  it('honours the pick, not just the day', () => {
+    const s = settings({
+      mass: { conditioningDays: [0], conditioningPick: { 0: 'ruck' } },
+    })
+    expect(sessionFor('gm', 1, 0, s).conditioning!.name).toBe('Ruck')
+    expect(sessionFor('gm', 1, 0, s).conditioning!.name).not.toBe('Walk')
+  })
+
+  it('refuses to put Black on a lifting day — "Perform Black sessions on non-lifting days" (p.99)', () => {
+    // No Specificity protocol exists yet, so this exercises the rule directly on
+    // a Black-carrying protocol shaped like the ones that will.
+    const black = { ...PROTOCOLS.gm, conditioning: 'black' as const }
+    const s = settings({ mass: { conditioningDays: [0, 2, 4] } })
+    const pos = { week: 1, day: 0, liftingOrdinal: 0 }
+    expect(conditioningBriefFor(black, pos, s)).toBeUndefined()
+    // And Green in the same position DOES attach — so the test is discriminating
+    // between the colours, not just returning undefined for everything.
+    expect(conditioningBriefFor(PROTOCOLS.gm, pos, s)).toBeDefined()
+  })
+
+  it('still counts a lifting-day session against the weekly cap', () => {
+    // Four requested across lifting and rest days; Green is "No more than 3".
+    const s = settings({ mass: { conditioningDays: [0, 1, 2, 3] } })
+    expect(conditioningDaysFor(PROTOCOLS.gm, s)).toEqual([0, 1, 2])
   })
 
   it('caps the week at the book’s maximum', () => {

@@ -3,7 +3,7 @@ import { addDays, diffDays, isoDate, parseISO } from './lib/date'
 import { BEGINNER_PROTOCOL } from './beginner'
 import { GREY_MAN_PROTOCOL } from './protocols/greyman'
 import { BRIDGE_PROTOCOL } from './protocols/bridge'
-import { conditioningSessionFor } from './protocols/conditioningPlan'
+import { conditioningBriefFor, conditioningSessionFor } from './protocols/conditioningPlan'
 import type { BlockPosition, Protocol, ProtocolContext, SessionPlan } from './protocol'
 import type { OneRmEntry } from './types'
 
@@ -324,13 +324,21 @@ export function sessionFor(
   const ctx: ProtocolContext = { settings, maxes }
   const pos = { week, day, liftingOrdinal: liftingOrdinalFor(protocol, week, day) }
   const plan = protocol.sessionFor(pos, ctx)
-  // Conditioning is a property of the block (p.20). A protocol that carries a
-  // colour fills its rest days with the matching session rather than leaving
-  // them blank — but never displaces a lifting day.
-  if (plan.type === 'rest' && protocol.conditioning !== 'none') {
-    return conditioningSessionFor(protocol, pos, settings) ?? plan
-  }
-  return plan
+  // Conditioning is a property of the block (p.20). A protocol carrying a colour
+  // fills its rest days with the matching session rather than leaving them
+  // blank, and — for Green — ALSO rides alongside a lift when the user has put
+  // one on a lifting day:
+  //
+  //   "Sessions can be conducted on non-lifting or lifting days." (p.99, Green)
+  //   "Perform Black sessions on non-lifting days."               (p.99, Black)
+  //
+  // The rest-day branch alone used to be the whole rule, which structurally
+  // forbade what the book explicitly permits and made the Plan screen's day
+  // picker lie — Grey Man's Mon/Wed/Fri could be lit and produce nothing (A4).
+  if (protocol.conditioning === 'none') return plan
+  if (plan.type === 'rest') return conditioningSessionFor(protocol, pos, settings) ?? plan
+  const alongside = conditioningBriefFor(protocol, pos, settings)
+  return alongside ? { ...plan, conditioning: alongside } : plan
 }
 
 /**

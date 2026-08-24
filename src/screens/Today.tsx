@@ -10,6 +10,7 @@ import { beginStravaAuth } from '../lib/strava'
 import { shouldNudgeBackup, downloadBackup } from '../lib/backup'
 import { computeStreak, longestStreak, sessionsThisWeek } from '../lib/stats'
 import { Button, Card, Pill, SessionIcon, SESSION_META } from '../components/ui'
+import ConditioningAlongside from '../components/ConditioningAlongside'
 import type { SessionLog } from '../types'
 
 /** One line of context per protocol, shown under the date. */
@@ -305,6 +306,8 @@ export default function Today() {
           </div>
 
           {plan.detail && <p className="text-sm text-muted mt-3 leading-relaxed">{plan.detail}</p>}
+
+          {plan.conditioning && <ConditioningAlongside c={plan.conditioning} />}
 
           {plan.exercises.length > 0 && (
             <div className="mt-4 divide-y divide-line/60">

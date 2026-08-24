@@ -16,7 +16,7 @@
  * lifting day.
  */
 import type { Settings } from '../types'
-import type { BlockPosition, Protocol, SessionPlan } from '../protocol'
+import type { BlockPosition, ConditioningBrief, Protocol, SessionPlan } from '../protocol'
 import {
   conditioningById,
   defaultConditioningDays,
@@ -46,6 +46,38 @@ export function conditioningPickFor(
   if (!options.length) return undefined
   const id = settings.mass?.conditioningPick?.[day]
   return (id && conditioningById(id)) || options[0]
+}
+
+/**
+ * The conditioning scheduled for a LIFTING day, or `undefined`.
+ *
+ * Green may share a day with a lift — "Sessions can be conducted on non-lifting
+ * or lifting days" (p.99) — and until this existed the app forbade what the book
+ * permits, because `sessionFor` only reached for conditioning when the day
+ * resolved to `rest` (audit A4).
+ *
+ * Black never may: "Perform Black sessions on non-lifting days" (p.99).
+ * `conditioningDaysFor` already filters those out, and this re-states the rule
+ * rather than trusting that — a colour rule the book prints as a limit should be
+ * enforced where it is read, not only where it is written.
+ */
+export function conditioningBriefFor(
+  protocol: Protocol,
+  pos: BlockPosition,
+  settings: Settings,
+): ConditioningBrief | undefined {
+  if (protocol.conditioning !== 'green') return undefined
+  if (!protocol.liftingDays.includes(pos.day)) return undefined
+  if (!conditioningDaysFor(protocol, settings).includes(pos.day)) return undefined
+  const s = conditioningPickFor(protocol, settings, pos.day)
+  if (!s) return undefined
+  return {
+    id: s.id,
+    name: s.name,
+    scheme: s.card.join(' · '),
+    detail: s.detail,
+    colour: 'green',
+  }
 }
 
 /**
