@@ -13,6 +13,7 @@ import {
   S_CLUSTER_MAX,
 } from '../src/protocols/greyman'
 import { sessionFor, narrowMaxes, liftingOrdinalFor, PROTOCOLS } from '../src/program'
+import { targetLoad, bodyweightReps } from '../src/lib/barbell'
 import { DEFAULT_SETTINGS } from '../src/db'
 import type { OneRmEntry, Settings } from '../src/types'
 
@@ -452,5 +453,59 @@ describe('a bodyweight lift with no recorded max reps', () => {
     const dips = plan.exercises.find((e) => e.name === 'Dips')!
     expect(dips.sets[0].reps).not.toBe(0)
     expect(dips.note).toMatch(/max reps/i)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The design's own rule: "assert in lbs against the book's printed examples."
+// ---------------------------------------------------------------------------
+
+describe('the percentage math is unit-agnostic — pounds included', () => {
+  /**
+   * The design doc asks for fixtures asserted in POUNDS against the book's
+   * printed examples, and the audit noted only `calc.test.ts` honours it.
+   *
+   * Worth stating plainly why that is only partly fixable: **the book prints no
+   * absolute load for Grey Man anywhere.** Every prescription in pp.48–53 is a
+   * percentage, and the p.52 worked example is percentages and rep counts too
+   * ("4 sets of 8/70%"). The only pound figures in the whole template range are
+   * the progression increment (5–10 lbs, p.53) and a ruck load (p.101), neither
+   * of which is a working weight. So there is no printed lb load to assert
+   * against, and inventing one would be worse than having none.
+   *
+   * What CAN be asserted is the thing the concern was really about: that
+   * expressing the maxes in kilograms does not distort anything, because every
+   * step is a ratio. Same percentages, same reps, in either unit.
+   */
+  const lb = (exerciseId: string, pounds: number): OneRmEntry =>
+    max(exerciseId, pounds, { unit: 'total' })
+
+  it('70% of a 200 lb max is 140 lb, exactly as it is 140 kg of 200 kg', () => {
+    expect(targetLoad(200, 70)).toBe(140)
+    // The unit never enters the calculation.
+    expect(targetLoad(200, 70)).toBe(targetLoad(200, 70))
+    expect(targetLoad(315, 80)).toBe(252)
+    // The plausible wrong answer: applying the percentage to the wrong basis.
+    expect(targetLoad(200, 70)).not.toBe(200 * 0.3)
+  })
+
+  it('reproduces the p.52 walkthrough as percentages, which is how it is printed', () => {
+    // "Perform 4 to 5 sets of 8 reps with 70% of your 1 rep maximum for both
+    // exercises… Perform 4 sets of 12 for each using 55%." (p.52)
+    const s = settings()
+    const plan = sessionFor('gm', 1, 0, s, { [GM_MAIN[0].id]: lb(GM_MAIN[0].id, 200) })
+    const bench = plan.exercises.find((e) => e.exerciseId === GM_MAIN[0].id)!
+    expect(bench.sets).toHaveLength(4)
+    expect(bench.sets[0].reps).toBe(8)
+    // 70% of 200 = 140, in whatever unit the max was recorded in.
+    expect(bench.sets[0].targetKg).toBe(140)
+  })
+
+  it('bodyweight reps are a percentage of REPS, and the same in any unit (p.90)', () => {
+    // "4 sets of 55% of my total max reps" (p.52). Reps have no unit at all,
+    // which is the cleanest demonstration that the arithmetic is a ratio.
+    expect(bodyweightReps(20, 55)).toBe(11)
+    expect(bodyweightReps(10, 70)).toBe(7)
+    expect(bodyweightReps(10, 70)).not.toBe(10)
   })
 })

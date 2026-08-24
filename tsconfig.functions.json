@@ -1,0 +1,28 @@
+{
+  // Typechecks `functions/` — the three Cloudflare Pages Functions.
+  //
+  // These were covered by NO script at all: `npm run build` typechecks `src`,
+  // `tsconfig.test.json` adds `test` and `e2e`, and nothing looked at the code
+  // that holds the Strava client secret. Same gap, same fix as `test/` and
+  // `e2e/` got on 2026-08-24.
+  //
+  // They run on Cloudflare Workers, not in the browser and not in Node, so this
+  // deliberately does NOT extend `tsconfig.app.json`: it has no DOM, no
+  // `vite/client`, and no JSX.
+  "compilerOptions": {
+    "target": "es2023",
+    "lib": ["ES2023", "WebWorker"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": [],
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.functions.tsbuildinfo"
+  },
+  "include": ["functions"]
+}

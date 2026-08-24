@@ -12,15 +12,69 @@ export function stravaConfigured(): boolean {
   return !!STRAVA_CLIENT_ID && STRAVA_CLIENT_ID !== '__STRAVA_CLIENT_ID__'
 }
 
-/** Kick off the OAuth flow — sends the browser to Strava to authorise. */
+/**
+ * Where the one-shot OAuth `state` is parked between leaving for Strava and
+ * coming back. `sessionStorage`, not `localStorage`: it should not outlive the
+ * tab, and a stale value is worse than none.
+ */
+const STATE_KEY = 'tb-strava-state'
+
+/** A one-shot, unguessable value. Falls back only if `crypto` is unavailable. */
+function newState(): string {
+  try {
+    const a = new Uint8Array(16)
+    crypto.getRandomValues(a)
+    return [...a].map((b) => b.toString(16).padStart(2, '0')).join('')
+  } catch {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  }
+}
+
+/**
+ * Kick off the OAuth flow — sends the browser to Strava to authorise.
+ *
+ * The `state` parameter is the CSRF defence for the callback: without it, any
+ * page can send the browser to `tb2.joshua-birch.co.uk/?code=…&scope=…` with a
+ * code of its choosing and the app would exchange it and store the resulting
+ * tokens — silently connecting Josh's app to somebody else's Strava account.
+ * The flow had none (a known live risk in CLAUDE.md).
+ */
 export function beginStravaAuth(): void {
+  const state = newState()
+  try {
+    sessionStorage.setItem(STATE_KEY, state)
+  } catch {
+    /* private mode — the callback will fall back to accepting a stateless reply */
+  }
   const url = new URL('https://www.strava.com/oauth/authorize')
   url.searchParams.set('client_id', STRAVA_CLIENT_ID)
   url.searchParams.set('redirect_uri', `${window.location.origin}/`)
   url.searchParams.set('response_type', 'code')
   url.searchParams.set('scope', SCOPE)
   url.searchParams.set('approval_prompt', 'auto')
+  url.searchParams.set('state', state)
   window.location.assign(url.toString())
+}
+
+/**
+ * Whether a callback's `state` matches the one we sent.
+ *
+ * Exported for testing. Returns false when we have a stored state and the reply
+ * does not match it. When there is NO stored state — a private-mode browser that
+ * refused sessionStorage, or a session restored across a browser restart — it
+ * returns true rather than locking the user out of connecting at all; that is a
+ * deliberate trade, and it is why the check is not the only defence (the token
+ * endpoint also enforces same-origin).
+ */
+export function stateMatches(returned: string | null): boolean {
+  let expected: string | null = null
+  try {
+    expected = sessionStorage.getItem(STATE_KEY)
+  } catch {
+    return true
+  }
+  if (!expected) return true
+  return returned === expected
 }
 
 interface TokenResponse {
@@ -68,9 +122,18 @@ export async function handleStravaRedirect(): Promise<boolean> {
   const scope = params.get('scope')
   if (!code || !scope) return false // not a Strava callback
   try {
+    // Reject a callback we did not start. Without this, any page could push the
+    // browser at this URL with its own `code` and connect the app to someone
+    // else's Strava account.
+    if (!stateMatches(params.get('state'))) return false
     await storeTokens(await tokenExchange({ code }), scope)
     return true
   } finally {
+    try {
+      sessionStorage.removeItem(STATE_KEY)
+    } catch {
+      /* no-op */
+    }
     window.history.replaceState({}, '', window.location.pathname)
   }
 }
