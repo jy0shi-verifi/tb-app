@@ -526,3 +526,139 @@ Steps 1–4 are the substance. Nothing before step 4 changed what Josh sees on h
 - **No Specificity, no Base Building, no other General template.** The model accommodates them; the first
   build does not include them.
 - **No nutrition or supplement tracking.** Extracted (section 08) but out of scope.
+
+---
+
+## 11. Decisions taken 2026-08-24 (Josh, in session)
+
+Four design questions were put to Josh before any code was written, per the backlog's instruction that
+**A5** and **A15** be discussed first. His answers are recorded here because they are now binding on the
+implementation; the backlog entries point at this section.
+
+### 11.1 A5 — automatic backups live in a new Dexie table (v3)
+
+**Decision: a `snapshots` store, added in a Dexie v3 migration.**
+
+The threat being defended against is a **user-level mistake**, not device loss: the un-gated "Load demo
+history" button, "Reset to clean", and a bad import — all three reachable from Settings in production,
+all three able to erase real training history in one tap. Device loss is already covered by manual
+export, and always will be.
+
+Why a Dexie table rather than OPFS, `localStorage` or an auto-download:
+
+- **It survives every destructive path by construction.** `clearAll` (`src/dev/seed.ts:293`), the demo
+  seeder (`:269`) and `importBackup` (`src/db.ts`) all clear tables **by name**. A store they do not
+  name is untouched without anyone having to remember it. That is a structural guarantee, not a
+  convention — and this project has been bitten four times by conventions call sites forgot.
+- `localStorage` was rejected outright: a ~5 MB cap that the real history will grow into, failing
+  silently, which is the worst possible behaviour for a safety net.
+- OPFS was considered and set aside — it survives a Dexie-level catastrophe, but site-data clearing takes
+  both out together, so the independence gain is small for materially more code and more failure modes.
+- An auto-download was rejected: it prompts on every app open and fills the device's Downloads folder.
+
+**Shape.** A snapshot is exactly the JSON `exportBackup()` already produces, plus the reason it was
+taken. Reusing that function matters — it is the format `parseBackup`/`importBackup` already validate and
+round-trip, and it is the one thing in this codebase with a real regression fixture behind it.
+
+```ts
+db.version(3).stores({ snapshots: '++id, takenAt' })
+
+interface Snapshot {
+  id?: number
+  takenAt: number                 // epoch ms
+  reason: 'app-open' | 'pre-demo' | 'pre-import' | 'pre-reset'
+  json: string                    // exportBackup() output
+  sessionCount: number            // for the restore list, without parsing
+}
+```
+
+**Snapshots are NOT exported.** `exportBackup` must not include the `snapshots` table, or every backup
+file would nest the previous ones and grow geometrically. `BACKUP_VERSION` therefore **stays at 2** —
+the backup contract is unchanged, and a v2 file written before this change still restores identically.
+
+**Restore** is a list in Settings (date, reason, session count), one tap, and **taking a snapshot first**
+so that restoring the wrong one is itself undoable.
+
+### 11.2 A15 — the planner fires at plan end; block boundaries get progression
+
+**Decision: two distinct moments, two distinct prompts.**
+
+| Moment | Prompt | Book |
+|---|---|---|
+| A **block** ends (every 3 weeks) | Forced Progression — per-lift +2.5 kg, skippable where he struggled | p.53, p.90 |
+| The **plan** ends | Reassess and plan the next cycle | p.140, p.147 item 10 |
+
+This is the book's own division. p.140 asks for reassessment *"after completing a standard cycle"* — once
+a cycle, not once a block — while the increment rule is explicitly block-to-block. Firing the full
+planner at every block boundary would put a plan-editing decision in front of Josh seventeen times a year
+that the book asks for once, and would collide with the progression prompt on the same day.
+
+It also disposes of A15's original symptom: the dead "Resume" button at the end of a plan
+(`Today.tsx:117`) is **replaced by** the planner, not patched.
+
+### 11.3 A15 — the default plan is the Standard Cycle truncated at the bridge
+
+**Decision: `GM, GM, GM, GM, Bridge` — 13 weeks — and the planner is built to hold *several* named
+presets, not one.**
+
+Josh's words: *"We need to add Specificity before this app is finished. But we can have more than one
+default (depending on current goal) so just do one now that is just GM and bridging as per the book."*
+
+Two consequences, both binding:
+
+1. **The preset list is a list.** Even though it holds one entry today, the planner's data model must be
+   `PLAN_PRESETS: PlanPreset[]` keyed by goal, so adding "Standard Cycle (full)" and a 2:1 General:
+   Specificity preset later is data, not a rewrite. See §11.5.
+2. **Specificity is no longer optional work.** It moves out of "not built (deliberate)" and becomes a
+   requirement for the app to be considered finished. The backlog is updated accordingly.
+
+Why `GM ×4 + Bridge` is the faithful truncation rather than a deviation: p.140's Standard Cycle prints
+*"General — 6 Weeks"* twice, and this project already decided (§ cross-chapter reconciliation 1, p.40,
+p.67) that a 6-week General stint **is two 3-week blocks**. So blocks 1–2 of the printed cycle are our
+four Grey Man blocks, and the printed cycle's block 3 is the Bridge. We stop exactly where the book turns
+to Specificity. A bridge landing at week 13 is also precisely p.93's *"every two to three months"*.
+
+**This fixes A14.** The current `defaultPlan()` — `GM, GM, Bridge, GM, GM` — moves the bridge to week 7
+and drops the terminal one, an undeclared departure from the printed table. It is replaced, not labelled.
+
+### 11.4 A15 — block what the book fixes, warn what it recommends
+
+**Decision: two tiers, and the tier is decided by whether the book states a fact or gives advice.**
+
+**Hard-blocked** — the book states these, and two of them are live bugs today:
+
+| Rule | Page | Bug it closes |
+|---|---|---|
+| A General or Specificity block is **3 weeks** | p.40, p.67 | — |
+| A Bridge block is **1 week** | p.92 | — |
+| Block length is a **positive integer** | — | **A17**: `GM_GRID[1.5]` is `undefined` and blanks the session |
+| The plan start date is a **Monday** | — | **A16**: a Wednesday start puts Grey Man's Mon/Wed/Fri on Wed/Fri/Sun, still labelled "Mon" |
+| Conditioning colour **follows the block**, never chosen | p.20 | — |
+
+**Warned but permitted** — the book advises here and explicitly hands the choice to the reader
+(*"you can set-up a more customized ratio between General and Specificity as needed"*, p.140):
+
+- No General blocks at all — *"I don't recommend excluding General completely"* (p.41).
+- Three months or more of blocks with no bridge week (p.93).
+- A General : Specificity ratio far from 2:1, the author's *"solid balanced approach"* (p.142).
+
+Warn-only was rejected for the blocked tier because those are **bugs, not preferences** — a 1.5-week
+block blanks the session screen and a Wednesday start silently rotates the whole training week.
+Block-everything was rejected because it would turn the author's rules of thumb into laws he did not
+write.
+
+### 11.5 What §11.3 requires of the planner's shape
+
+```ts
+interface PlanPreset {
+  id: string
+  name: string          // "Standard Cycle (General only)"
+  goal: string          // the goal it serves, shown under the name
+  blocks: PlannedBlock[]
+  cite: string          // the page it comes from — every preset must carry one
+  note?: string         // e.g. why it stops where it does
+}
+```
+
+A preset with no `cite` is not a preset. The one shipping today stops at the bridge because Specificity
+does not exist yet, and its `note` must say so rather than leaving the truncation silent.
