@@ -3,8 +3,7 @@
 Eight independent audits of the MASS rebuild: four checking the app against the book, four checking the
 code. Each wrote its own report in this directory; this file is the consolidated, ranked action list.
 
-**Status:** 6 of 8 reports complete. `code-02-logic-bugs.md` and `code-03-ui-gaps.md` were still running
-when this was written — this file will need a second pass when they land.
+**Status:** 7 of 8 reports complete. `code-03-ui-gaps.md` was still running when this was written.
 
 **One finding was fixed during the audit rather than filed** — see A0.
 
@@ -56,6 +55,28 @@ failure drop exists only as English prose in `EXECUTION_DETAIL`.
 
 **Rectify:** a per-lift progression step at a block boundary (+2.5 kg default, per-lift skip), a
 "struggled" marker, and a one-tap 10% drop. Then a fixture asserting block 2 loads exceed block 1.
+
+### A1b — Loading kind and the stored 1RM's unit can disagree · **critical** · verified
+*code-02 F1*
+
+`planExercise` (`greyman.ts:172`) dispatches on `ex.defaultLoading` and **never reads
+`OneRmEntry.unit`**. The S-cluster loading dropdown (`Plan.tsx:229`) lets the kind be changed with a 1RM
+already stored, so a 100 kg *barbell* max becomes **70 kg per dumbbell**, and a 30 kg/DB max becomes
+"bar only". This is the exact factor-of-two error the `maxScope` design exists to prevent — it just
+comes in through the loading kind instead of the protocol.
+
+**Rectify:** resolve loading from the stored `unit` where one exists, or refuse to compute when they
+disagree and prompt for a re-test. Changing the kind should invalidate the max, not silently reinterpret it.
+
+### A1c — Weighted bodyweight prescribes a dangerous load when bodyweight is unset · **critical** · verified
+*code-02 F2, book-02 F5*
+
+`settings.bodyweightKg` is unset by default and `greyman.ts` falls back to `0`. A 120 kg system 1RM at
+70% then prescribes **84 kg hung off a dip belt** instead of the correct −1 kg, which means "you need
+assistance". This is the failure p.90 gives a full-page warning about, and it is a physical-injury risk
+rather than a data one.
+
+**Rectify:** never default bodyweight to 0 — refuse to compute and prompt for it. Combine with A7.
 
 ### A2 — Read-path contamination between protocols · **critical** · (a)
 *code-04 G2*
@@ -175,6 +196,28 @@ without its printed week counts. Neither is declared.
 ### A15 — Dead "Resume" button at the end of a plan · **major**
 *book-04 F9* — plus no reassess/next-cycle prompt (p.140, p.147).
 
+### A16 — A non-Monday plan start rotates the whole week · **major** · verified
+*code-02 F3*
+
+The plan start date is a free `<input type="date">` and `resolveInPlan` derives the weekday from
+days-since-start. Start on a Wednesday and Grey Man's Mon/Wed/Fri lands on Wed/Fri/Sun — still labelled
+"Mon". **Rectify:** snap the picker to Mondays, or normalise on read.
+
+### A17 — Three ways a session renders nonsense · **major** · verified
+*code-02 F4/F6/F7*
+
+- A bodyweight exercise whose `oneRm` row lacks `maxReps` renders **four sets of 0 reps** — the `!entry`
+  guard only catches a missing row, not a row missing the field it needs.
+- `Maxes.tsx:50` keys off `currentPhaseId`, so with a plan running it edits the **wrong scope** and the
+  MASS lifts stay blank forever. Same root cause as A3.
+- A non-integer block length makes `GM_GRID[1.5]` undefined and blanks the session.
+
+### A18 — `exhausted` is computed and never read · **major**
+*code-02 F5*
+
+Run out of plates and the app shows 70 kg against a 120 kg target with no warning at all. The flag
+exists; nothing surfaces it. Same for `deltaKg` and `overCeiling`.
+
 ---
 
 ## Corrections to our own documentation · (c)
@@ -208,11 +251,25 @@ without its printed week counts. Neither is declared.
 - **Backups**: all four tables covered, Strava tokens provably never exported, import is one atomic
   4-table transaction, phase-id coercion correctly conditional, v1 files round-trip with unknown keys
   preserved.
+- **The plate math is proven.** `loadBar`'s nearest-with-ties-down rule was checked against an
+  independent brute-force knapsack across **13 inventories × 1,041 targets with zero mismatches**,
+  including limited `pairs` and the greedy-fails `[15,10]` case. Reconstructed `perSide` always summed to
+  `totalKg` on grid-aligned plates, and `bodyweightReps` ties down exactly.
+- **Dates are DST-clean.** `diffDays` was fuzzed over 3,000 days across both 2026 Europe/London
+  transitions: zero errors. The weekday bug in A16 is the start date, not DST.
 
 ---
 
 ## Also noted
 
+- **Off-grid plate sizes silently disagree**: with 1.1 kg plates, `perSide` and `totalKg` diverge (says
+  22 kg, weighs 22.2). Only bites if a non-0.25 kg plate is configured. *(code-02 F9)*
+- **`ordinal % 2` degenerates for an even number of lifting days** — fine for Grey Man (3/week), but
+  Fighter HT is 2/week and would never alternate. Worth knowing before that template is built.
+  *(code-02 F13)*
+- **Dead code**: `exhausted`, `deltaKg`, `overCeiling`, `findExercise`, `sets()`, `capMin`, and
+  `BEGINNER_PROTOCOL` inside `SELECTABLE_PROTOCOLS` (filtered straight out as `'legacy'` by its only
+  consumer). *(code-02 F14)*
 - One **genuinely flaky e2e**: `greyman.spec.ts:69` died on `page.goto` with `net::ERR_ABORTED` and
   passed on retry. With no CI, that trains "just re-run it".
 - `Maxes.tsx` hardcodes `[70,75,80]`, a second copy of `GM_GRID` that can drift.
