@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto'
 import { describe, it, expect, beforeEach } from 'vitest'
-import { db, deleteSession, saveSettings, sessionForDate, DEFAULT_SETTINGS } from '../src/db'
+import { db, deleteSession, parseBackup, saveSettings, sessionForDate, DEFAULT_SETTINGS } from '../src/db'
 import { loadBar } from '../src/lib/barbell'
 import type { SessionLog } from '../src/types'
 
@@ -169,5 +169,46 @@ describe('the plate line agrees with the bar (audit code-02 F9)', () => {
     const bar = loadBar(20, inv([25, 20]))
     expect(bar.totalKg).toBe(20)
     expect(bar.perSide).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// The backup version gate — audit code-01 F11.
+// ---------------------------------------------------------------------------
+
+describe('parseBackup refuses a version it cannot read', () => {
+  const file = (version: unknown) =>
+    JSON.stringify({
+      app: 'tb-app',
+      version,
+      exportedAt: '2026-08-24T00:00:00.000Z',
+      settings: [{ id: 'app', dbIncrement: 2, currentPhaseId: 'gm', phaseStartDate: '2026-08-17' }],
+      maxes: [],
+      sessions: [],
+      oneRm: [],
+    })
+
+  it('accepts the versions this build understands', () => {
+    expect(parseBackup(file(1)).version).toBe(1)
+    expect(parseBackup(file(2)).version).toBe(2)
+  })
+
+  it('refuses a newer version', () => {
+    expect(() => parseBackup(file(3))).toThrow(/newer app version/)
+  })
+
+  it('REFUSES a version that is not a number, rather than skipping the gate', () => {
+    // The gate was `typeof data.version === 'number' && data.version > MAX`, so
+    // a string slipped straight past it and a future schema would have been
+    // imported as if it were current.
+    expect(() => parseBackup(file('3'))).toThrow(/readable version/)
+    expect(() => parseBackup(file(null))).toThrow(/readable version/)
+    expect(() => parseBackup(file({ major: 3 }))).toThrow(/readable version/)
+  })
+
+  it('still accepts a file with no version field at all — that is a v1 file', () => {
+    const noVersion = JSON.parse(file(1))
+    delete noVersion.version
+    expect(() => parseBackup(JSON.stringify(noVersion))).not.toThrow()
   })
 })

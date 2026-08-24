@@ -237,6 +237,13 @@ export function parseBackup(json: string): Backup {
     throw new Error('That file isn’t valid JSON — is it a TB backup?')
   }
   if (data.app !== 'tb-app') throw new Error('Not a Tactical Barbell backup file.')
+  // The gate used to be `typeof data.version === 'number' && ...`, so a file
+  // carrying `"version": "3"` (a string) skipped it entirely and was imported as
+  // if it were current — silently reinterpreting a schema this build does not
+  // understand. Backup portability is the migration contract (CLAUDE.md), so an
+  // unreadable version is a refusal, not a shrug. (audit code-01 F11)
+  if (data.version !== undefined && typeof data.version !== 'number')
+    throw new Error('Backup has no readable version number — it may be corrupt.')
   if (typeof data.version === 'number' && data.version > BACKUP_VERSION)
     throw new Error('This backup is from a newer app version — update the app first.')
   if (!Array.isArray(data.settings) || !Array.isArray(data.maxes) || !Array.isArray(data.sessions))

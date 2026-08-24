@@ -14,7 +14,7 @@ import {
   takeSnapshot,
 } from '../lib/snapshots'
 import { Button, Card, SegmentedPicker } from '../components/ui'
-import { PROTOCOLS } from '../program'
+import { SELECTABLE_PROTOCOLS } from '../program'
 import { DEFAULT_BAR_SETUP } from '../lib/barbell'
 
 /** Josh's kit — the fallback when no inventory has been saved. */
@@ -152,7 +152,11 @@ export default function Settings() {
               onChange={(e) => saveSettings({ currentPhaseId: e.target.value })}
               className={fieldCls}
             >
-              {Object.values(PROTOCOLS).map((p) => (
+              {/* SELECTABLE_PROTOCOLS, not every registered protocol: Bridge Week
+                  is a block you put IN a plan (p.92), not a programme you run —
+                  choosing it here gave you a week of rest days and no way to
+                  progress (audit code-03 F26). */}
+              {SELECTABLE_PROTOCOLS.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createPortal } from 'react-dom'
-import { Check, Timer, X, Plus, Minus, Smile, Meh, Frown, ChevronDown } from 'lucide-react'
+import { Check, Timer, X, Plus, Minus, Smile, Meh, Frown, ChevronDown, AlertTriangle } from 'lucide-react'
 import { narrowMaxes, protocolFor, resolvePosition, sessionFor, type SessionPlan } from '../program'
 import { EXERCISE_INFO } from '../exerciseInfo'
 import ExerciseDetail from '../components/ExerciseDetail'
@@ -295,6 +295,8 @@ export default function Session() {
   const [ex, setEx] = useState<ExState[] | null>(null)
   /** Serialises autosaves so two can never both insert a row for one date (A6). */
   const saveChain = useRef<Promise<void>>(Promise.resolve())
+  /** Set when a save was refused to protect an existing Strava row (code-01 F7). */
+  const [saveBlocked, setSaveBlocked] = useState<string | null>(null)
   const [meta, setMeta] = useState<MetaState>({ done: false, duration: '', feel: '', notes: '' })
   const [restEnd, setRestEnd] = useState<number | null>(null)
   const [remaining, setRemaining] = useState(0)
@@ -442,6 +444,25 @@ export default function Session() {
         // where he simply didn't tick it stay indistinguishable in the file.
         ...(e.struggled ? { struggled: true } : {}),
       }))
+      // A Strava-synced session of a DIFFERENT kind already owns this date.
+      //
+      // One row per date cannot represent a run and a lift, so writing the lift
+      // here would keep the run's id, stravaId, distance and HR but overwrite
+      // its `type` and `exercises` — the run stops counting as a run, its
+      // distance sits orphaned on a lift row, and the History entry still
+      // carries the Runna title (audit code-01 F7). Under MASS this is not a
+      // corner case: Green conditioning IS the running, so a morning run and an
+      // evening lift on one day is a normal week.
+      //
+      // Refusing to save is the lesser harm — the logged run is real history and
+      // the lift can be re-entered. The real fix is two rows per date, which is
+      // backlog F1 and needs a schema change.
+      if (existing?.stravaId != null && existing.type !== plan.type && plan.type === 'lift') {
+        setSaveBlocked(
+          `A Strava ${existing.type === 'run' ? 'run' : 'session'} is already logged on ${iso}. Logging a lift here would overwrite it, so nothing has been saved.`,
+        )
+        return
+      }
       const total = ex.reduce((n, e) => n + e.sets.length, 0)
       const done = ex.reduce((n, e) => n + e.sets.filter((s) => s.done).length, 0)
       const isLift = ex.length > 0
@@ -726,6 +747,19 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
         )}
         {plan.detail && !isLifting && <p className="text-sm text-muted mt-2">{plan.detail}</p>}
         {isLifting && plan.detail && <p className="text-xs text-muted mt-2">{plan.detail}</p>}
+        {/* A refusal has to be visible, or it is just silent data loss with
+            extra steps (audit code-01 F7). */}
+        {saveBlocked && (
+          <div
+            role="alert"
+            className="mt-3 rounded-field bg-warm border border-warm-edge/40 p-3 flex items-start gap-2"
+          >
+            <AlertTriangle size={16} className="text-brand-ink mt-0.5 shrink-0" />
+            <p className="text-xs text-ink leading-relaxed">
+              {saveBlocked} Delete the Strava entry from History first if you want to log a lift here.
+            </p>
+          </div>
+        )}
         {plan.conditioning && <ConditioningAlongside c={plan.conditioning} />}
       </div>
 
