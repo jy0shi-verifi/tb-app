@@ -179,8 +179,17 @@ export default function Maxes() {
           <Pill tone="soft-brand">True 1RM</Pill>
         </div>
         <p className="text-xs text-muted mt-2">
-          Enter a <b>2–5 rep</b> test set and the app works out your 1RM, then every working weight
-          from it. You never have to attempt a true single — the book says so explicitly (p.90).
+          Enter a <b>2–3 rep</b> test set and the app works out your 1RM, then every working weight
+          from it. You never have to attempt a true single — the book says so explicitly:{' '}
+          <i>“a 2-3 rep maximum to calculate a 1RM is fine. But DO test. Don’t guess.”</i> (p.63,
+          p.90)
+        </p>
+        {/* The screen used to advertise 2–5. The book says 2–3 in both places it
+            gives a number (p.63, p.90), and Brzycki drifts as reps climb, so the
+            wider range was our invention rather than the author's (book-02 F7). */}
+        <p className="text-[11px] text-muted mt-1">
+          Test in one session or over two, then <b>take two or three days off before starting the
+          block</b> (p.63).
         </p>
         <p className="text-[11px] text-muted mt-1">
           Leave reps blank if the weight you typed <i>is</i> your one-rep max. Start conservative:

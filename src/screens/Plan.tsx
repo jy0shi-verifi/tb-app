@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
-import { useSettings } from '../hooks'
+import { useSettings, useSessions } from '../hooks'
 import { saveSettings } from '../db'
 import {
   PROTOCOLS,
@@ -15,8 +15,15 @@ import {
 import { planHasErrors, validatePlan } from '../lib/planRules'
 import PlanProblems from '../components/PlanProblems'
 import { S_CLUSTER_MAX, S_CLUSTER_MIN, GM_S1_EXAMPLE, GM_S2_EXAMPLE } from '../protocols/greyman'
-import { sessionsFor, perWeekFor, defaultConditioningDays } from '../protocols/conditioning'
-import { conditioningDaysFor, conditioningPickFor } from '../protocols/conditioningPlan'
+import {
+  sessionsFor,
+  perWeekFor,
+  defaultConditioningDays,
+  effectiveCapMin,
+  HARDGAINER_CAP_MIN,
+  RECOVERY_RUN_EXEMPT_MIN,
+} from '../protocols/conditioning'
+import { conditioningDaysFor, conditioningLoad, conditioningPickFor } from '../protocols/conditioningPlan'
 import { today, addDays, isoDate, mondayIndex, parseISO, DAY_NAMES } from '../lib/date'
 import { Card, Button } from '../components/ui'
 import type { ClusterExerciseRef } from '../types'
@@ -319,6 +326,14 @@ function SupplementaryBuilder() {
         {list('s2', s2)}
       </div>
 
+      {/* book-03 F12: core work is explicitly allowed ON TOP of the cluster, so
+          saying so stops it eating one of the 4-6 slots. */}
+      <p className="text-[11px] text-muted mt-3">
+        <b>Ab and lower-back work doesn’t need a slot here.</b> “Avoid extra work in the gym during
+        General… You can add some core work if desired, bodyweight-based ab and lower back stuff.
+        Hanging leg raises, hyperextensions, face-pulls, ab roller, like that.” (pp.64–65)
+      </p>
+
       <p
         className={`text-xs mt-3 font-bold ${total < S_CLUSTER_MIN || total > S_CLUSTER_MAX ? 'text-brand-ink' : 'text-muted'}`}
       >
@@ -376,12 +391,23 @@ function SupplementaryBuilder() {
 
 function ConditioningPlanner() {
   const s = useSettings()
+  const allSessions = useSessions()
   const pos = resolvePosition(s, today())
   const protocol = protocolFor(pos.phaseId)
   const colour = protocol.conditioning
   const days = conditioningDaysFor(protocol, s)
   const options = sessionsFor(colour)
   const cap = perWeekFor(colour)
+
+  // This week, Monday to Sunday, in the app's local-date convention.
+  const monday = addDays(today(), -mondayIndex(today()))
+  const weekStart = isoDate(monday)
+  const weekEnd = isoDate(addDays(monday, 7))
+  const load = conditioningLoad(
+    protocol,
+    s,
+    allSessions.filter((x) => x.date >= weekStart && x.date < weekEnd),
+  )
 
   const toggle = (d: number) => {
     const cur = s.mass?.conditioningDays ?? defaultConditioningDays(colour)
@@ -437,24 +463,71 @@ function ConditioningPlanner() {
         </p>
       )}
 
+      {/* A12. The book counts ACTIVITY, not intentions: "Anytime you do that
+          extra-curricular activity it counts as one conditioning session. Cross
+          off one Green/Black session for that week." (p.110) Josh's running is
+          programmed by Runna and auto-logged from Strava, so without this the
+          real week can run at double the cap behind a tidy-looking plan. */}
+      <div
+        className={`rounded-field p-2.5 mb-3 ${
+          load.overCap ? 'bg-warm border border-warm-edge/40' : 'bg-[var(--color-surface-sunk)]'
+        }`}
+      >
+        <p className={`text-xs font-bold ${load.overCap ? 'text-brand-ink' : 'text-ink'}`}>
+          This week: {load.used} of {load.max}
+        </p>
+        <p className="text-[11px] text-muted mt-0.5">
+          {load.scheduled} scheduled
+          {load.extraCurricular > 0 &&
+            ` · ${load.extraCurricular} from your own running/activity, which the book counts too (p.110)`}
+          {load.exempt > 0 &&
+            ` · ${load.exempt} short recovery run${load.exempt === 1 ? '' : 's'} not counted (≤${RECOVERY_RUN_EXEMPT_MIN} min, p.102)`}
+        </p>
+        {load.overCap && (
+          <p className="text-[11px] text-ink mt-1">
+            Over the book’s cap of {load.max}. “You may have to drop Green/Black completely. So be
+            it.” (p.110) — take one off the plan.
+          </p>
+        )}
+      </div>
+
       <div className="space-y-2">
-        {days.map((d) => (
-          <div key={d} className="flex items-center gap-2">
-            <span className="w-10 text-xs font-bold text-muted">{DAY_NAMES[d]}</span>
-            <select
-              aria-label={`${DAY_NAMES[d]} session`}
-              value={conditioningPickFor(protocol, s, d)?.id ?? options[0]?.id}
-              onChange={(e) => pick(d, e.target.value)}
-              className={`${fieldCls} flex-1`}
-            >
-              {options.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name} — {o.card[0]}
-                </option>
-              ))}
-            </select>
-          </div>
-        ))}
+        {days.map((d) => {
+          const picked = conditioningPickFor(protocol, s, d)
+          const capMin = picked ? effectiveCapMin(picked) : undefined
+          const hard = picked ? HARDGAINER_CAP_MIN[picked.id] : undefined
+          return (
+            <div key={d}>
+              <div className="flex items-center gap-2">
+                <span className="w-10 text-xs font-bold text-muted">{DAY_NAMES[d]}</span>
+                <select
+                  aria-label={`${DAY_NAMES[d]} session`}
+                  value={picked?.id ?? options[0]?.id}
+                  onChange={(e) => pick(d, e.target.value)}
+                  className={`${fieldCls} flex-1 min-w-0`}
+                >
+                  {options.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.name} — {o.card[0]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {/* A13: `capMin` was stored on every card and read by nothing, so
+                  none of the book's duration limits reached the screen. */}
+              {capMin != null && (
+                <p className="text-[11px] text-muted mt-1 ml-12">
+                  Cap {capMin} min
+                  {hard != null && ` · hardgainer ${hard} min`} (p.111
+                  {picked && picked.capMin != null && picked.capMin < (colour === 'green' ? 60 : 20)
+                    ? `, p.${picked.page}`
+                    : ''}
+                  )
+                </p>
+              )}
+            </div>
+          )
+        })}
         {days.length === 0 && (
           <p className="text-xs text-muted">
             No conditioning scheduled. The book asks for at least {cap.min} a week.

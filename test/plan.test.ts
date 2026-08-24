@@ -6,11 +6,21 @@ import {
   BLACK_SESSIONS,
   GREEN_PER_WEEK,
   BLACK_PER_WEEK,
+  GREEN_CAP_MIN,
+  BLACK_CAP_MIN,
+  RECOVERY_RUN_EXEMPT_MIN,
+  HARDGAINER_CAP_MIN,
   conditioningById,
+  effectiveCapMin,
 } from '../src/protocols/conditioning'
-import { conditioningBriefFor, conditioningDaysFor } from '../src/protocols/conditioningPlan'
+import {
+  conditioningBriefFor,
+  conditioningDaysFor,
+  conditioningLoad,
+  conditioningPickFor,
+} from '../src/protocols/conditioningPlan'
 import { DEFAULT_SETTINGS } from '../src/db'
-import type { Settings } from '../src/types'
+import type { SessionLog, Settings } from '../src/types'
 
 /** Monday 17 Aug 2026. */
 const MON = new Date(2026, 7, 17)
@@ -259,5 +269,124 @@ describe('conditioning (pp.98–99)', () => {
     expect(PROTOCOLS.beginner.conditioning).toBe('none')
     // Beginner's own run days are unchanged.
     expect(sessionFor('beginner', 1, 1, s).title).toBe('Run')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// A12 / A13 — the weekly allowance and the duration caps
+// ---------------------------------------------------------------------------
+
+const run = (day: number, over: Partial<SessionLog> = {}): SessionLog => ({
+  date: '2026-08-17',
+  phaseId: 'gm',
+  week: 1,
+  day,
+  type: 'run',
+  title: 'Runna easy 5k',
+  exercises: [],
+  done: true,
+  durationMin: 35,
+  createdAt: 1,
+  ...over,
+})
+
+describe('duration caps (p.111, and each session’s own page) — audit A13', () => {
+  it('carries the recap’s flat caps', () => {
+    // "Green Sessions shouldn't exceed 60 minutes. Black Sessions shouldn't
+    // exceed 20 minutes." (p.111)
+    expect(GREEN_CAP_MIN).toBe(60)
+    expect(BLACK_CAP_MIN).toBe(20)
+    expect(BLACK_CAP_MIN).not.toBe(60)
+  })
+
+  it('uses the TIGHTER of the session’s cap and its colour’s', () => {
+    // Hill Sprints stops at 15 min or 10 sprints, whichever comes first (p.106),
+    // which is tighter than Black's flat 20 (p.111).
+    expect(effectiveCapMin(conditioningById('hill-sprints')!)).toBe(15)
+    // Recovery Run is 30 (p.102), tighter than Green's 60.
+    expect(effectiveCapMin(conditioningById('recovery-run')!)).toBe(30)
+    // A Walk has no tighter cap, so it takes the colour's.
+    expect(effectiveCapMin(conditioningById('walk')!)).toBe(60)
+  })
+
+  it('falls back to the colour cap for a session the book gives none (p.104)', () => {
+    // Anabolic Sprints has a round count and no time cap at all.
+    expect(conditioningById('anabolic-sprints')!.capMin).toBeUndefined()
+    expect(effectiveCapMin(conditioningById('anabolic-sprints')!)).toBe(BLACK_CAP_MIN)
+  })
+
+  it('keeps the hardgainer caps the book gives (p.102, p.103)', () => {
+    expect(HARDGAINER_CAP_MIN['recovery-run']).toBe(20)
+    expect(HARDGAINER_CAP_MIN['endurance-predator']).toBe(30)
+    // Endurance Predator's was not even in the card text before (book-03 F8).
+    expect(conditioningById('endurance-predator')!.detail).toMatch(/hardgainer/i)
+  })
+})
+
+describe('a stored pick is validated against the block’s colour — audit A13', () => {
+  it('refuses a Black session inside a General block (p.98, p.111)', () => {
+    // A pick survives a change of block, so without this a Specificity-era
+    // choice would render Black work in the middle of General Mass.
+    const s = settings({ mass: { conditioningDays: [1], conditioningPick: { 1: 'hill-sprints' } } })
+    const got = conditioningPickFor(PROTOCOLS.gm, s, 1)
+    expect(got!.colour).toBe('green')
+    expect(got!.id).not.toBe('hill-sprints')
+  })
+
+  it('honours a pick of the right colour', () => {
+    const s = settings({ mass: { conditioningDays: [1], conditioningPick: { 1: 'ruck' } } })
+    expect(conditioningPickFor(PROTOCOLS.gm, s, 1)!.id).toBe('ruck')
+  })
+})
+
+describe('extra-curricular activity eats the allowance (p.110) — audit A12', () => {
+  const s = () => settings({ mass: { conditioningDays: [1, 5] } })
+
+  it('counts the scheduled sessions', () => {
+    const load = conditioningLoad(PROTOCOLS.gm, s(), [])
+    expect(load.scheduled).toBe(2)
+    expect(load.used).toBe(2)
+    expect(load.overCap).toBe(false)
+  })
+
+  it('counts a run the plan did NOT schedule — "it counts as one conditioning session"', () => {
+    // Josh's Runna work arrives through stravaSync on whatever day he ran.
+    const load = conditioningLoad(PROTOCOLS.gm, s(), [run(2), run(3)])
+    expect(load.extraCurricular).toBe(2)
+    expect(load.used).toBe(4)
+    // Green is "No more than 3" (p.99, p.111).
+    expect(load.overCap).toBe(true)
+  })
+
+  it('does not double-count a scheduled day that Strava then enriched', () => {
+    const load = conditioningLoad(PROTOCOLS.gm, s(), [run(1), run(5)])
+    expect(load.extraCurricular).toBe(0)
+    expect(load.used).toBe(2)
+  })
+
+  it('exempts a short recovery run either side of a lift (p.102)', () => {
+    // "A 10-minute run either side of a lift does NOT count as a session… two of
+    // them still count as zero."
+    const load = conditioningLoad(PROTOCOLS.gm, s(), [
+      run(0, { durationMin: RECOVERY_RUN_EXEMPT_MIN }),
+      run(0, { durationMin: RECOVERY_RUN_EXEMPT_MIN }),
+    ])
+    expect(load.exempt).toBe(2)
+    expect(load.extraCurricular).toBe(0)
+    expect(load.used).toBe(2) // still just the two scheduled
+  })
+
+  it('counts an 11-minute run — the exemption is 10, not "short-ish"', () => {
+    const load = conditioningLoad(PROTOCOLS.gm, s(), [run(2, { durationMin: 11 })])
+    expect(load.extraCurricular).toBe(1)
+    expect(load.exempt).toBe(0)
+  })
+
+  it('ignores lifting and rest days, and anything not finished', () => {
+    const load = conditioningLoad(PROTOCOLS.gm, s(), [
+      run(2, { type: 'lift' }),
+      run(3, { done: false }),
+    ])
+    expect(load.extraCurricular).toBe(0)
   })
 })

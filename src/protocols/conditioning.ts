@@ -38,6 +38,57 @@ export const GREEN_PER_WEEK = { min: 1, max: 3 } as const
  */
 export const BLACK_PER_WEEK = { min: 1, max: 2 } as const
 
+/**
+ * The flat duration caps from the CONDITIONING RECAP (p.111), reproduced as
+ * printed:
+ *
+ *   "Green Sessions shouldn't exceed 60 minutes.
+ *    Black Sessions shouldn't exceed 20 minutes."
+ *
+ * These are the COLOUR's cap. Individual sessions may cap tighter — Hill Sprints
+ * stops at 15 minutes or 10 sprints, whichever comes first (p.106) — and the
+ * book never reconciles the two, so the app shows the tighter of them and says
+ * where each comes from rather than silently picking one.
+ */
+export const GREEN_CAP_MIN = 60
+export const BLACK_CAP_MIN = 20
+
+export const colourCapMin = (colour: ConditioningColour): number | undefined =>
+  colour === 'green' ? GREEN_CAP_MIN : colour === 'black' ? BLACK_CAP_MIN : undefined
+
+/**
+ * The effective cap for one session: the tighter of its own and its colour's.
+ *
+ * `capMin` was stored on every card and read by nothing at all (audit A13), so
+ * none of the book's duration limits reached the screen.
+ */
+export function effectiveCapMin(s: ConditioningSession): number | undefined {
+  const colour = colourCapMin(s.colour)
+  if (s.capMin == null) return colour
+  if (colour == null) return s.capMin
+  return Math.min(s.capMin, colour)
+}
+
+/**
+ * Caps for a self-described hardgainer, where the book gives a tighter one.
+ *
+ * "Don't run longer than 30 minutes… hardgainers cap it at 20" (p.102), and
+ * Endurance Predator for "skinny hardgainers" is 30 minutes rather than the full
+ * 60 (p.103). Both were flattened away; Endurance Predator's was not even in the
+ * card text (audit book-03 F8).
+ */
+export const HARDGAINER_CAP_MIN: Record<string, number> = {
+  'recovery-run': 20,
+  'endurance-predator': 30,
+}
+
+/**
+ * A Recovery Run of up to this many minutes used either side of a lift does NOT
+ * count against the weekly conditioning total (p.102) — and two of them, one
+ * before and one after, still count as zero.
+ */
+export const RECOVERY_RUN_EXEMPT_MIN = 10
+
 export const GREEN_SESSIONS: ConditioningSession[] = [
   {
     id: 'walk',
@@ -75,7 +126,7 @@ export const GREEN_SESSIONS: ConditioningSession[] = [
     colour: 'green',
     card: ['Walk x 30-60 minutes', '+ Sprint x 50-100m'],
     detail:
-      '“Every 5 to 10 minutes break out and sprint for 50 to 100m. The sprint should be an all-out effort.” Vary the gap between intervals. Optional weight vest (5-10lbs). (p.103)',
+      '“Every 5 to 10 minutes break out and sprint for 50 to 100m. The sprint should be an all-out effort.” Vary the gap between intervals. Optional weight vest (5-10lbs). Skinny hardgainers: 30 minutes, not the full 60. (p.103)',
     capMin: 60,
     page: 103,
   },
@@ -88,7 +139,7 @@ export const BLACK_SESSIONS: ConditioningSession[] = [
     colour: 'black',
     card: ['Sprint x 30M', 'x 5-10 Rounds'],
     detail:
-      '“Sprint as hard as you can for 30 meters. Walk back to start. Rest for a few moments. Repeat for 5 to 10 rounds.” Warm up first. (p.104)',
+      '“Sprint as hard as you can for 30 meters. Walk back to start. Rest for a few moments. Repeat for 5 to 10 rounds.” Warm up first. The book gives this session no time cap of its own — only the round count — so the Black limit of 20 minutes applies (p.104, p.111).',
     page: 104,
   },
   {

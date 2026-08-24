@@ -18,12 +18,14 @@
 import type { Settings } from '../types'
 import type { BlockPosition, ConditioningBrief, Protocol, SessionPlan } from '../protocol'
 import {
+  RECOVERY_RUN_EXEMPT_MIN,
   conditioningById,
   defaultConditioningDays,
   perWeekFor,
   sessionsFor,
   type ConditioningSession,
 } from './conditioning'
+import type { SessionLog } from '../types'
 
 /** The days this protocol carries conditioning on, clamped to the book's cap. */
 export function conditioningDaysFor(protocol: Protocol, settings: Settings): number[] {
@@ -36,7 +38,16 @@ export function conditioningDaysFor(protocol: Protocol, settings: Settings): num
   return [...new Set(legal)].sort((a, b) => a - b).slice(0, cap)
 }
 
-/** Which named session runs on a given weekday. */
+/**
+ * Which named session runs on a given weekday.
+ *
+ * The stored pick is validated against the BLOCK's colour, not just looked up.
+ * "Use the Green sessions with General Mass. Use the Black sessions with
+ * Specificity" (p.98, p.111) — and a pick survives a change of block, so an id
+ * chosen during Specificity would otherwise render a Black session inside a
+ * General block (audit A13). A pick of the wrong colour falls back to the
+ * colour's first session rather than being honoured.
+ */
 export function conditioningPickFor(
   protocol: Protocol,
   settings: Settings,
@@ -45,7 +56,9 @@ export function conditioningPickFor(
   const options = sessionsFor(protocol.conditioning)
   if (!options.length) return undefined
   const id = settings.mass?.conditioningPick?.[day]
-  return (id && conditioningById(id)) || options[0]
+  const picked = id ? conditioningById(id) : undefined
+  if (picked && picked.colour === protocol.conditioning) return picked
+  return options[0]
 }
 
 /**
@@ -102,5 +115,86 @@ export function conditioningSessionFor(
     scheme: s.card.join(' · '),
     detail: `${colour} conditioning. ${s.detail}${s.alternatives ? ` Alternatives: ${s.alternatives}.` : ''}`,
     exercises: [],
+  }
+}
+
+// ---------------------------------------------------------------------------
+// The weekly allowance — MASS p.99, p.102, p.110, p.111
+// ---------------------------------------------------------------------------
+
+export interface ConditioningLoad {
+  /** Days in this week the plan puts a conditioning session on. */
+  scheduled: number
+  /**
+   * Sessions the week already contains that the plan did NOT schedule —
+   * Josh's Runna work, arriving through `stravaSync`.
+   */
+  extraCurricular: number
+  /** Recovery-run-length efforts excluded by p.102. */
+  exempt: number
+  /** `scheduled + extraCurricular`. */
+  used: number
+  min: number
+  max: number
+  /** True when the week exceeds what the book allows. */
+  overCap: boolean
+}
+
+/**
+ * How much of the week's conditioning allowance is already spoken for.
+ *
+ * The book counts activity, not intentions:
+ *
+ *   "Treat any extra activity as conditioning. Anytime you do that
+ *    extra-curricular activity it counts as one conditioning session. Cross off
+ *    one Green/Black session for that week. You may have to drop Green/Black
+ *    completely. So be it." (p.110)
+ *
+ * This matters more to Josh than to anyone: his running is programmed by Runna
+ * and auto-logged from Strava, so his real week could quietly run at double the
+ * book's cap while the app showed a tidy two-session plan (audit A12 — the
+ * finding the auditors called the one with the most real-world bite for him).
+ *
+ * The p.102 exemption is honoured: a Recovery-Run-length effort of ten minutes
+ * or less, of the kind used either side of a lift, does not count — "two of them
+ * still count as zero sessions".
+ *
+ * Counted by ACTIVITY, not by `type === 'run'` alone, and only for sessions the
+ * plan did not already schedule, so a scheduled Green session that Strava then
+ * enriches is not double-counted.
+ */
+export function conditioningLoad(
+  protocol: Protocol,
+  settings: Settings,
+  weekSessions: SessionLog[],
+): ConditioningLoad {
+  const days = conditioningDaysFor(protocol, settings)
+  const cap = perWeekFor(protocol.conditioning)
+
+  let extraCurricular = 0
+  let exempt = 0
+  for (const s of weekSessions) {
+    // Only cardio-shaped work counts against a conditioning allowance.
+    if (s.type !== 'run' && s.type !== 'hic') continue
+    if (!s.done) continue
+    // Already part of the plan for that day — counted in `scheduled`.
+    if (days.includes(s.day)) continue
+    if (s.durationMin != null && s.durationMin <= RECOVERY_RUN_EXEMPT_MIN) {
+      exempt++
+      continue
+    }
+    extraCurricular++
+  }
+
+  const scheduled = days.length
+  const used = scheduled + extraCurricular
+  return {
+    scheduled,
+    extraCurricular,
+    exempt,
+    used,
+    min: cap.min,
+    max: cap.max,
+    overCap: used > cap.max,
   }
 }

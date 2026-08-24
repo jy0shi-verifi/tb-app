@@ -164,13 +164,34 @@ function basisKg(entry: OneRmEntry, basis: Prescription['basis']): number {
  * and an explanatory note when the 1RM is not known yet — better an honest gap
  * than a fabricated load.
  */
+/**
+ * Rest between sets, per cluster, from the book (p.52, p.53).
+ *
+ *   Main: "Rest for approximately 2-5 minutes or more in between sets."
+ *   S:    "Rest for 1-2 minutes between sets."
+ *
+ * These are different numbers for different work, and the app used a flat 120 s
+ * for both (audit book-01 F3).
+ */
+export const MAIN_REST_SEC = { min: 120, max: 300 } as const
+export const SUPP_REST_SEC = { min: 60, max: 120 } as const
+
 export function planExercise(
   ex: ClusterExercise,
   p: Prescription,
   ctx: ProtocolContext,
+  rest: { min: number; max: number } = MAIN_REST_SEC,
 ): PlannedExercise {
   const entry = ctx.maxes[ex.id]
   const count = p.setsMin
+  // Carried onto every returned shape below, so the session can offer the 5th
+  // set the book prints (p.51) and rest the right amount (pp.52-53).
+  const meta = {
+    setsMin: p.setsMin,
+    setsMax: p.setsMax,
+    restSecMin: rest.min,
+    restSecMax: rest.max,
+  }
   const loading = { ...p.loading, kind: ex.defaultLoading } as Prescription['loading']
   const percent = 'percent' in p.loading ? (p.loading.percent ?? 0) : 0
 
@@ -180,6 +201,7 @@ export function planExercise(
     exerciseId: ex.id,
     loaded: true,
     note,
+    ...meta,
     sets: Array.from({ length: count }, () => ({ reps: p.reps })),
   })
 
@@ -188,6 +210,7 @@ export function planExercise(
       name: ex.name,
       exerciseId: ex.id,
       loaded: false,
+      ...meta,
       sets: Array.from({ length: count }, () => ({ reps: p.reps })),
     }
   }
@@ -259,6 +282,7 @@ export function planExercise(
     name: ex.name,
     exerciseId: ex.id,
     loaded: true,
+    ...meta,
     sets: Array.from({ length: count }, () => ({ ...set })),
   }
 }
@@ -279,7 +303,7 @@ const pct = (p: Prescription): number => ('percent' in p.loading ? (p.loading.pe
  *   - Super-setting is permitted for S exercises (p.53)
  */
 const EXECUTION_DETAIL =
-  'Main lifts first, then the supplementary cluster. Rest 2–5 min between main sets, 1–2 min on supplementary work (super-setting allowed). If you fail reps repeatedly, drop that lift’s 1RM by 10% and recalculate.'
+  'Main lifts first, then the supplementary cluster. Rest 2–5 min between main sets, 1–2 min on supplementary work (super-setting allowed). Failing reps? Lengthen the rest to 5 minutes or more FIRST — only drop that lift’s 1RM by 10% if you are still failing consistently (pp.52–53).'
 
 export function greyManSessionFor(pos: BlockPosition, ctx: ProtocolContext): SessionPlan {
   if (pos.liftingOrdinal < 0) {
@@ -294,8 +318,10 @@ export function greyManSessionFor(pos: BlockPosition, ctx: ProtocolContext): Ses
   const supp = letter === 'A' ? sClusterOf(ctx.settings, 's1') : sClusterOf(ctx.settings, 's2')
 
   const exercises: PlannedExercise[] = [
-    ...mainLiftsFor(letter).map((ex) => planExercise(ex, grid.main, ctx)),
-    ...supp.map((ex) => planExercise(ex, grid.supp, ctx)),
+    ...mainLiftsFor(letter).map((ex) => planExercise(ex, grid.main, ctx, MAIN_REST_SEC)),
+    // "The main cluster and supplementary cluster have separate structures"
+    // (p.50) — including their rest intervals (p.53).
+    ...supp.map((ex) => planExercise(ex, grid.supp, ctx, SUPP_REST_SEC)),
   ]
 
   return {

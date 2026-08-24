@@ -150,6 +150,27 @@ export interface PlannedExercise {
   note?: string
   loaded: boolean
   sets: PlannedSet[]
+  /**
+   * The printed set range for this exercise, when the book prints one.
+   *
+   * Grey Man's main lifts are "4-5 x 8" (p.51) and the app rendered `setsMin`
+   * with no way to reach the fifth — removing the book's only sanctioned outlet
+   * for surplus energy: "If you have surplus energy to burn – add extra sets to
+   * your main lifts" (pp.64-65). Four remains the DEFAULT, which is better
+   * supported than we first argued: p.52's own walkthrough says "4 sets of
+   * 8/70%". (audit A9)
+   */
+  setsMin?: number
+  setsMax?: number
+  /**
+   * Rest between sets, in seconds, as a range.
+   *
+   * The book gives genuinely different intervals per cluster — 2-5 minutes or
+   * more for main lifts, 1-2 minutes for supplementary (p.52, p.53) — and the
+   * app rested a flat 120 s for everything (audit book-01 F3).
+   */
+  restSecMin?: number
+  restSecMax?: number
 }
 
 /**

@@ -176,7 +176,7 @@ export default function Settings() {
               Open
             </Link>
           </Row>
-          <Row label="1RM maxes" hint="Enter a 2–5 rep test set; the app works out every weight.">
+          <Row label="1RM maxes" hint="Enter a 2–3 rep test set; the app works out every weight (p.63).">
             <Link
               to="/maxes"
               className="inline-flex items-center justify-center rounded-pill bg-brand/10 text-brand-ink text-[13px] font-bold px-4 min-h-11"

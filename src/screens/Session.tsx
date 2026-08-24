@@ -60,6 +60,12 @@ interface ExState {
    * not re-compute itself as you edit a logged value.
    */
   plannedKg?: number
+  /** The book's printed set range, so the 5th set of "4-5 x 8" is reachable (A9). */
+  setsMin?: number
+  setsMax?: number
+  /** Per-cluster rest, in seconds (p.52, p.53). */
+  restSecMin?: number
+  restSecMax?: number
 }
 interface MetaState {
   done: boolean
@@ -319,6 +325,10 @@ export default function Session() {
           belowBar: first?.belowBar,
           exhausted: first?.exhausted,
           plannedKg: first?.weight,
+          setsMin: e.setsMin,
+          setsMax: e.setsMax,
+          restSecMin: e.restSecMin,
+          restSecMax: e.restSecMax,
           sets: e.sets.map((s, j) => {
             const ss = saved?.sets[j]
             return {
@@ -495,6 +505,34 @@ export default function Session() {
    * hard?" would be asking him to remember something the app could have written
    * down.
    */
+  /**
+   * Add the set the book prints but the app could not reach.
+   *
+   * Grey Man's main lifts are "4-5 x 8" (p.51) and `planExercise` renders
+   * `setsMin`, so the fifth set was unreachable — which removed the book's ONLY
+   * sanctioned extra work during General Mass: "Avoid extra work in the gym
+   * during General... If you have surplus energy to burn – add extra sets to
+   * your main lifts" (pp.64-65), restated at p.152. Four stays the default;
+   * p.52's own walkthrough says "4 sets of 8/70%". (audit A9)
+   */
+  const addSet = (ei: number) => {
+    touched.current = true
+    setEx((prev) =>
+      prev!.map((e, i) => {
+        if (i !== ei) return e
+        const last = e.sets[e.sets.length - 1]
+        return { ...e, sets: [...e.sets, { ...last, done: false }] }
+      }),
+    )
+  }
+
+  const removeSet = (ei: number) => {
+    touched.current = true
+    setEx((prev) =>
+      prev!.map((e, i) => (i === ei && e.sets.length > 1 ? { ...e, sets: e.sets.slice(0, -1) } : e)),
+    )
+  }
+
   const toggleStruggled = (ei: number) => {
     touched.current = true
     setEx((prev) => prev!.map((e, i) => (i === ei ? { ...e, struggled: !e.struggled } : e)))
@@ -532,12 +570,23 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
     )
     saveSettings({ beginner: { lifts: { ...(settings.beginner?.lifts ?? {}), [liftId]: toKg } } })
   }
-  const startRest = () => {
+  /**
+   * Start the rest timer.
+   *
+   * `forSec` lets each exercise rest for what the BOOK says it should: 2-5
+   * minutes on a main lift, 1-2 on supplementary (p.52, p.53). The app rested a
+   * flat 120 s for everything, which is the supplementary figure applied to a
+   * triple at 80% (audit book-01 F3). An explicit override in Settings still
+   * wins over both — that is the user overriding the book for themselves, not
+   * the app quietly averaging it.
+   */
+  const startRest = (forSec?: number) => {
     primeAudio() // unlock audio within this tap so the end-beep can sound
-    const end = Date.now() + restSec * 1000
+    const secs = settings.restSec && settings.restSec > 0 ? settings.restSec : (forSec ?? restSec)
+    const end = Date.now() + secs * 1000
     setRestEnd(end)
-    setRemaining(restSec)
-    setRestTotal(restSec)
+    setRemaining(secs)
+    setRestTotal(secs)
     localStorage.setItem(REST_KEY, String(end))
   }
   const bumpRest = (ms: number) => {
@@ -578,7 +627,9 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
     maybeCelebratePR(ei, si)
     // circuits rest between ROUNDS only (when the round's last move is ticked)
     const roundComplete = ex.every((e, i) => i === ei || e.sets[si].done)
-    if (!isSE || roundComplete) startRest()
+    // Rest what this exercise's cluster calls for; the low end of the book's
+    // range, so the timer nudges rather than dictates.
+    if (!isSE || roundComplete) startRest(ex[ei].restSecMin)
   }
 
   const setMetaTouched = (patch: Partial<MetaState>) => {
@@ -833,6 +884,9 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
               ))}
             </div>
             {massLift && (
+              <SetCountControls ex={e} onAdd={() => addSet(ei)} onRemove={() => removeSet(ei)} />
+            )}
+            {massLift && (
               <StruggleControls
                 struggled={e.struggled}
                 onToggle={() => toggleStruggled(ei)}
@@ -1029,6 +1083,81 @@ function StruggleControls({
           block” (p.53).
         </p>
       )}
+    </div>
+  )
+}
+
+/**
+ * The set-count control — MASS p.51, pp.64–65, p.152.
+ *
+ * The book prints main lifts as "4-5 x 8" (p.51) and the app rendered four with
+ * no way to reach the fifth, which removed the only extra work the book allows
+ * during General Mass:
+ *
+ *   "Avoid extra work in the gym during General. No bicep curls, no donkey calf
+ *    raises, no bodyweight work, nothing. If you have surplus energy to burn –
+ *    add extra sets to your main lifts." (pp.64-65)
+ *
+ * So the fifth set is not a convenience — it is the sanctioned outlet, and
+ * without it the honest answer to "I feel good today" was nothing at all.
+ *
+ * Going past the printed maximum is permitted but labelled: the book's range is
+ * the book's range, and the app should not imply a sixth set is prescribed.
+ */
+function SetCountControls({
+  ex,
+  onAdd,
+  onRemove,
+}: {
+  ex: ExState
+  onAdd: () => void
+  onRemove: () => void
+}) {
+  const count = ex.sets.length
+  const { setsMin: min, setsMax: max } = ex
+  const atPrinted = max != null && count >= max
+  const restMin = ex.restSecMin != null ? Math.round(ex.restSecMin / 60) : null
+  const restMax = ex.restSecMax != null ? Math.round(ex.restSecMax / 60) : null
+
+  return (
+    <div className="mt-3 flex flex-wrap items-center gap-2">
+      <span className="text-[11px] text-muted">
+        {count} set{count === 1 ? '' : 's'}
+        {min != null && max != null && min !== max && (
+          <span>
+            {' '}
+            · book says {min}–{max}
+          </span>
+        )}
+        {restMin != null && restMax != null && (
+          <span>
+            {' '}
+            · rest {restMin}–{restMax} min
+          </span>
+        )}
+      </span>
+      <div className="ml-auto flex gap-2">
+        {count > 1 && (
+          <button
+            type="button"
+            onClick={onRemove}
+            aria-label="Remove a set"
+            className="rounded-pill bg-[var(--color-surface-sunk)] text-muted text-[11px] font-bold px-3 min-h-9"
+          >
+            − Set
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onAdd}
+          aria-label="Add a set"
+          className={`rounded-pill text-[11px] font-bold px-3 min-h-9 ${
+            atPrinted ? 'bg-[var(--color-surface-sunk)] text-muted' : 'bg-brand/10 text-brand-ink'
+          }`}
+        >
+          + Set{atPrinted ? ' (past the printed range)' : ''}
+        </button>
+      </div>
     </div>
   )
 }

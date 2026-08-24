@@ -341,8 +341,35 @@ describe('execution notes carry the book’s rules (pp.50–53)', () => {
     // Asserted as an exact phrase: the previous version tested `not.toMatch(/5–10%/)`
     // with an en-dash against a string containing neither form, so it could never
     // fail — a dead assertion that looked like coverage.
-    expect(plan.detail).toContain('by 10% and recalculate')
+    expect(plan.detail).toContain('1RM by 10%')
     expect(plan.detail).not.toMatch(/5\s*[-–]\s*10\s*%/)
+  })
+
+  it('gives the failure ladder in the book’s ORDER, not just its last step', () => {
+    // pp.52-53: "if you're failing completely before finishing the set then use a
+    // longer rest interval; 5 minutes or longer. If you're STILL failing
+    // consistently, lower your 1 rep maximum by 10%". The app went straight to
+    // the 10% cut, skipping the remedy the book gives first (audit book-01 F4).
+    expect(plan.detail).toMatch(/5 minutes or more FIRST/)
+    const restIdx = plan.detail!.indexOf('5 minutes or more')
+    const dropIdx = plan.detail!.indexOf('10%')
+    expect(restIdx).toBeGreaterThan(-1)
+    expect(restIdx).toBeLessThan(dropIdx)
+  })
+
+  it('prints the set RANGE on a main lift, and rests each cluster its own way', () => {
+    // "4-5 x 8" (p.51) — the fifth set has to be reachable (audit A9), and the
+    // clusters rest differently: 2-5 min vs 1-2 min (pp.52-53).
+    const main = plan.exercises[0]
+    expect([main.setsMin, main.setsMax]).toEqual([4, 5])
+    expect(main.sets).toHaveLength(4) // the default stays 4 — p.52's walkthrough
+    expect([main.restSecMin, main.restSecMax]).toEqual([120, 300])
+
+    const supp = plan.exercises[plan.exercises.length - 1]
+    expect([supp.setsMin, supp.setsMax]).toEqual([4, 4]) // S is a flat 4, not a range
+    expect([supp.restSecMin, supp.restSecMax]).toEqual([60, 120])
+    // The bug this pins: both clusters resting the same 120 s.
+    expect(supp.restSecMax).not.toBe(main.restSecMax)
   })
 
   it('summarises the week in the scheme line', () => {
