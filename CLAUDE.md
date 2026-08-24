@@ -85,34 +85,47 @@ every **DEVIATION** from the book labelled with why.
 | Dexie **v2** + `oneRm` table | first migration in the project; `BACKUP_VERSION` **2** |
 | `src/protocol.ts` + `PROTOCOLS` | protocol registry; `PHASES`/`PhaseMeta` are gone |
 | `src/protocols/greyman.ts` | the p.51 grid as data, A/B clusters, load resolution |
-| `src/screens/Maxes.tsx` (`/maxes`) | 1RM entry from a 2–5 rep test set |
+| `src/screens/Maxes.tsx` (`/maxes`) | 1RM entry from a 2–3 rep test set (p.63) |
 | Session screen | loading-aware units, plate line, unrounded target |
 | `src/screens/Plan.tsx` (`/plan`) | block sequence, S-cluster builder, conditioning days |
 | `src/protocols/bridge.ts` | Bridge Week (pp.92–93) |
 | `src/protocols/conditioning.ts` | all eight Green/Black sessions, cards verbatim |
+| `src/lib/progression.ts` + `src/screens/Progression.tsx` (`/progression`) | Forced Progression (p.53, p.90) |
+| `src/lib/snapshots.ts` | automatic on-device backups (Dexie v3) |
+| `src/lib/planRules.ts` + `src/screens/NextCycle.tsx` (`/next-cycle`) | plan presets and two-tier guardrails |
 
 **Audited (2026-08-24):** eight agents — four against the book, four against the code. Reports in
 `docs/audit/`, ranked synthesis in `docs/audit/00-summary.md`, outstanding items in `docs/BACKLOG.md`.
-The transcription came back faithful; the failures were in the engine around it. Nine findings fixed.
+The transcription came back faithful; the failures were in the engine around it.
+
+**The audit is now worked through.** All ~44 findings are closed except the deliberately deferred ones
+— see `docs/BACKLOG.md`, which is the live list. The headline change is that **the programme now
+progresses**: Forced Progression (p.53, p.90) is implemented, where before nothing in `src/` wrote a
+non-zero `progressedKg` and block 4 prescribed exactly what block 1 did. Also added: automatic
+on-device backups, the guided block planner, Green conditioning on lifting days, the 5th set,
+per-cluster rest, the conditioning allowance including Josh's own running, a programme choice in
+onboarding, and a Guide rewritten from the book.
 
 Confirmed sound and **not worth re-auditing**: the Grey Man grid cell for cell, all eight conditioning
 cards, the 3-week block decision (book-cited, p.67), the absence of any rounding rule in the book, the
 v1→v2 migration *including* a stale build opening a v2 database, and the plate math — validated against
 an independent brute-force knapsack over 13 inventories × 1,041 targets with zero mismatches.
 
-**Verified at handoff:** 163 unit + 55 e2e green, typecheck/lint/build clean, and the real 23-session
-backup round-trips through the v2 schema unchanged.
+**Verified at handoff:** 287 unit + 62 e2e green, typecheck/lint/build clean, and the real 23-session
+backup round-trips through the schema unchanged.
 
-**Not built:** Specificity (Alpha/Bravo), the other three General templates (Mass, Gladiator, Fighter
-HT), Base Building (**deliberately skipped** — Josh's decision, a labelled deviation from p.147), and
-nutrition/supplement tracking. The model accommodates all of them. See `docs/BACKLOG.md`.
+**Not built:** the other three General templates (Mass, Gladiator, Fighter HT), Base Building
+(**book-sanctioned** to skip for a runner — p.18, p.151, not a deviation), and nutrition/supplement
+tracking. **Specificity (Alpha/Bravo) is no longer optional**: Josh ruled on 2026-08-24 that it is
+required before the app is finished, since without it the app cannot run the book's Standard Cycle
+(p.140) or any General:Specificity ratio (pp.141–142). The model accommodates all of them. See
+`docs/BACKLOG.md`.
 
 **"Load demo history"** seeds the whole timeline: 26 weeks of Beginner, then four Grey Man blocks with a
 bridge week, landing mid-block. Both halves run the real `sessionFor`, so seeded weights are the ones the
 app would genuinely have prescribed.
 
-**Kept deliberately:** the Guide screen (still TB content, to be rewritten), the "Tactical Barbell"
-wordmark, `MaxEntry` and the `maxes` table (frozen — nothing writes them, but v1 backups round-trip
+**Kept deliberately:** the "Tactical Barbell" wordmark, `MaxEntry` and the `maxes` table (frozen — nothing writes them, but v1 backups round-trip
 through them), `estimate1RM` (Brzycki — and p.90 explicitly sanctions estimating a 1RM from a 2RM/3RM),
 and `'se'`/`'hic'` in `SessionType` so Josh's logged history keeps its types.
 
@@ -128,10 +141,12 @@ npm run test:e2e   # Playwright — e2e/, spins its own server on :5199
 npm run deploy     # ⚠ DEPLOYS TO PRODUCTION (project tb-app). Do not run for in-progress work.
 ```
 
-There is **no CI**. Deploys are manual from this machine. `functions/` is neither type-checked nor linted by any script.
+There is **no CI**. Deploys are manual from this machine. `functions/` is type-checked (`tsconfig.functions.json`, wired into `npm run typecheck`) but still not linted.
 
-`npm run build` only typechecks `src`. **Use `npm run typecheck`** — `test/` and `e2e/` were unchecked
-until 2026-08-24, which is how a required-argument change compiled cleanly and failed at runtime.
+`npm run build` only typechecks `src`. **Use `npm run typecheck`** — it covers `src`, `test`, `e2e`
+**and `functions/`**. Each of those gaps was real: `test/`/`e2e/` being unchecked is how a
+required-argument change compiled cleanly and failed at runtime, and adding `functions/` immediately
+found a dead guard in the code that holds the Strava client secret.
 
 ---
 
@@ -141,18 +156,24 @@ React 19 + TypeScript + Vite 8 · Tailwind v4 · **Dexie/IndexedDB** · react-ro
 
 **No global state store.** Every screen reads Dexie via `useLiveQuery` and writes back imperatively. Don't add a store without a specific reason.
 
-**Four tables** (`src/db.ts`), schema at **version 2** — one migration, which adds `oneRm` and touches
-nothing else:
+**Five tables** (`src/db.ts`), schema at **version 3**. Both migrations are add-a-store-only:
 
 ```
-settings: 'id'                       // single row, id: 'app'
-maxes:    'liftId'                   // FROZEN — v1 only, for backup round-tripping
-sessions: '++id, date, phaseId'
-oneRm:    '[protocolId+exerciseId]'  // v2 — protocol-scoped 1RMs
+settings:  'id'                       // single row, id: 'app'
+maxes:     'liftId'                   // FROZEN — v1 only, for backup round-tripping
+sessions:  '++id, date, phaseId'
+oneRm:     '[protocolId+exerciseId]'  // v2 — protocol-scoped 1RMs
+snapshots: '++id, takenAt'            // v3 — automatic on-device backups
 ```
 
-`BACKUP_VERSION` is **2**. v1 files still load (a missing `oneRm` becomes `[]`). **v2 files will not load
-into the live app** — take a fresh v1 export before switching over.
+**The `snapshots` store is safe because nothing names it.** `clearAll`, the demo seeder and
+`importBackup` all clear tables BY NAME, so a store none of them lists survives every destructive path
+without any call site having to remember. That is structural, not a convention. Snapshots are **never
+exported** — otherwise each backup would nest the previous ones.
+
+`BACKUP_VERSION` is **2** and stays there: Dexie v3 added no exported table. v1 files still load (a
+missing `oneRm` becomes `[]`). **v2 files will not load into the live app** — take a fresh v1 export
+before switching over.
 
 **Programme dispatch** goes through `sessionFor()` in `src/program.ts` → `PROTOCOLS[id].sessionFor()`.
 `PHASES`/`PhaseMeta` no longer exist. A `Protocol` (`src/protocol.ts`) carries its clusters, lifting
@@ -191,6 +212,14 @@ and returns `blockIndex`/`blockCount`. Without one it falls back to the original
   directly put every date in `Program.tsx` months out.
 - **A protocol's real exercise list is `protocol.exercisesFor(settings)`, not `protocol.clusters`.** Grey
   Man's S cluster is user-built (p.49); reading the static default made custom exercises un-loadable.
+- **Never seed React state from data that is still loading.** `useSettings`, `useSessions` and
+  `useAllOneRm` all return a default (`DEFAULT_SETTINGS`, `[]`) before IndexedDB answers, so a
+  `useEffect` that copies derived data into state runs against nothing and never re-runs. That is how
+  every lift came back ticked on the progression screen, including ones marked "struggled" — with all
+  22 unit tests passing. **Derive, don't copy**, and keep only genuine user overrides in state.
+- **`applyBeginnerProgress` and `lastPerformance` take `phaseId` as a REQUIRED argument.** A name check
+  is not a protocol check: exercise names collide across programmes by design, so a Grey Man S cluster
+  containing `Goblet / Front-rack Squat` walked straight past the old name guard.
 - **Hooks must sit above every early return.** Moving `useMaxesFor` below `Today.tsx`'s loading guard
   crashed every screen with "Rendered more hooks than during the previous render".
 - **Historical exercises are keyed by display name**; new ones carry a stable `exerciseId`. Stored 1RMs
@@ -200,28 +229,39 @@ and returns `blockIndex`/`blockCount`. Without one it falls back to the original
 - **`SetRow` in `Session.tsx` is hoisted to module scope on purpose.** Inlining it remounts and blurs the inputs 4×/sec while the rest timer ticks. The comment at `Session.tsx:95-99` explains it. Don't "tidy" it.
 - **Session writes re-read the freshest row before saving** (`Session.tsx:300`) so a background Strava sync isn't clobbered, and **refuse to delete a Strava-linked row** — they un-tick `done` instead. Preserve both behaviours.
 - **Dark mode is defined twice** in `src/index.css` (`.dark` and the `prefers-color-scheme` block) — ~40 duplicated lines that must be kept in sync.
-- **`<Route path="*">` renders Today.** Keep a catch-all if you touch routing. `/maxes` is a live route
-  again (1RM entry), alongside `/plan`.
+- **`<Route path="*">` renders Today.** Keep a catch-all if you touch routing. Four screens live
+  outside the tab bar — `/maxes`, `/plan`, `/progression`, `/next-cycle` — and each renders a
+  `ScreenHeader` back link, because without one they are dead ends on a phone with no browser chrome.
 - **`ensureSeeded` and `importBackup` coerce `currentPhaseId` only when it does not resolve.** They used
   to pin it to `'beginner'` unconditionally, which would silently undo a switch to Grey Man on every app
   open. Don't reintroduce that.
 - `APP_VERSION` in `src/version.ts` is bumped **by hand** and echoed in the commit subject (`… (v23)`). It's shown in the footer to detect a stale PWA cache.
 
-### Known live risks (not yet fixed)
+### Known live risks
 
-- The **"Load demo history" and "Reset to clean" buttons in `Settings.tsx:302/313` are not DEV-gated** — the production app can wipe real training data from the UI.
-- `POST /api/strava/token` is an **unauthenticated public endpoint** that signs any caller's code with `STRAVA_CLIENT_SECRET`. No origin check, no rate limit, and the OAuth flow has no `state` parameter.
-- `sessions.date` is **not a unique index**, yet nearly all read code assumes one session per date.
-- **Strava's `redirect_uri` is `window.location.origin`**, but Strava allows only one callback domain per app. **Decided (Josh, 2026-08-22): register a second Strava API app** against `tb2.joshua-birch.co.uk`, leaving the live app untouched. **Blocked on Josh** supplying the client ID; the secret goes in the `tb-app-v2` Pages environment, never the repo. The client ID must come from build config so the two variants can differ.
-- `backups/` is untracked **and un-ignored** — real personal data, one `git add .` from being committed.
+Most of the original list is now closed (see `docs/BACKLOG.md`). What remains:
 
----
+- `sessions.date` is **not a unique index**. Duplicate rows can no longer be *created* — autosave is
+  serialised — and `sessionForDate` merges any that an older build left behind, field by field. A real
+  unique index is still the proper fix, and is what a same-day conditioning session would need in order
+  to be logged separately from the lift it shares a day with.
+- `POST /api/strava/token` now requires a same-origin request, and the OAuth flow carries a `state`
+  parameter. Neither can stop a determined caller with **curl** — nothing shipped in a public SPA can,
+  since the only thing that would is a secret the client holds. Rate limiting is the next step if it is
+  ever seen being hit.
+- **Strava's `redirect_uri` is `window.location.origin`**, but Strava allows only one callback domain
+  per app. **Decided (Josh, 2026-08-22): register a second Strava API app** against
+  `tb2.joshua-birch.co.uk`. **Blocked on Josh** supplying the client ID; the secret goes in the
+  `tb-app-v2` Pages environment, never the repo. The client ID must come from build config so the two
+  variants can differ. Until then **Strava does not work on tb2 at all**.
 
 ## Testing
 
 `e2e/helpers.ts` is the entry point for any new Playwright test: `seedState()` writes Dexie directly, `readSessions`/`readSettings` assert the persisted row rather than the DOM, and the extended `test` fixture **auto-fails on any console error**. There is no `page.clock` usage — dates are controlled by injecting `phaseStartDate`, not by mocking time.
 
-`e2e/COVERAGE.md` is stale (claims 41 tests; there are 51) and has no Beginner Mode or MASS section.
+`e2e/COVERAGE.md` was rewritten on 2026-08-24: a per-spec table of the 62 tests, what the unit suite
+covers instead and why, and what is still genuinely uncovered. Its §3 is the old Tactical Barbell
+backlog, kept as history behind a warning — most of it describes screens removed on `strip-tb`.
 
 Unit tests need `fake-indexeddb` for anything touching Dexie — `import 'fake-indexeddb/auto'` first.
 

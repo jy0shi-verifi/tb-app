@@ -1,120 +1,110 @@
 # HANDOFF
 
-**Last updated:** 2026-08-24 · **Branch:** `mass-extraction` · **Status:** MASS Grey Man built, audited by
-eight agents, first fix pass landed. Deployed to `tb2` as **v33**; v32 reviewed and approved by Josh.
+**Last updated:** 2026-08-24 · **Branch:** `mass-extraction` · **Status:** the eight-agent audit has
+been worked through end to end. Deployed to `tb2` as **v41**.
 
 Read in this order:
 
 1. `CLAUDE.md` — standing project context, constraints, conventions.
-2. **`docs/BACKLOG.md`** — every outstanding item, with audit IDs and evidence. **If something is not in
-   that file it will be forgotten.**
-3. `docs/audit/00-summary.md` — the ranked synthesis of the audit, and why each item matters.
+2. **`docs/BACKLOG.md`** — every outstanding item. **If something is not in that file it will be
+   forgotten.**
+3. `docs/mass-design.md` **§11** — the four design decisions Josh made on 2026-08-24, which are binding
+   on the planner and the backup system.
 4. This file — where the work actually stopped.
 
 ---
 
 ## Where we are
 
-The Tactical Barbell MASS book has been extracted, a design written from it, **Grey Man built end to
-end**, and the whole thing audited by eight independent agents (four against the book, four against the
-code). Nine findings are fixed; the rest are in the backlog.
+Grey Man is built, audited, and the audit is **done**. All ~44 findings are closed except the ones
+deliberately deferred; `docs/BACKLOG.md` lists exactly which and why.
 
 `master` is untouched and still matches what Josh uses every morning.
 
-**Josh will not use tb2 for months.** He is cutting on Beginner Mode and has no barbell or rack yet;
-possibly an interim dumbbell hypertrophy block before MASS starts. So there is no deadline pressure —
-but **Beginner Mode must keep working**, and its real history must keep rendering. Three of the audit's
-worst findings were Beginner being corrupted or misread by MASS code.
+**Josh will not use tb2 for months.** He is cutting on Beginner Mode and has no barbell or rack yet. So
+there is no deadline pressure — but **Beginner Mode must keep working**, and its real history must keep
+rendering. Three of the audit's worst findings were Beginner being corrupted or misread by MASS code,
+and a fourth turned up this session (see "Hard-won lessons").
 
-### Built
+### The headline change
+
+**The programme now progresses.** Before this session nothing in `src/` wrote a non-zero
+`progressedKg`, so a fourth block prescribed exactly what the first one did. Forced Progression (p.53,
+p.90) is the mechanism the book says the whole protocol works by, and it now exists: a block-boundary
+prompt, a per-lift "struggled" marker, and the 10% failure drop as an action.
+
+### Built this session
 
 | | Where |
 |---|---|
-| Book extracted, every claim page-referenced | `docs/MASS/MASS-extraction.md` (4,800 lines, 9 sections) |
-| Design, decisions, labelled deviations | `docs/mass-design.md` |
-| Audit: 8 reports + synthesis | `docs/audit/` |
-| Plate math (proven correct — see below) | `src/lib/barbell.ts` |
-| Dexie v2, `oneRm` table, `BACKUP_VERSION` 2 | `src/db.ts`, `test/migration.test.ts` |
-| Protocol registry (`PHASES` retired) | `src/protocol.ts`, `src/program.ts` |
-| Grey Man | `src/protocols/greyman.ts` |
-| Bridge Week · conditioning catalogue + placement | `src/protocols/bridge.ts`, `conditioning.ts`, `conditioningPlan.ts` |
-| 1RM entry | `src/screens/Maxes.tsx` → `/maxes` |
-| Block plan, S-cluster builder, conditioning days | `src/screens/Plan.tsx` → `/plan` |
-| Barbell-aware session rendering, plate line | `src/screens/Session.tsx` |
-| Barbell strength summary | `src/screens/History.tsx` |
-| Full-timeline demo data | `src/dev/seed.ts` |
+| Forced Progression | `src/lib/progression.ts`, `src/screens/Progression.tsx` → `/progression` |
+| Automatic on-device backups (Dexie **v3**) | `src/lib/snapshots.ts`, Settings → Automatic snapshots |
+| The guided block planner | `src/lib/planRules.ts`, `src/screens/NextCycle.tsx` → `/next-cycle` |
+| Green conditioning alongside a lift | `src/components/ConditioningAlongside.tsx` |
+| The conditioning allowance, Josh's own running included | `conditioningLoad` in `src/protocols/conditioningPlan.ts` |
+| Programme choice in onboarding | `src/screens/Onboarding.tsx` |
+| The Guide, rewritten from the book | `src/screens/Guide.tsx` |
+| OAuth `state` + same-origin token endpoint | `src/lib/strava.ts`, `functions/api/strava/token.ts` |
 
-**Verified at handoff:** 163 unit + 55 e2e green · `npm run typecheck` clean (now covers `test/` and
-`e2e/` too) · lint and build clean · the real 23-session backup round-trips through the v2 schema
-unchanged · every fix confirmed in a real browser, not only in tests.
-
-### What the audit confirmed as sound — do not re-audit
-
-The transcription is faithful. All 18 cells of the Grey Man grid, all eight conditioning cards
-word-for-word, the A/B alternation, the 1RM-not-training-max altitude, and Bridge Week's layout all match
-the book. Two stronger results worth knowing:
-
-- **The plate math is proven**, not assumed: nearest-with-ties-down matched an independent brute-force
-  knapsack across 13 inventories × 1,041 targets with zero mismatches. `diffDays` is DST-clean over
-  3,000 days across both 2026 Europe/London transitions.
-- **The v1→v2 migration is safe**, including the case where a **stale PWA build opens a v2 database** —
-  tested empirically: Dexie catches the `VersionError`, reopens at the existing version, the old build
-  reads its three stores normally and `oneRm` survives. A non-event.
-- **The rounding claim holds.** Searched all 160 pages: the book gives no rounding rule anywhere, so our
-  declared deviation rests on a verified premise.
+**Verified:** 287 unit + 62 e2e green · `npm run typecheck` clean, and it now covers `functions/` too ·
+lint and build clean · every change confirmed in a real browser, not only in tests.
 
 ---
 
 ## What to do next
 
-**`docs/BACKLOG.md` is the list.** In priority order:
+**`docs/BACKLOG.md` is the list.** In rough priority order:
 
-1. **A1 — Forced Progression.** The single most important item: *the programme does not progress*.
-   Nothing writes `progressedKg`, so block 4 prescribes exactly what block 1 did. Needs a block-boundary
-   step, a "struggled with this lift" marker, and the 10% failure drop as an action.
-2. **A4 — Green conditioning on lifting days.** The app structurally forbids what p.99 explicitly
-   permits, and the Plan screen's day picker lies as a result.
-3. **A5 — automatic backups.** Josh's direction: rather than just guarding the demo button, back up
-   automatically (e.g. on each app open) so no single destructive action is unrecoverable. Also softens
-   A10 and A11. Needs a short design decision first: where snapshots live, how many, how to restore.
-4. **A15 — the guided block planner.** Josh's direction: when a block ends, offer a real planner —
-   defaults or hand-picked (how many blocks, which template, how long) — while preventing anything that
-   is not valid TB Grey Man. **Discuss and design before coding.** Folds in book-04 F6 and F14.
-5. **A8, A16** — the Maxes keystroke delete that destroys progression state, and non-Monday plan starts.
-6. **A9 — the add-set control**, and **A6** autosave serialisation.
-7. **code-03 F4 / F11 / F12** — the journey: onboarding never mentions Grey Man, and `/maxes` and `/plan`
-   are reachable only by knowing the URL.
-8. **D1 — rewrite the Guide screen**, still Operator/Base Building content.
-9. Then more templates: Specificity, or the other three General ones.
+1. **B1 — the second Strava API app.** Blocked on Josh for the client ID. Until it exists Strava does
+   not work on tb2 at all, which also means this session's OAuth `state` and same-origin work is
+   unit-tested but not verified end to end.
+2. **E1 — Specificity Alpha and Bravo.** Josh ruled these are required before the app is finished. The
+   planner's ratio guidance and no-General warning are already written and waiting for them; the
+   default plan currently has to stop at the bridge because Specificity does not exist. Extracted in
+   sections 05 and 06. This is where `tm90` and the Bulgarian cluster finally matter.
+3. **E6 — a second plan preset** once E1 lands. `PLAN_PRESETS` is already a list.
+4. **A unique index on `sessions.date`.** Duplicates can no longer be created and existing ones are
+   merged on read, but the schema still permits them — and it is what a same-day conditioning session
+   would need to be logged separately from the lift it shares a day with.
+5. **E2 — the other three General templates.** Note Fighter HT trains twice a week and therefore hits
+   the `alternationRotates` limitation; read p.60 before deciding what it should do.
 
 ---
 
 ## Hard-won lessons — read before touching this code
 
-- **Scope by protocol, never by `type === 'lift'`.** This root cause produced *four* separate bugs, one
-  of which silently rewrote Beginner's working weights from barbell totals. Grey Man sessions are also
-  `type: 'lift'`. Beginner's helpers now filter internally so a call site cannot forget.
+- **Scope by protocol, never by anything else.** This root cause has now produced *five* bugs. The
+  newest: `applyBeginnerProgress`'s "defence in depth" was a NAME check against LP_A/LP_B, and names
+  collide across programmes **by design** — a Grey Man S cluster may legitimately contain
+  `Goblet / Front-rack Squat`, which is also LP_A's first lift. A colliding name walked straight past
+  it. It now takes `phaseId` as a required argument, like `lastPerformance`.
+- **Never seed React state from data that is still loading.** `useSettings`, `useSessions` and
+  `useAllOneRm` all return a default before IndexedDB answers, so a `useEffect` copying derived data
+  into state runs against nothing and never re-runs. That is how every lift came back ticked on the
+  progression screen — including ones explicitly marked "struggled" — **with all 22 unit tests
+  passing**. The screen showed it in one look. Derive, don't copy.
 - **A stored 1RM carries a unit.** Kilos-per-dumbbell and total-on-the-bar are a factor of two apart.
-  Anything that reads a max must check `OneRmEntry.unit`, not just the exercise's loading kind.
-- **Under a block plan, `settings.currentPhaseId` and `settings.phaseStartDate` are stale.** Screens must
-  read `resolvePosition()` — including `pos.blockStartDate` for any calendar.
-- **A protocol's real exercise list is `protocol.exercisesFor(settings)`, not `protocol.clusters`.** The
-  S cluster is user-built; reading the static default made custom exercises un-loadable.
-- **Hooks must sit above every early return.** Moving `useMaxesFor` below Today's loading guard crashed
-  every screen with "Rendered more hooks than during the previous render" — caught only by e2e.
-- **`npm run typecheck` now covers `test/` and `e2e/`.** They were previously unchecked, which is how a
-  required-argument change compiled cleanly and failed at runtime. Run it, not just `npm run build`.
+- **Under a block plan, `settings.currentPhaseId` and `settings.phaseStartDate` are stale.** Screens
+  must read `resolvePosition()` — including `pos.blockStartDate` for any calendar.
+- **A protocol's real exercise list is `protocol.exercisesFor(settings)`, not `protocol.clusters`.**
+- **Hooks must sit above every early return.**
+- **`npm run typecheck` now covers `src`, `test`, `e2e` AND `functions`.** Every one of those gaps was
+  real when it was closed — adding `functions/` immediately found a dead guard in the file that holds
+  the Strava client secret.
+- **A plan start that is not a Monday does not shift the plan, it ROTATES it.** Grey Man's Mon/Wed/Fri
+  lands on Wed/Fri/Sun and is still labelled "Mon". Every write snaps; a stored one is flagged.
 
 ---
 
-## Known live risks (still open)
+## Two results worth not "fixing"
 
-- **"Load demo history" and "Reset to clean" are not DEV-gated**; demo history has no confirm at all.
-- `POST /api/strava/token` is an **unauthenticated public endpoint**; no origin check, no rate limit, and
-  the OAuth flow has no `state` parameter.
-- `sessions.date` is **not unique**, and autosave can genuinely create two rows for one date (A6).
-- `backups/` is gitignored but holds real personal data. `docs/MASS/` is ignored too — the book PDF, its
-  text dump and the 71 page images are **not** committed, only the derived extraction.
+- **Four blocks of +2.5 kg give `[70, 72.5, 72.5, 75]` kg on the bar.** 2.5 kg on the 1RM is only
+  1.75 kg at 70%, below what the plates can express, so some blocks repeat. The book has the same
+  property in pounds and never mentions it. The guarantee is non-decreasing per block and strictly
+  heavier across the span — not a jump every block. `test/progression.test.ts` says so explicitly.
+- **The A/B alternation only rotates for an ODD number of lifting days a week.** With two, Monday is
+  ordinal 0, 2, 4… and stays Day A forever. Named (`alternationRotates`) and pinned by a test rather
+  than "fixed", because what Fighter HT should do instead is a question for its own grid on p.60.
 
 ---
 
@@ -126,14 +116,17 @@ npm run typecheck && npm run test:unit && npm run test:e2e
 npm run deploy:v2              # tb2.joshua-birch.co.uk, ~15s
 ```
 
-To see Grey Man: Settings → **Load demo history** (26 weeks of Beginner then four Grey Man blocks,
-landing mid-block), or Settings → Programme → **Grey Man**, then Settings → **1RM maxes** and
-Settings → **Block plan**.
+To see Grey Man: Settings → **Load demo history** (now confirmed before it wipes anything, and it takes
+a snapshot first), or Settings → Programme → **Grey Man**, then Settings → **1RM maxes** and
+Settings → **Block plan**. A fresh install is now offered Grey Man during onboarding.
+
+To see the new screens: `/progression` appears via the Today banner when a block has ended;
+`/next-cycle` appears when a plan has run out.
 
 ## State of the tree at handoff
 
 - `mass-extraction` is committed and pushed to `origin`. `master` and `strip-tb` are untouched.
 - `.claude/launch.json` shows as deleted in the working tree. It predates all of this work and has been
   left alone deliberately.
-- `npm install` added `fake-indexeddb` as a devDependency. npm reported pre-existing audit warnings;
-  `npm audit fix` was **not** run, since it rewrites the lockfile.
+- `backups/` is gitignored (it holds real personal data), as is `docs/MASS/` book source material — the
+  PDF, text dump and 71 page images are **not** committed, only the derived extraction.
