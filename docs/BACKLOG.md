@@ -30,24 +30,28 @@ Status: `open` · `blocked` · `done`.
 
 ---
 
-## The one that matters most
+## Recently done (2026-08-24, this session)
 
-### A1 — Forced Progression is not implemented · **critical** · `open`
-*book-01 F1, book-02 F1/F2, book-04 F15, code-04 §7 — four audits found this independently.*
+| ID | Item | Commit |
+|---|---|---|
+| — | **A5 and A15 designed with Josh before any code**, per this file's own instruction. Four decisions recorded in `docs/mass-design.md` §11 and binding on the implementation. | `762ddd4` |
+| **A1** | **Forced Progression — the programme now progresses.** Block-boundary prompt at `/progression`, the `struggled` marker on the Session screen, and the 10% failure drop as an action (with the book's rest-first step in its confirm). Increment defaults to 2.5 kg; 5–10 lb converts to 2.5–4.5 kg, so 5 kg would exceed the book's top end. Bodyweight-reps lifts are listed but refused — their max is a rep count (p.90) and the book gives no rep increment. | `4b0981c` |
+| **A8** | Maxes keystroke-delete, fixed as part of A1 because A1 made `progressedKg` real data. Clearing a max is now explicit and confirmed; the row shows "tested 100 → 102.5". | `4b0981c` |
+| **A4** | **Green conditioning can share a lifting day** (p.99), rendered alongside the lift on Today, Session and Program. Black still refused on lifting days, enforced where it is read. | `fc351b2` |
+| **A14** | `defaultPlan()`'s undeclared departure from the Standard Cycle — *superseded by the §11.3 decision; the replacement lands with A15.* | — |
 
-**The programme does not progress.** Nothing in `src/` writes a non-zero `progressedKg`; the only writer
-is the demo seeder. Run the default plan and block 4 prescribes exactly what block 1 did.
+**One bug worth remembering** (it is why "verify in the running app" is a house rule): the
+progression tick boxes were seeded from `suggestProgression` inside a `useEffect`, but `useSessions()`
+and `useAllOneRm()` both return `[]` while IndexedDB loads — so every lift came back ticked, including
+ones explicitly marked "struggled". **Every unit test passed.** The screen showed it in one look. The
+state is now derived rather than copied, which makes the bug unrepresentable, and `e2e/progression.spec.ts`
+asserts the ticks against seeded history because unit tests structurally cannot.
 
-The book prints the rule verbatim on six pages (47, 53, 57, 62, 77, 83) and restates it at p.90:
-*"Every 3 to 6 weeks, add 5-10lbs to 1RMs. Recalculate and repeat. Don't force progression for exercises
-you struggled with."* It calls this the mechanism the whole protocol works by.
-
-**Needs three things:**
-1. A progression step at a block boundary — +2.5 kg default (5–10 lb is 2.3–4.5 kg), per lift, skippable.
-2. A **"struggled with this lift"** marker, without which the second half of the rule cannot be honoured.
-3. The **10% failure drop** (p.53) as an action, not just prose in `EXECUTION_DETAIL`.
-
-Then a fixture asserting block 2's loads exceed block 1's — the design's §7 item #5, still unwritten.
+**One thing the tests pinned down that looks like a bug and is not:** four blocks of +2.5 kg give
+`[70, 72.5, 72.5, 75]` kg on the bar. 2.5 kg on the 1RM is only 1.75 kg at 70%, which is below what the
+plates can express, so some blocks repeat. The book has the same property in pounds and says nothing
+about it. Forced Progression guarantees **non-decreasing** per block and strictly heavier across the
+span — not a jump every block. `test/progression.test.ts` says so explicitly so nobody rounds it up.
 
 ---
 
@@ -55,12 +59,12 @@ Then a fixture asserting block 2's loads exceed block 1's — the design's §7 i
 
 | ID | Item | Evidence |
 |---|---|---|
-| A4 | **Green conditioning can never land on a lifting day.** `sessionFor` only injects conditioning when the plan is `rest`, so it is structurally confined to rest days. p.99: *"Sessions can be conducted on non-lifting **or lifting** days."* The Plan screen's day picker therefore lies — Mon/Wed/Fri can be lit and produce nothing. | book-03 F1 |
+| ~~A4~~ | **DONE** (`fc351b2`) — ~~Green conditioning can never land on a lifting day.~~ `sessionFor` only injects conditioning when the plan is `rest`, so it is structurally confined to rest days. p.99: *"Sessions can be conducted on non-lifting **or lifting** days."* The Plan screen's day picker therefore lies — Mon/Wed/Fri can be lit and produce nothing. | book-03 F1 |
 | A12 | **Extra-curricular activity does not consume the conditioning allowance** (p.110). Josh runs with Runna and `stravaSync` auto-logs any run into the current phase, so his real week can exceed the book's cap invisibly. The audit called this the finding with the most real-world bite for him. | book-03 F2 |
 | A13 | **Missing duration caps and unvalidated picks.** The p.111 flat caps (Green ≤60 min, Black ≤20) are absent; Anabolic Sprints has no cap; `capMin` is stored but read by nothing; a stored session pick is never validated against the block's colour. | book-03 F3/F4/F6 |
 | A9 | **The 5th set cannot be performed.** `planExercise` uses `setsMin`, so "4–5 × 8" always renders 4 and there is no add-set control. This removes the book's only sanctioned outlet for surplus energy (p.65; p.152 *"Add extra sets instead"*). 4 as the *default* is correct — p.52's own walkthrough says "4 sets of 8/70%". | book-01 F2, book-02 F6 |
 | A14 | **`defaultPlan()` silently departs from the Standard Cycle** — *resolved by the §11.3 decision: the default becomes `GM, GM, GM, GM, Bridge`, the printed cycle truncated where Specificity would start. Do it as part of A15.*<br>Original finding: — it moves the bridge week and drops the terminal bridge, and the Plan screen cites the cycle without its printed week counts. Neither is declared. | book-04 F3/F4 |
-| — | **The failure ladder skips the book's first remedy.** pp.52–53 say lengthen rest to 5 min *first*, drop 10% only if still failing. The app goes straight to the 10% cut. | book-01 F4 |
+| — | ~~**The failure ladder skips the book's first remedy.**~~ **DONE** (`4b0981c`) — the 10% drop action's confirm now states the order: lengthen rest to 5 min or more first, drop only if still failing (pp.52–53). | book-01 F4 |
 | — | **Rest is a flat 120 s for everything.** The book gives 2–5 min for main lifts and 1–2 min for S (p.53), and the session renders both clusters as one undifferentiated list despite p.50 stressing they have separate structures. | book-01 F3/F5 |
 | — | **The 10-minute Recovery Run exemption is unmodelled** (p.102) and Strava violates it. | book-03 F5 |
 | — | **Hardgainer caps are flattened away**; Endurance Predator's is not even in the text. | book-03 F8 |
@@ -74,8 +78,8 @@ Then a fixture asserting block 2's loads exceed block 1's — the design's §7 i
 | ID | Item | Evidence |
 |---|---|---|
 | A5 | **"Load demo history" destroys real data in one tap** — no confirm, no DEV gate, no undo, directly below Export, and it sets `lastBackupAt` so the backup nudge goes quiet afterwards. **DESIGNED 2026-08-24 — see `docs/mass-design.md` §11.1.** Automatic snapshots into a new Dexie **v3 `snapshots` store**, taken on app open and before every destructive action; they survive `clearAll`/the demo seeder/`importBackup` by construction because all three clear tables *by name*. Restore is a list in Settings, and restoring itself takes a snapshot first. `BACKUP_VERSION` stays 2 — snapshots are never exported. Also softens A10 and A11. | code-01 F1 |
-| A6 | **Autosave can write two rows for one date.** `Session.tsx` fires `save()` un-debounced and unserialised; the second row is unreachable and undeletable, and Strava enrichment lands on the invisible one. This is the concrete failure behind "`sessions.date` is not unique". | code-01 F2 |
-| A8 | **Maxes keystroke-writes destroy Forced Progression state.** Clearing a field to retype `delete`s the `oneRm` row, losing `progressedKg` and `testedAt`. | code-01 F4 |
+| A6 | **Autosave can write two rows for one date.** `Session.tsx` fires `save()` un-debounced and unserialised; the second row is unreachable and undeletable, and Strava enrichment lands on the invisible one. This is the concrete failure behind "`sessions.date` is not unique". **A4 added a second reason to want this:** a Green session sharing a day with a lift is currently informational only, because one row per date leaves it nowhere to be ticked. | code-01 F2 |
+| ~~A8~~ | **DONE** (`4b0981c`) — ~~Maxes keystroke-writes destroy Forced Progression state.~~ Clearing a field to retype `delete`s the `oneRm` row, losing `progressedKg` and `testedAt`. | code-01 F4 |
 | A10 | **A failed backup silently disarms the nudge for 14 days** — `lastBackupAt` is set unconditionally, and the blob URL is revoked synchronously after `a.click()` (fragile on iOS PWA). | code-01 F3 |
 | A11 | **`importBackup`'s rollback path has no test.** It clears all four tables before writing; if the restore is broken everything is lost silently. Testable with `vi.spyOn(db.sessions, 'bulkPut').mockRejectedValueOnce(...)`. | code-04 G1 |
 | A16 | **A non-Monday plan start rotates the whole week** — Grey Man's Mon/Wed/Fri lands on Wed/Fri/Sun, still labelled "Mon". Snap the date picker to Mondays. | code-02 F3 |
