@@ -131,10 +131,23 @@ export function beginnerLiftId(name: string): string | undefined {
   return ALL_BEGINNER_LIFTS.find((l) => l.name === name)?.id
 }
 
+/**
+ * Beginner sessions only.
+ *
+ * Every helper in this file reasons about kilos PER DUMBBELL and about LP_A/LP_B
+ * by name. Filtering on `type === 'lift'` alone let Grey Man sessions — which are
+ * also type 'lift', and whose weights are totals on a bar — into the same
+ * calculations, so a 100 kg barbell squat could poison a 10 kg dumbbell stall
+ * check. Filtering here rather than at the call sites makes that impossible to
+ * get wrong again. See CLAUDE.md, "Scope by protocol".
+ */
+const beginnerLifts = (sessions: SessionLog[]): SessionLog[] =>
+  sessions.filter((s) => s.type === 'lift' && s.phaseId === 'beginner')
+
 /** Per-set summary (weight used + best reps) of a logged exercise, newest-first. */
 function liftHistory(sessions: SessionLog[], liftName: string, before?: string) {
-  return sessions
-    .filter((s) => s.type === 'lift' && (before ? s.date < before : true))
+  return beginnerLifts(sessions)
+    .filter((s) => (before ? s.date < before : true))
     .slice()
     .sort((a, b) => (a.date < b.date ? 1 : -1)) // newest first
     .map((s) => s.exercises.find((e) => e.name === liftName))
@@ -188,7 +201,7 @@ export interface BeginnerLiftProgress {
 
 /** Start → current working weight (+delta) per LP lift, for the beginner progress view. */
 export function beginnerProgress(sessions: SessionLog[], settings: Settings): BeginnerLiftProgress[] {
-  const lifts = sessions.filter((s) => s.type === 'lift').slice().sort((a, b) => (a.date < b.date ? -1 : 1))
+  const lifts = beginnerLifts(sessions).slice().sort((a, b) => (a.date < b.date ? -1 : 1))
   return ALL_BEGINNER_LIFTS.map((l) => {
     const current = settings.beginner?.lifts?.[l.id] ?? l.startKg
     let start = current // fall back to current (delta 0) until there's a logged session

@@ -78,13 +78,20 @@ export function bestEst1RM(sessions: SessionLog[], liftName: string, excludeDate
  * the reps of each logged set and the weight used. Powers the beginner "last time"
  * cue and the double-progression rep pre-fill.
  */
+/**
+ * `phaseId` is REQUIRED, not optional, on purpose: weights mean different things
+ * in different protocols (kilos per dumbbell in Beginner, total on the bar in
+ * MASS), so a cross-protocol "last time" line is worse than none at all. Making
+ * it a required argument means a caller cannot forget it.
+ */
 export function lastPerformance(
   sessions: SessionLog[],
   liftName: string,
   beforeDate: string,
+  phaseId: string,
 ): { weight?: number; reps: number[]; date: string } | null {
   const prior = sessions
-    .filter((s) => s.type === 'lift' && s.date < beforeDate)
+    .filter((s) => s.type === 'lift' && s.phaseId === phaseId && s.date < beforeDate)
     .sort((a, b) => (a.date < b.date ? 1 : -1)) // newest first
   for (const s of prior) {
     const ex = s.exercises.find((e) => e.name === liftName)

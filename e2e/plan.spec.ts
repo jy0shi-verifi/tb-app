@@ -70,7 +70,8 @@ test('the plan screen builds a starter plan and shows where you are', async ({ p
   await expect(page.getByText('Bridge Week', { exact: true })).toBeVisible()
 
   const s = await readSettings(page)
-  expect((s.plan as { blocks: unknown[] }).blocks).toHaveLength(5)
+  expect(s).toBeDefined()
+  expect((s!.plan as { blocks: unknown[] }).blocks).toHaveLength(5)
 })
 
 test('the S-cluster builder enforces the book’s 4–6 limit', async ({ page, seed }) => {

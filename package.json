@@ -11,7 +11,8 @@
     "test:e2e": "playwright test",
     "preview": "vite preview",
     "deploy": "npm run build && npx wrangler pages deploy dist --project-name tb-app --branch main",
-    "deploy:v2": "node scripts/deploy-v2.mjs"
+    "deploy:v2": "node scripts/deploy-v2.mjs",
+    "typecheck": "tsc -b && tsc -p tsconfig.test.json --noEmit"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.2.8",

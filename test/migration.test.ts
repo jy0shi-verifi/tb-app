@@ -66,7 +66,7 @@ describe('Dexie v1 → v2 upgrade', () => {
   })
 
   it('keeps the settings row intact, including keys the app no longer reads', async () => {
-    const s = (await mod.db.settings.get('app')) as Record<string, unknown>
+    const s = (await mod.db.settings.get('app')) as unknown as Record<string, unknown>
     expect(s).toEqual(v1.settings[0])
     expect(s).toHaveProperty('loadBasis')
     expect(s).toHaveProperty('programMode')

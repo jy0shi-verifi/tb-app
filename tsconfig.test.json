@@ -1,0 +1,12 @@
+{
+  // Typechecks `test/` and `e2e/`, which `tsconfig.app.json` does not cover.
+  // That gap is why making `lastPerformance`'s phaseId argument required
+  // compiled cleanly and only blew up at runtime.
+  "extends": "./tsconfig.app.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"],
+    "noEmit": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo"
+  },
+  "include": ["test", "e2e", "src"]
+}

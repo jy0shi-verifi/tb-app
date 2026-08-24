@@ -47,7 +47,7 @@ describe('parseBackup — v1 files must keep loading', () => {
     // The stored row still carries loadBasis and programMode from before the
     // Tactical Barbell strip. Round-tripping them is the point — dropping keys
     // silently loses data.
-    const s = parseBackup(V1).settings[0] as Record<string, unknown>
+    const s = parseBackup(V1).settings[0] as unknown as Record<string, unknown>
     expect(s).toHaveProperty('loadBasis')
     expect(s).toHaveProperty('programMode')
   })

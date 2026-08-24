@@ -346,3 +346,81 @@ describe('execution notes carry the book’s rules (pp.50–53)', () => {
     expect(plan.scheme).toBe('4–5 × 8 @ 70% · S 4 × 12 @ 55%')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Audit fixes, 2026-08-24. Each of these reproduces a bug the audit found by
+// running the code; all three produced a wrong LOAD rather than a wrong label.
+// ---------------------------------------------------------------------------
+describe('a stored 1RM is never reinterpreted in the wrong unit', () => {
+  const s = settings()
+
+  it('refuses to load a barbell lift from a per-dumbbell max', () => {
+    // The S-cluster builder lets the loading kind change after a max is stored.
+    // Front Squat is a barbell lift; feeding it a per-dumbbell max used to
+    // prescribe 70% of it on the bar.
+    const plan = sessionFor('gm', 1, 0, s, {
+      s_front_squat: max('s_front_squat', 60, { unit: 'perDumbbell' }),
+    })
+    const fs = plan.exercises.find((e) => e.name === 'Front Squat')!
+    expect(fs.sets[0].weight).toBeUndefined()
+    expect(fs.note).toMatch(/per dumbbell/)
+    expect(fs.note).toMatch(/Re-test/)
+  })
+
+  it('refuses to load a dumbbell lift from a barbell max', () => {
+    // The dangerous direction: a 100 kg barbell total read as 100 kg per hand.
+    const plan = sessionFor('gm', 1, 0, s, {
+      s_incline_db_press: max('s_incline_db_press', 100, { unit: 'total' }),
+    })
+    const inc = plan.exercises.find((e) => e.name === 'Incline Dumbbell Press')!
+    expect(inc.sets[0].weight).toBeUndefined()
+    expect(inc.sets[0].weight).not.toBe(70)
+    expect(inc.note).toMatch(/barbell total/)
+  })
+
+  it('still loads normally when the unit and the loading kind agree', () => {
+    const plan = sessionFor('gm', 1, 0, s, {
+      s_front_squat: max('s_front_squat', 60, { unit: 'total' }),
+      s_incline_db_press: max('s_incline_db_press', 20, { unit: 'perDumbbell' }),
+    })
+    expect(plan.exercises.find((e) => e.name === 'Front Squat')!.sets[0].weight).toBe(32.5)
+    expect(plan.exercises.find((e) => e.name === 'Incline Dumbbell Press')!.sets[0].weight).toBe(10)
+  })
+})
+
+describe('weighted bodyweight refuses to guess', () => {
+  it('will not prescribe a load when bodyweight is unknown', () => {
+    // Defaulting bodyweight to 0 turned the percentage of a 120 kg system max
+    // into a real load on a dip belt, instead of "you need assistance" (p.90).
+    const s = settings({
+      mass: { sCluster: { s1: [{ id: 's_wpu', name: 'Weighted Pull-up', defaultLoading: 'weightedBodyweight' }], s2: [] } },
+    })
+    const plan = sessionFor('gm', 1, 0, s, { s_wpu: max('s_wpu', 120) })
+    const wpu = plan.exercises.find((e) => e.name === 'Weighted Pull-up')!
+    expect(wpu.sets[0].weight).toBeUndefined()
+    expect(wpu.sets[0].weight).not.toBe(66)
+    expect(wpu.note).toMatch(/bodyweight/i)
+  })
+
+  it('computes correctly once bodyweight is known', () => {
+    const s = settings({
+      bodyweightKg: 85,
+      mass: { sCluster: { s1: [{ id: 's_wpu', name: 'Weighted Pull-up', defaultLoading: 'weightedBodyweight' }], s2: [] } },
+    })
+    const plan = sessionFor('gm', 1, 0, s, { s_wpu: max('s_wpu', 120) })
+    // S-cluster week 1 is 55%, NOT the main lifts' 70% (p.51). 55% of 120 = 66;
+    // minus 85 kg of bodyweight = -19, i.e. this needs assistance, not weight.
+    expect(plan.exercises.find((e) => e.name === 'Weighted Pull-up')!.sets[0].targetKg).toBe(-19)
+  })
+})
+
+describe('a bodyweight lift with no recorded max reps', () => {
+  it('asks for max reps instead of prescribing zero reps', () => {
+    const plan = sessionFor('gm', 1, 0, settings(), {
+      s_dips: max('s_dips', 0), // no maxReps
+    })
+    const dips = plan.exercises.find((e) => e.name === 'Dips')!
+    expect(dips.sets[0].reps).not.toBe(0)
+    expect(dips.note).toMatch(/max reps/i)
+  })
+})

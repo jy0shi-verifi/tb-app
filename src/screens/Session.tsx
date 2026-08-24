@@ -267,7 +267,7 @@ export default function Session() {
         // is to beat them), UNLESS a +2 kg bump just raised the working weight — then
         // keep the range floor the plan already set (reps reset on a weight bump).
         const working = e.sets[0]?.weight
-        const last = beginnerLift && !fromLog ? lastPerformance(allSessions, e.name, iso) : null
+        const last = beginnerLift && !fromLog ? lastPerformance(allSessions, e.name, iso, pos.phaseId) : null
         const prefill = last && last.weight === working ? last.reps : null
         const first = e.sets[0]
         return {
@@ -667,7 +667,7 @@ export default function Session() {
             </div>
             {beginnerLift &&
               (() => {
-                const last = lastPerformance(allSessions, e.name, iso)
+                const last = lastPerformance(allSessions, e.name, iso, pos.phaseId)
                 const liftId = beginnerLiftId(e.name)
                 const working = liftId ? settings.beginner?.lifts?.[liftId] ?? 0 : 0
                 const stall = liftId ? beginnerStall(allSessions, e.name, working, inc, iso) : null

@@ -172,6 +172,15 @@ export function planExercise(
   const loading = { ...p.loading, kind: ex.defaultLoading } as Prescription['loading']
   const percent = 'percent' in p.loading ? (p.loading.percent ?? 0) : 0
 
+  /** A gap on screen with the reason, rather than a fabricated load. */
+  const unresolved = (note: string): PlannedExercise => ({
+    name: ex.name,
+    exerciseId: ex.id,
+    loaded: true,
+    note,
+    sets: Array.from({ length: count }, () => ({ reps: p.reps })),
+  })
+
   if (loading.kind === 'unloaded') {
     return {
       name: ex.name,
@@ -181,27 +190,42 @@ export function planExercise(
     }
   }
 
-  if (!entry) {
-    return {
-      name: ex.name,
-      exerciseId: ex.id,
-      loaded: true,
-      note: `Set your 1RM for ${ex.name} to see the working weight (${percent}%).`,
-      sets: Array.from({ length: count }, () => ({ reps: p.reps })),
-    }
+  if (!entry) return unresolved(`Set your 1RM for ${ex.name} to see the working weight (${percent}%).`)
+
+  // The stored max carries the unit it was measured in. If the exercise's loading
+  // kind has since been changed — the S-cluster builder allows exactly that — the
+  // number means something different and MUST NOT be silently reinterpreted: a
+  // 100 kg barbell 1RM read as per-dumbbell would prescribe 70 kg in each hand.
+  const wantsPerDumbbell = loading.kind === 'dumbbell'
+  const isPerDumbbell = entry.unit === 'perDumbbell'
+  const usesWeight = loading.kind === 'dumbbell' || loading.kind === 'barbell'
+  if (usesWeight && wantsPerDumbbell !== isPerDumbbell) {
+    return unresolved(
+      `${ex.name}'s 1RM was recorded ${isPerDumbbell ? 'per dumbbell' : 'as a barbell total'} but it is now set up as ${wantsPerDumbbell ? 'a dumbbell' : 'a barbell'} lift. Re-test it to see a weight.`,
+    )
   }
 
   let set: PlannedSet
 
   switch (loading.kind) {
     case 'bodyweightReps': {
-      // The percentage applies to MAX REPS, not to weight (p.90).
-      const reps = bodyweightReps(entry.maxReps ?? 0, percent)
-      set = { reps }
+      // The percentage applies to MAX REPS, not to weight (p.90). A row with no
+      // maxReps cannot produce a rep count — 0 reps is not a prescription.
+      if (!entry.maxReps || entry.maxReps <= 0) {
+        return unresolved(`Record your max reps for ${ex.name} — bodyweight work is a percentage of that (p.90).`)
+      }
+      set = { reps: bodyweightReps(entry.maxReps, percent) }
       break
     }
     case 'weightedBodyweight': {
-      const bw = ctx.settings.bodyweightKg ?? 0
+      // Bodyweight MUST be part of the sum (p.90). Defaulting it to zero produces
+      // precisely the "things will get too heavy too fast" failure the book warns
+      // about — 70% of a 120 kg system max would hang 84 kg off a dip belt
+      // instead of telling you that you need assistance.
+      const bw = ctx.settings.bodyweightKg
+      if (!bw || bw <= 0) {
+        return unresolved(`Set your bodyweight in Settings — it has to be part of the sum for ${ex.name} (p.90).`)
+      }
       const added = weightedBodyweightAddedKg(basisKg(entry, p.basis), bw, percent)
       set = { reps: p.reps, weight: Math.max(0, added), targetKg: added, underFloor: added < 0 }
       break

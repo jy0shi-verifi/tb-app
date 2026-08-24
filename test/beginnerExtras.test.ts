@@ -2,17 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { lastPerformance } from '../src/lib/stats'
 import { musclesForExercises } from '../src/exerciseInfo'
 import { liftDescription } from '../src/lib/stravaSync'
-import type { Settings, SessionLog } from '../src/types'
-
-const settings: Settings = {
-  id: 'app',
-  dbIncrement: 2,
-  loadBasis: 'tm',
-  currentPhaseId: 'beginner',
-  phaseStartDate: '2026-07-27',
-  programMode: 'beginner',
-  beginner: { lifts: {} },
-}
+import type { SessionLog } from '../src/types'
 
 const dayB: SessionLog = {
   id: 1,
@@ -33,14 +23,14 @@ const dayB: SessionLog = {
 
 describe('lastPerformance', () => {
   it('finds the most recent prior logged reps + weight for a lift', () => {
-    const lp = lastPerformance([dayB], 'DB Romanian Deadlift', '2026-08-05')
+    const lp = lastPerformance([dayB], 'DB Romanian Deadlift', '2026-08-05', 'beginner')
     expect(lp).toEqual({ weight: 10, reps: [8, 8, 8], date: '2026-07-29' })
   })
   it('ignores sessions on/after the cutoff date', () => {
-    expect(lastPerformance([dayB], 'DB Romanian Deadlift', '2026-07-29')).toBeNull()
+    expect(lastPerformance([dayB], 'DB Romanian Deadlift', '2026-07-29', 'beginner')).toBeNull()
   })
   it('returns null when the lift was never logged', () => {
-    expect(lastPerformance([dayB], 'DB Bench Press', '2026-08-05')).toBeNull()
+    expect(lastPerformance([dayB], 'DB Bench Press', '2026-08-05', 'beginner')).toBeNull()
   })
 })
 
@@ -52,7 +42,7 @@ describe('musclesForExercises', () => {
 })
 
 describe('liftDescription — beginner (reps only, no weight)', () => {
-  const desc = liftDescription(dayB, {}, settings)
+  const desc = liftDescription(dayB)
   it('lists each lift with reps and NO weight', () => {
     expect(desc).toContain('DB Romanian Deadlift — 8, 8, 8')
     expect(desc).not.toMatch(/kg/) // no weight anywhere

@@ -10,7 +10,10 @@ import {
 } from '../src/beginner'
 import type { Settings, SessionLog } from '../src/types'
 
-const base: Settings = {
+// Deliberately carries `loadBasis` and `programMode`, keys removed in the TB
+// strip: stored rows and v1 backups still have them, so the fixture proves they
+// survive. Cast because they are no longer on the `Settings` type.
+const base = {
   id: 'app',
   dbIncrement: 2,
   loadBasis: 'tm',
@@ -18,7 +21,7 @@ const base: Settings = {
   phaseStartDate: '2026-07-13',
   programMode: 'beginner',
   beginner: { lifts: defaultBeginnerWeights() },
-}
+} as unknown as Settings
 
 describe('C25K schedule', () => {
   it('week 1 is a 5-min warm-up walk then 8× (jog 60 / walk 90)', () => {
@@ -101,7 +104,9 @@ describe('LP stall → deload', () => {
 })
 
 describe('beginnerProgress', () => {
-  const settings: Settings = { ...base, beginner: { lifts: { ...defaultBeginnerWeights(), bg_squat: 14 } } }
+  // Deliberately carries `loadBasis`, a key removed in the TB strip: stored rows
+// and v1 backups still have it, so the fixture proves it round-trips.
+const settings = { ...base, beginner: { lifts: { ...defaultBeginnerWeights(), bg_squat: 14 } } }
   const first: SessionLog = {
     date: '2026-07-01', phaseId: 'beginner', week: 1, day: 0, type: 'lift', title: 'Strength — Day A',
     done: true, createdAt: 1,
