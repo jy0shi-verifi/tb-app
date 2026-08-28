@@ -85,7 +85,8 @@ describe('block plans (MASS p.40, p.140)', () => {
     const plan = defaultPlan('2026-08-17')
     // p.140 prints "General — 6 Weeks" twice, which is four 3-week blocks
     // (p.40, p.67), then "Bridge — 1 Week". We stop exactly where the printed
-    // cycle turns to Specificity, because Specificity is not built yet.
+    // cycle turns to Specificity. Alpha/Bravo exist; adding them to the default
+    // preset is E6. The previous shape — [3, 3, 1, 3, 3] — moved the bridge.
     // The previous shape — [3, 3, 1, 3, 3] — moved the bridge to week 7 and
     // dropped the terminal one, an undeclared departure (audit A14).
     expect(plan.blocks.map((b) => b.protocolId)).toEqual(['gm', 'gm', 'gm', 'gm', 'bridge'])

@@ -2,6 +2,8 @@ import type { Settings, SessionType } from './types'
 import { addDays, diffDays, isoDate, mondayIndex, parseISO } from './lib/date'
 import { BEGINNER_PROTOCOL } from './beginner'
 import { GREY_MAN_PROTOCOL } from './protocols/greyman'
+import { ALPHA_PROTOCOL } from './protocols/alpha'
+import { BRAVO_PROTOCOL } from './protocols/bravo'
 import { BRIDGE_PROTOCOL } from './protocols/bridge'
 import { conditioningBriefFor, conditioningSessionFor } from './protocols/conditioningPlan'
 import type { BlockPosition, Protocol, ProtocolContext, SessionPlan } from './protocol'
@@ -28,11 +30,16 @@ export type { PlannedSet, PlannedExercise, SessionPlan, Protocol } from './proto
 export const PROTOCOLS: Record<string, Protocol> = {
   beginner: BEGINNER_PROTOCOL,
   gm: GREY_MAN_PROTOCOL,
+  alpha: ALPHA_PROTOCOL,
+  bravo: BRAVO_PROTOCOL,
   bridge: BRIDGE_PROTOCOL,
 }
 
-/** Protocols a user can actually choose to run, in a sensible order. */
+/** Standalone programmes in Settings. Specificity and Bridge are blocks, not a home programme. */
 export const SELECTABLE_PROTOCOLS: Protocol[] = [GREY_MAN_PROTOCOL, BEGINNER_PROTOCOL]
+
+/** What the block planner can append (Bridge is a separate control). */
+export const PLAN_BLOCK_PROTOCOLS: Protocol[] = [GREY_MAN_PROTOCOL, ALPHA_PROTOCOL, BRAVO_PROTOCOL]
 
 export const DEFAULT_PHASE_ID = 'beginner'
 

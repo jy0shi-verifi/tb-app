@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
   PROTOCOLS,
   DEFAULT_PHASE_ID,
+  SELECTABLE_PROTOCOLS,
   protocolFor,
   resolvePosition,
   sessionFor,
@@ -29,6 +30,8 @@ const settings = (over: Partial<Settings> = {}): Settings => ({
 describe('the registry', () => {
   it('holds Beginner and defaults to it', () => {
     expect(Object.keys(PROTOCOLS)).toContain('beginner')
+    expect(Object.keys(PROTOCOLS)).toContain('alpha')
+    expect(Object.keys(PROTOCOLS)).toContain('bravo')
     expect(DEFAULT_PHASE_ID).toBe('beginner')
     expect(protocolFor('beginner').id).toBe('beginner')
   })
@@ -49,10 +52,12 @@ describe('the registry', () => {
     expect(findExercise(BEGINNER_PROTOCOL, 'nope')).toBeUndefined()
   })
 
-  it('marks Beginner as legacy with no conditioning colour', () => {
-    expect(BEGINNER_PROTOCOL.family).toBe('legacy')
-    expect(BEGINNER_PROTOCOL.conditioning).toBe('none')
-    expect(BEGINNER_PROTOCOL.liftingDays).toEqual([0, 2, 4])
+  it('does not offer Alpha or Bravo as a standalone Settings programme', () => {
+    const ids = SELECTABLE_PROTOCOLS.map((p) => p.id)
+    expect(ids).toContain('gm')
+    expect(ids).not.toContain('alpha')
+    expect(ids).not.toContain('bravo')
+    expect(ids).not.toContain('bridge')
   })
 })
 

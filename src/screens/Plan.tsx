@@ -3,8 +3,8 @@ import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
 import { useSettings, useSessions } from '../hooks'
 import { saveSettings } from '../db'
 import {
+  PLAN_BLOCK_PROTOCOLS,
   PROTOCOLS,
-  SELECTABLE_PROTOCOLS,
   blockWeeksOf,
   defaultPlan,
   mondayOnOrBefore,
@@ -15,6 +15,17 @@ import {
 import { planHasErrors, validatePlan } from '../lib/planRules'
 import PlanProblems from '../components/PlanProblems'
 import { S_CLUSTER_MAX, S_CLUSTER_MIN, GM_S1_EXAMPLE, GM_S2_EXAMPLE } from '../protocols/greyman'
+import {
+  ALPHA_MS_STANDARD,
+  H1_EXAMPLE,
+  H2_EXAMPLE,
+  H_CLUSTER_MAX_ALPHA,
+  H_CLUSTER_MAX_BRAVO,
+  H_CLUSTER_MIN_ALPHA,
+  H_CLUSTER_MIN_BRAVO,
+  hClusterOverlapIds,
+} from '../protocols/specificity'
+import { uniqueExerciseId } from '../lib/exerciseId'
 import {
   sessionsFor,
   perWeekFor,
@@ -48,9 +59,6 @@ const thisMonday = (): string => {
 const fieldCls =
   'rounded-field border border-[var(--color-field-border)] bg-[var(--color-surface-sunk)] text-ink px-3 py-2 font-semibold min-h-11'
 
-const slug = (name: string) =>
-  's_' + name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
-
 export default function Plan() {
   const s = useSettings()
   const pos = resolvePosition(s, today())
@@ -72,7 +80,9 @@ export default function Plan() {
 
       <BlockPlanner />
 
-      {protocol.id === 'gm' && <SupplementaryBuilder />}
+      <SupplementaryBuilder />
+      <MsClusterBuilder />
+      <HClusterBuilder />
 
       {protocol.conditioning !== 'none' && <ConditioningPlanner />}
 
@@ -131,8 +141,8 @@ function BlockPlanner() {
         <>
           <p className="text-xs text-muted mb-3">
             The book’s Standard Cycle for a first-timer is General, General, Bridge, Specificity,
-            Specificity (p.140). Specificity isn’t built yet, so this starts you with four Grey Man
-            blocks and a bridge week — twelve weeks of lifting.
+            Specificity (p.140). The starter plan is the four Grey Man blocks and the bridge — twelve
+            weeks of lifting. Add Alpha or Bravo after that.
           </p>
           <Button onClick={() => saveSettings({ plan: defaultPlan(startDate) })}>
             Create a starter plan
@@ -209,7 +219,7 @@ function BlockPlanner() {
           )}
 
           <div className="flex flex-wrap gap-2 mt-3">
-            {SELECTABLE_PROTOCOLS.filter((p) => p.family !== 'legacy').map((p) => (
+            {PLAN_BLOCK_PROTOCOLS.map((p) => (
               <button
                 key={p.id}
                 onClick={() => add(p.id)}
@@ -259,7 +269,11 @@ function SupplementaryBuilder() {
   const add = () => {
     const name = draft.trim()
     if (!name || total >= S_CLUSTER_MAX) return
-    const ex: ClusterExerciseRef = { id: slug(name), name, defaultLoading: 'dumbbell' }
+    const ex: ClusterExerciseRef = {
+      id: uniqueExerciseId(name, 's_', [...s1, ...s2].map((e) => e.id)),
+      name,
+      defaultLoading: 'dumbbell',
+    }
     if (target === 's1') save([...s1, ex], s2)
     else save(s1, [...s2, ex])
     setDraft('')
@@ -366,7 +380,7 @@ function SupplementaryBuilder() {
           <option value="s2">S2</option>
         </select>
         <Button onClick={add} disabled={!draft.trim() || total >= S_CLUSTER_MAX}>
-          Add
+          Add to S
         </Button>
       </div>
       {/* F17: adding used to silently no-op at 6 with no reason given. */}
@@ -383,6 +397,250 @@ function SupplementaryBuilder() {
           className="text-[12px] font-bold text-muted mt-3 min-h-9"
         >
           Reset to the book’s example
+        </button>
+      )}
+    </Card>
+  )
+}
+
+const LOADING_OPTIONS: { value: ClusterExerciseRef['defaultLoading']; label: string }[] = [
+  { value: 'barbell', label: 'Barbell' },
+  { value: 'dumbbell', label: 'Dumbbell' },
+  { value: 'bodyweightReps', label: 'Bodyweight' },
+  { value: 'weightedBodyweight', label: 'Weighted BW' },
+  { value: 'unloaded', label: 'No load' },
+]
+
+function LoadingSelect({
+  name,
+  value,
+  onChange,
+}: {
+  name: string
+  value: ClusterExerciseRef['defaultLoading']
+  onChange: (v: ClusterExerciseRef['defaultLoading']) => void
+}) {
+  return (
+    <select
+      aria-label={`${name} loading`}
+      value={value}
+      onChange={(e) => onChange(e.target.value as ClusterExerciseRef['defaultLoading'])}
+      className="rounded-pill bg-surface text-[11px] font-bold text-muted px-2 py-1"
+    >
+      {LOADING_OPTIONS.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
+function MsClusterBuilder() {
+  const s = useSettings()
+  const edited = s.mass?.msCluster != null
+  const list = s.mass?.msCluster ?? ALPHA_MS_STANDARD
+  const [draft, setDraft] = useState('')
+  const dl = s.mass?.deadliftPerWeek === 1 ? 1 : 2
+
+  const save = (next: ClusterExerciseRef[]) => saveSettings({ mass: { ...s.mass, msCluster: next } })
+
+  const addMs = () => {
+    const name = draft.trim()
+    if (!name || list.length >= 3) return
+    save([
+      ...list,
+      { id: uniqueExerciseId(name, 'ms_', list.map((x) => x.id)), name, defaultLoading: 'barbell' },
+    ])
+    setDraft('')
+  }
+
+  return (
+    <Card>
+      <p className="eyebrow text-muted mb-1">Alpha MS cluster</p>
+      <p className="text-xs text-muted mb-3">
+        “You can create your own MS cluster. General rule of thumb… include a press, a pull, and
+        legs.” (p.71). Default is Bench / Squat / Deadlift. Conventional deadlifts get one work set,
+        once or twice a week (pp.74–75).
+      </p>
+      <div className="space-y-1.5 mb-3">
+        {list.map((e) => (
+          <div key={e.id} className="flex items-center gap-2 rounded-field bg-[var(--color-surface-sunk)] p-2">
+            <span className="flex-1 min-w-0 truncate text-[14px] text-ink">{e.name}</span>
+            <LoadingSelect
+              name={e.name}
+              value={e.defaultLoading}
+              onChange={(loading) => save(list.map((x) => (x.id === e.id ? { ...x, defaultLoading: loading } : x)))}
+            />
+            <button
+              onClick={() => save(list.filter((x) => x.id !== e.id))}
+              aria-label={`Remove ${e.name}`}
+              className="p-1.5 text-muted"
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-muted mb-2">Deadlift frequency</p>
+      <div className="flex gap-2 mb-3">
+        {([1, 2] as const).map((n) => (
+          <button
+            key={n}
+            onClick={() => saveSettings({ mass: { ...s.mass, deadliftPerWeek: n } })}
+            className={`rounded-pill px-3 min-h-9 text-[12px] font-bold ${
+              dl === n ? 'bg-brand/15 text-brand-ink' : 'bg-[var(--color-surface-sunk)] text-muted'
+            }`}
+          >
+            {n}× / week
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <input
+          type="text"
+          className={`${fieldCls} flex-1 min-w-0 basis-full`}
+          placeholder="Add an MS lift"
+          aria-label="New MS exercise"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && addMs()}
+        />
+        <Button onClick={addMs} disabled={!draft.trim() || list.length >= 3}>
+          Add to MS
+        </Button>
+      </div>
+      {list.length >= 3 && (
+        <p className="text-[11px] text-muted mt-2">MS days are two to three compounds (p.70).</p>
+      )}
+      {edited && (
+        <button
+          onClick={() => saveSettings({ mass: { ...s.mass, msCluster: undefined } })}
+          className="text-[12px] font-bold text-muted mt-3 min-h-9"
+        >
+          Reset to Bench / Squat / Deadlift
+        </button>
+      )}
+    </Card>
+  )
+}
+
+function HClusterBuilder() {
+  const s = useSettings()
+  const ids = (s.plan?.blocks ?? []).map((b) => b.protocolId)
+  const hasBravo = ids.includes('bravo')
+  const hasAlpha = ids.includes('alpha')
+  const min = hasBravo ? H_CLUSTER_MIN_BRAVO : H_CLUSTER_MIN_ALPHA
+  const max = hasBravo ? H_CLUSTER_MAX_BRAVO : hasAlpha ? H_CLUSTER_MAX_ALPHA : H_CLUSTER_MAX_BRAVO
+  const edited = s.mass?.hCluster != null
+  const h1 = s.mass?.hCluster?.h1 ?? H1_EXAMPLE
+  const h2 = s.mass?.hCluster?.h2 ?? H2_EXAMPLE
+  const total = h1.length + h2.length
+  const overlap = hClusterOverlapIds(s)
+  const [draft, setDraft] = useState('')
+  const [target, setTarget] = useState<'h1' | 'h2'>('h1')
+
+  const save = (next1: ClusterExerciseRef[], next2: ClusterExerciseRef[]) =>
+    saveSettings({ mass: { ...s.mass, hCluster: { h1: next1, h2: next2 } } })
+
+  const add = () => {
+    const name = draft.trim()
+    if (!name || total >= max) return
+    const ex: ClusterExerciseRef = {
+      id: uniqueExerciseId(name, 'h_', [...h1, ...h2].map((e) => e.id)),
+      name,
+      defaultLoading: 'dumbbell',
+    }
+    if (target === 'h1') save([...h1, ex], h2)
+    else save(h1, [...h2, ex])
+    setDraft('')
+  }
+
+  const row = (which: 'h1' | 'h2', items: ClusterExerciseRef[]) => (
+    <div>
+      <p className="text-xs font-bold text-ink mb-1">{which.toUpperCase()}</p>
+      <div className="space-y-1.5">
+        {items.map((e) => (
+          <div key={e.id} className="flex items-center gap-2 rounded-field bg-[var(--color-surface-sunk)] p-2">
+            <span className="flex-1 min-w-0 truncate text-[14px] text-ink">{e.name}</span>
+            <LoadingSelect
+              name={e.name}
+              value={e.defaultLoading}
+              onChange={(loading) => {
+                const map = (xs: ClusterExerciseRef[]) =>
+                  xs.map((x) => (x.id === e.id ? { ...x, defaultLoading: loading } : x))
+                if (which === 'h1') save(map(h1), h2)
+                else save(h1, map(h2))
+              }}
+            />
+            <button
+              onClick={() =>
+                which === 'h1' ? save(h1.filter((x) => x.id !== e.id), h2) : save(h1, h2.filter((x) => x.id !== e.id))
+              }
+              aria-label={`Remove ${e.name}`}
+              className="p-1.5 text-muted"
+            >
+              <Trash2 size={15} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  return (
+    <Card>
+      <p className="eyebrow text-muted mb-1">Hypertrophy cluster (Alpha & Bravo)</p>
+      <p className="text-xs text-muted mb-3">
+        One H cluster for both templates (p.85). Alpha: 6–12 exercises (pp.71–72). Bravo: 8–16, each
+        lift twice a week (p.80). Mix of compounds and isolation; target weak points (p.72).
+      </p>
+      <div className="space-y-3">
+        {row('h1', h1)}
+        {row('h2', h2)}
+      </div>
+      {hasBravo && overlap.length > 0 && (
+        <p className="text-xs font-bold text-brand-ink mt-3">
+          The same lift is in H1 and H2, so Bravo would hit it on consecutive days — “not best
+          practice” (p.85). Alpha is fine with the same lift on MS and H (pp.84–85).
+        </p>
+      )}
+      <p
+        className={`text-xs mt-3 font-bold ${total < min || total > max ? 'text-brand-ink' : 'text-muted'}`}
+      >
+        {total} of {min}–{max}
+        {total < min && (hasBravo ? ' — Bravo asks for at least 8 (p.80).' : ' — Alpha asks for at least 6 (p.72).')}
+        {total > max && ' — over the book’s cap for this template.'}
+      </p>
+      <div className="flex flex-wrap gap-2 mt-2">
+        <input
+          type="text"
+          className={`${fieldCls} flex-1 min-w-0 basis-full`}
+          placeholder="Add an H exercise"
+          aria-label="New hypertrophy exercise"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && add()}
+        />
+        <select
+          aria-label="Add to which H list"
+          value={target}
+          onChange={(e) => setTarget(e.target.value as 'h1' | 'h2')}
+          className={`${fieldCls} flex-1 min-w-0`}
+        >
+          <option value="h1">H1</option>
+          <option value="h2">H2</option>
+        </select>
+        <Button onClick={add} disabled={!draft.trim() || total >= max}>
+          Add to H
+        </Button>
+      </div>
+      {edited && (
+        <button
+          onClick={() => saveSettings({ mass: { ...s.mass, hCluster: undefined } })}
+          className="text-[12px] font-bold text-muted mt-3 min-h-9"
+        >
+          Reset to the book’s Bravo example (p.81)
         </button>
       )}
     </Card>

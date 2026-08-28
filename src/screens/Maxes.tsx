@@ -3,6 +3,9 @@ import { useSettings, useAllOneRm } from '../hooks'
 import { protocolFor, resolvePosition } from '../program'
 import { protocolExercises, type Cluster, type ClusterExercise, type Prescription } from '../protocol'
 import { GM_GRID, sClusterOf } from '../protocols/greyman'
+import { ALPHA_GRID } from '../protocols/alpha'
+import { BRAVO_GRID } from '../protocols/bravo'
+import { hClusterOf, msClusterOf } from '../protocols/specificity'
 import type { Settings } from '../types'
 
 /**
@@ -12,10 +15,19 @@ import type { Settings } from '../types'
  */
 function liveClusters(protocol: { id: string; clusters: Record<string, Cluster> }, settings: Settings): Cluster[] {
   return Object.values(protocol.clusters).map((c) => {
-    if (protocol.id !== 'gm' || (c.id !== 's1' && c.id !== 's2')) return c
-    return { ...c, exercises: sClusterOf(settings, c.id) }
+    if (protocol.id === 'gm' && (c.id === 's1' || c.id === 's2')) {
+      return { ...c, exercises: sClusterOf(settings, c.id) }
+    }
+    if ((protocol.id === 'alpha' || protocol.id === 'bravo') && (c.id === 'h1' || c.id === 'h2')) {
+      return { ...c, exercises: hClusterOf(settings, c.id) }
+    }
+    if (protocol.id === 'alpha' && c.id === 'ms') {
+      return { ...c, exercises: msClusterOf(settings) }
+    }
+    return c
   })
 }
+
 import { estimate1RM } from '../lib/calc'
 import { loadBar, DEFAULT_BAR_SETUP, targetLoad, type BarSetup } from '../lib/barbell'
 import { db } from '../db'
@@ -281,11 +293,7 @@ export default function Maxes() {
                         />
                       </div>
                       {e && ex.defaultLoading === 'barbell' && (
-                        <WorkingPreview
-                          oneRm={e.kg + e.progressedKg}
-                          bar={bar}
-                          main={cluster.id === 'main'}
-                        />
+                        <WorkingPreview oneRm={e.kg + e.progressedKg} bar={bar} percents={previewPercents(protocol.id, cluster.id)} />
                       )}
                     </>
                   )}
@@ -313,15 +321,32 @@ export default function Maxes() {
  * from the main one (55/60/65 vs 70/75/80, p.51). This used to hardcode the main
  * row for everything, so every S lift previewed a weight ~27% too heavy.
  */
-function WorkingPreview({ oneRm, bar, main }: { oneRm: number; bar: BarSetup; main: boolean }) {
+/**
+ * Week-1 / 2 / 3 percentages for this cluster. Null = no preview (wrong grid).
+ * Bravo mid-week bump is the later cell; preview uses the first-half (Day 1/2) numbers.
+ */
+function previewPercents(protocolId: string, clusterId: string): number[] | null {
   const pctOf = (p: Prescription) => ('percent' in p.loading ? (p.loading.percent ?? 0) : 0)
-  const weeks = [1, 2, 3].map((w) => pctOf(main ? GM_GRID[w].main : GM_GRID[w].supp))
+  if (protocolId === 'gm') {
+    return [1, 2, 3].map((w) => pctOf(clusterId === 'main' ? GM_GRID[w].main : GM_GRID[w].supp))
+  }
+  if (protocolId === 'alpha') {
+    return [1, 2, 3].map((w) => pctOf(clusterId === 'ms' ? ALPHA_GRID[w].ms : ALPHA_GRID[w].h))
+  }
+  if (protocolId === 'bravo') {
+    return [1, 2, 3].map((w) => pctOf(BRAVO_GRID[w].early))
+  }
+  return null
+}
+
+function WorkingPreview({ oneRm, bar, percents }: { oneRm: number; bar: BarSetup; percents: number[] | null }) {
+  if (!percents) return null
   return (
     <div className="flex gap-2 mt-2">
-      {weeks.map((pct, i) => {
+      {percents.map((pct, i) => {
         const loaded = loadBar(targetLoad(oneRm, pct), bar)
         return (
-          <div key={pct} className="flex-1 text-center rounded-field bg-surface py-1.5">
+          <div key={`${i}-${pct}`} className="flex-1 text-center rounded-field bg-surface py-1.5">
             <p className="text-[10px] text-muted leading-none">Wk {i + 1} · {pct}%</p>
             <p className="num-display text-ink text-sm leading-tight mt-0.5">{loaded.totalKg}</p>
             {loaded.belowBar && <p className="text-[9px] text-muted leading-none">bar only</p>}

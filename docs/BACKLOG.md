@@ -3,12 +3,13 @@
 The durable list of outstanding work. **Nothing here is "remembered" anywhere else** — if it is not in
 this file it will be forgotten. Add to it rather than relying on a chat thread.
 
-**Last reviewed: 2026-08-24** (F1 closed the same day), after working the eight-agent audit end to end and then re-reading all
-eight reports finding by finding to make sure nothing was quietly dropped. IDs like `code-03 F7` are the
-audit's own numbering — `docs/audit/` has the evidence, with page references and `file:line`.
+**Last reviewed: 2026-08-28 evening** (v45 Alpha/Bravo in; Josh: UX/flow/year-planning **before** more
+templates). Prior: v44 signed off; eight-agent audit 2026-08-24. IDs like `code-03 F7` are the audit's
+own numbering — `docs/audit/` has the evidence. Binding direction: `docs/mass-design.md` **§14**
+(especially **§14.5**).
 
-**Status: 322 unit + 68 e2e green** · typecheck (covering `src`, `test`, `e2e` **and** `functions`),
-lint and build clean · deployed to tb2 as **v44**.
+**Status: 348 unit green** · typecheck (covering `src`, `test`, `e2e` **and** `functions`),
+lint clean · Alpha/Bravo in as **v45**.
 
 ---
 
@@ -32,6 +33,7 @@ remainder, re-derived by walking all eight reports rather than trusting the summ
 | **A5** | **Automatic on-device backups.** Dexie **v3** `snapshots` store, daily on app open and before every destructive action. Safe *by construction*: every destructive path clears tables **by name**. Retention 5 routine / 5 guard. Restoring snapshots first. `BACKUP_VERSION` stays **2**. | `d266e61` |
 | **A15** | **The guided planner** at `/next-cycle`, replacing the dead "Resume" button. Two-tier guardrails; presets are a **list** with mandatory page citations. | `d266e61` |
 | **F1** | **Two sessions in one day.** A date now holds one lift-family row and one cardio-family row — never two lifts, which is Josh's own rule and therefore the discriminator, so there is no slot index. Closes **code-01 F7** properly (a Strava run and an evening lift coexist) and gives same-day Green conditioning somewhere to be ticked (p.99). Adds pulling tomorrow's session forward, with the borrowed day showing as covered. **No Dexie migration** — `sessions.date` was already non-unique and the assumption lived in the reads; a unique compound index was rejected because it populates over existing rows and one stray duplicate would stop the database opening. `docs/mass-design.md` §13. | *this session* |
+| **E1a / E1b** | **Specificity Alpha and Bravo** as separate protocols (`src/protocols/alpha.ts`, `bravo.ts`). Shared MASS 1RMs and one H cluster. Deadlift override; Bravo mid-week % bump. | v45 |
 
 ### Book fidelity
 
@@ -141,12 +143,45 @@ contain `Goblet / Front-rack Squat`, which is also LP_A's first lift. It now tak
 
 ## Still open
 
-### Required before the app is "finished" — Josh, 2026-08-24
+### NEXT — UX, flow, and a year the app can run (Josh, 2026-08-28)
 
-| ID | Item |
+Grey Man + Alpha + Bravo **prescribe**. Josh has not finished a phone QA pass and does not need to
+before this: the UI is not the product yet. **Stop adding templates** (E2, E7, named H-cluster
+samples, Bulgarian / `tm90`, H2-on-Saturday, extra DL sets, intensity-tactics UI) until a person who
+has never read MASS — Josh — can use tb2 without a briefing.
+
+Bar for this pass:
+
+- **Automatic.** The app should take over after a short setup: 1RMs, clusters, a plan. Daily: what to
+  lift, every weight, plates, rest, Green/Black on the right days, Forced Progression at block seams.
+- **A year if he wants one.** Lay out GM × N, bridges where the book wants them (~every 2–3 months,
+  p.93), Spec inserted as the scalpel, then the app runs it. That is **planner UX plus E6 presets**,
+  not a new protocol.
+- **Intuitive and flexible**, still **exactly what the book prints**. Options the book hands over stay
+  choices; facts stay facts (`planRules` two-tier).
+- **Not food.** MacroFactor stays the nutrition app. A future read of MF stats is remembered under
+  **E4**, not this pass.
+
+How to run the next chat: several specialist review passes (journey, visual, accessibility, first-run
+without the book, year-planner), then **one** implementation pass that takes the merged list. Do not
+ship a committee of conflicting restyles. Book page numbers still win over taste.
+
+Fold into this pass rather than treating them as "later polish":
+
+| ID | Why it belongs here |
 |---|---|
-| **E1** | **Specificity Alpha and Bravo.** *"We need to add Specificity before this app is finished."* Without it the app cannot run the book's Standard Cycle (p.140) or any General:Specificity ratio (pp.141–142), and the default plan has to stop at the bridge. Extracted in sections 05 and 06. Alpha has separate MS and H grids plus a deadlift override (pp.74–75). Where `tm90` and the Bulgarian cluster finally matter. The planner's ratio and no-General warnings are written and waiting. **Also unblocks `book-04 F5`** — the three p.142 worked examples cannot currently be built. |
-| **E6** | **A second plan preset** once E1 lands. `PLAN_PRESETS` is already a list; add the full p.140 cycle and a 2:1 preset (p.142). Every preset carries a page citation. |
+| **E6** | Goal-keyed presets *are* "plan a year and the app takes over". Indefinite MASS bulk first; also p.140 Standard Cycle and 2:1 (p.142), each cited. The truncated starter plan is not his bulk plan. |
+| **book-04 F13** | Consolidation checklist (p.147) — ten ordered steps a first-timer could be walked through. Today it is Guide prose. |
+| **book-01 F5** | Session screen: main vs S (and MS vs H) as separate structures, not one flat list (p.50). |
+| **book-04 F2** | Block numbering vs the author's count (Bridge as a block, p.141) — confusing in a year view. |
+| code-03 F19–F27, F20–F25 | Plan/Settings tap targets, empty-plan "Rest", History lying about Beginner on Grey Man, DEFAULT_SETTINGS flash, nav names, truncated exercise names. |
+| — | `EXERCISE_INFO` has no barbell lifts — form copy must be real, not invented. |
+
+Optional **hour-one correctness** before restyling (not blockers, but they bite a year-long plan):
+
+- **code-01 F9** — `parseBackup` does not validate row shape.
+- **code-02 F12** — deleting every block reverts to a stale `phaseStartDate`.
+- **code-03 F19** — delete-block has no confirmation.
 
 ### Book fidelity — small, real, unaddressed
 
@@ -168,11 +203,14 @@ contain `Goblet / Front-rack Squat`, which is also LP_A's first lift. It now tak
 | code-02 F8 | **`before` and `complete` pin `day`/`week`**, and those values get written into history if a session is logged in either state. |
 | code-02 F12 | **Deleting every block silently reverts to the stale `phaseStartDate`**, which under a plan is months out. Should refuse, or clear both. |
 | code-02 F15 | **`loadBar` allocates memory proportional to the target weight.** Fine at human loads; unbounded in principle. |
-| code-02 F17 | **S-cluster exercise ids come from the display name with no collision check.** Two exercises slugging to the same id would share a 1RM. |
+| code-02 F17 | **S-cluster exercise ids** — new adds use `uniqueExerciseId` (S/MS/H). Existing stored ids are unchanged. |
 | code-03 F19 | **Deleting a block has no confirmation**, and an empty plan turns every day into "Rest". |
 | — | **`sessions.date` is not a unique index** — now deliberate (F1): a date legitimately holds two rows, and uniqueness is a property of `(date, family)` that the code enforces. An engine-level unique index was considered and rejected; `docs/mass-design.md` §13 says why. |
 
-### UI polish — unaddressed, low severity
+### UI polish — now in the UX pass above
+
+Was deferred behind templates (Josh, morning 2026-08-28). **Lifted the same evening** (§14.5): do
+this *instead of* E2/E7. Rows remain listed so IDs are not lost.
 
 | ID | Item |
 |---|---|
@@ -209,9 +247,11 @@ contain `Goblet / Front-rack Squat`, which is also LP_A's first lift. It now tak
 
 | ID | Item |
 |---|---|
-| E2 | **Mass Template, Gladiator, Fighter HT** — extracted (sections 03, 04). One file each plus registration. All three need AMRAP and peaking, which Grey Man has not. **Fighter HT trains twice a week and therefore hits `alternationRotates`** — read p.60 before deciding what it should do. |
+| E2 | **Mass Template, Gladiator, Fighter HT** — extracted (sections 03, 04). **Parked until the UX/year-plan pass is done.** One file each plus registration. All three need AMRAP and peaking, which Grey Man has not. **Fighter HT trains twice a week and therefore hits `alternationRotates`** — read p.60 before deciding what it should do. |
 | E3 | **Base Building** — skipped by choice and **book-sanctioned** for a runner (p.18, p.151). Extracted in section 02. Its real argument is connective-tissue preparation, not cardio. |
-| E4 | **Nutrition and supplements** — extracted (section 08). Two calorie/macro formulas (pp.120–121). The Guide points at the book and MacroFactor instead. |
+| E4 | **Nutrition and supplements** — extracted (section 08). Two calorie/macro formulas (pp.120–121). The Guide points at the book and **MacroFactor** instead. Josh, 2026-08-28: food logging stays in MF; a later **read-only stats** hook from MF would be nice. Do not build it in the UX pass. |
+| **E7** | **Operator (Tactical Barbell I)** — for a **later cut**, not for the MASS bulk. Different book. Rebuild from TB1 the same way Grey Man was rebuilt from MASS. **After** the UX pass and remaining MASS templates Josh actually wants. Do not fake Operator inside MASS grids. |
+| — | **Named sample H clusters** (Camp Drvar, Keeny-Meeny, Eidolon, Classic, Bulgarian / TM90), H2→Saturday, extra DL sets, intensity-tactics UI — book content, **not** the next chat. The DIY builders already exist. |
 
 ---
 

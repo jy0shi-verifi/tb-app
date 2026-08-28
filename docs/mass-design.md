@@ -36,7 +36,9 @@ protocol, and this design is largely a set of answers to that list.
 | Strava on `tb2` | A **second** Strava API app registered against `tb2.joshua-birch.co.uk`; the live app's Strava is untouched | Josh, 2026-08-22 |
 
 Not being built now, but the model must not preclude them: Mass Template, Gladiator, Fighter HT,
-Specificity Alpha and Bravo, Base Building.
+Specificity Alpha and Bravo, Base Building. **2026-08-28:** Specificity is required content (Alpha
+first, then Bravo — §14). Operator (Tactical Barbell I) is a later, different-book template for a
+cut, not a MASS preset.
 
 ---
 
@@ -848,3 +850,98 @@ because something put it there.
   informational only, which made the Plan screen's day picker lie about what it scheduled.
 - **`stravaSync`'s `byDate` map**, which held whichever row came last and so reconciled activities
   against a coin toss on any day carrying both.
+
+---
+
+## 14. Decisions taken 2026-08-28 (Josh, Cursor pickup)
+
+Grey Man is in the app and v44 is signed off. These are binding on what gets built next.
+
+### 14.1 Content first, polish later
+
+The remaining MASS work is **getting the book's templates into the app and proving they prescribe
+correctly**. Look-and-feel, journey, and "how a user should use this" come after the content is there.
+UI-polish backlog items (code-03 F20–F27 and similar) stay low priority on purpose.
+
+### 14.2 Specificity: both Alpha and Bravo, each with its own logic
+
+The book declines to auto-select (p.69). **Both go in the app as separate protocols.** They are not
+skins of one grid:
+
+- **Alpha:** four days, two MS + two H; MS 2–3 compounds at 3–5 / 75–85%; H 6–12 mixed lifts at 8–12 /
+  60–75%; deadlift override; MS rest 2–5 min, H rest shorter (pp.70–75).
+- **Bravo:** four days all H; 8–16 exercises split H1/H2, each lift twice a week; consecutive
+  same-compound days *not* sanctioned (p.80, p.85); rest ~1–2 min (p.82).
+
+The app offers both and never auto-picks. Build them as two protocol files that share H-cluster
+machinery where the book actually shares it, not by stretching Grey Man.
+
+### 14.3 Goals, not one Standard Cycle — Operator is a different book
+
+Tactical Barbell is modular. Templates serve different end goals.
+
+| Goal | Book / template | When |
+|---|---|---|
+| After the current deficit: **bulk indefinitely** | MASS — Grey Man, with Specificity inserted as needed | Next, once the bar arrives |
+| A later **cut** | Tactical Barbell I — **Operator** (most likely) | Later; not MASS |
+
+Consequences:
+
+1. The planner stays a **list of presets keyed by goal** (`PLAN_PRESETS`). Josh's working default is
+   ongoing General Mass (Grey Man blocks, bridges as needed, Specificity when he wants the scalpel) —
+   not a one-shot p.140 Standard Cycle that "finishes".
+2. The printed Standard Cycle and a 2:1 General:Specificity preset (p.140, p.142) are still worth
+   having once Specificity exists, because they are the book's own examples. They are not his
+   indefinite-bulk plan.
+3. **Operator is not a MASS preset.** It was stripped with the unverified TB1 code (`strip-tb`).
+   Rebuilding it is a second extraction from Tactical Barbell I, registered as its own protocol, for a
+   future cut. Do not fake Operator inside MASS grids. Backlog **E7**, after MASS content.
+
+### 14.4 What Specificity is for (Josh, 2026-08-28)
+
+Josh: Spec is for putting work where it's lacking — isolation (arms, shoulders, etc.) the main Grey
+Man cycle does not cover — so size is even across the body.
+
+**Mostly right, with one important Grey Man correction.**
+
+The FAQ is the plain statement (p.153): Specificity is optional but recommended; it is the chance to
+work on *weak points or areas that weren't given the same amount of attention during General Mass*.
+p.67: finishing school / targeted hypertrophy. p.72: H cluster is where you target areas of weakness.
+Bravo in particular is sold as time to "build up neglected areas/work on specific muscle groups"
+(p.69). Isolation is allowed and encouraged there; it is not required to be isolation-only — H
+clusters are a mix of compounds and isolation (p.70, p.80), and p.144 says Spec "doesn't have to be
+traditional isolation work."
+
+**Grey Man already has isolation.** It "combines general mass building with supplementary/isolation
+work" (p.48). The S cluster is 4–6 user-chosen accessories ("Think isolation work… barbell curls,
+shrugs", p.49). Other General templates tell you *not* to add extras (p.152); Grey Man is the
+exception. p.49 is explicit that S is capped at 4–6 because *"You'll get a chance to go hog-wild with
+accessory work during Specificity."*
+
+So for "size everywhere, nothing lagging":
+
+1. **General Mass (Grey Man) is the whole-body base.** Do not skip it (p.41, p.153). Fill the S cluster
+   with conventional barbell/dumbbell accessories for the bits the main four (BP/SQ/OHP/DL) underserve
+   — that is already the mass-centric recommendation (p.49).
+2. **Specificity is the zoom-in**, after General, on whatever is still behind — more exercises, more
+   volume, the places S could not cover because it is capped at 4–6.
+3. You may disregard Specificity completely if General alone is enough bulk (p.40); a short 3-week
+   Spec block "will do you good, before diving back into General" (p.153).
+
+Balanced size is a **ratio of General to Specificity over the year**, plus what he puts in S and in
+the H cluster — not Spec replacing Grey Man, and not Spec being the first time arms get trained.
+
+### 14.5 UX and year-planning before any more templates (Josh, 2026-08-28)
+
+Alpha and Bravo are **in**. **Do not add** Mass Template, Gladiator, Fighter HT, Operator, sample H
+cluster pickers, or Camp Drvar / Keeny-Meeny / Bulgarian / `tm90` until the app is usable by someone
+who has **not** read the books (Josh's bar: *him*).
+
+The next work is **UI, UX, and flow**: the app should do as much as it can automatically, stay
+book-faithful, stay flexible, and make it easy to lay out a long plan (a year if he wants) and then
+get out of the way. Food logging stays out — MacroFactor owns that; a later read-only stats hook is
+fine to remember, not to build now (backlog E4).
+
+§14.1's "content first" applied until Grey Man + Alpha + Bravo prescribed correctly. That bar is met
+for this pass. Polish is no longer deferred behind more templates.
+

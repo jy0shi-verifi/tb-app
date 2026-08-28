@@ -157,17 +157,18 @@ describe('WARNED — things the book advises', () => {
     expect(problems.some((p) => /don’t recommend excluding General/.test(p.message))).toBe(true)
   })
 
+  it('a Grey Man then Bravo plan is valid, and warns with no General', () => {
+    const ok = check([gm(), { protocolId: 'bravo', weeks: 3 }])
+    expect(ok.filter((p) => p.level === 'error')).toEqual([])
+    const noGeneral = check([{ protocolId: 'alpha', weeks: 3 }])
+    expect(noGeneral.some((p) => /No General/.test(p.message))).toBe(true)
+  })
+
   it('warns when the ratio favours Specificity (pp.141–142), and not when it favours General', () => {
-    const spec = { ...protocolFor('gm'), id: 'spec-alpha', family: 'specificity' as const }
-    const resolve = (id: string) => (id === 'spec-alpha' ? spec : protocolFor(id))
-    const favoursSpec = validatePlan(
-      [gm(), { protocolId: 'spec-alpha', weeks: 3 }, { protocolId: 'spec-alpha', weeks: 3 }],
-      resolve,
-    )
+    const favoursSpec = check([gm(), { protocolId: 'alpha', weeks: 3 }, { protocolId: 'bravo', weeks: 3 }])
     expect(favoursSpec.some((p) => /favours Specificity/.test(p.message))).toBe(true)
 
-    // 2:1 the author's way — the "solid balanced approach" (p.142) — is silent.
-    const balanced = validatePlan([gm(), gm(), { protocolId: 'spec-alpha', weeks: 3 }], resolve)
+    const balanced = check([gm(), gm(), { protocolId: 'alpha', weeks: 3 }])
     expect(balanced.some((p) => /favours Specificity/.test(p.message))).toBe(false)
   })
 

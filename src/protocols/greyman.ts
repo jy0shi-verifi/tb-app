@@ -9,27 +9,21 @@
  *   "Grey Man is a versatile, efficient mass builder that uses a simple
  *    alternating 'A-B-A/B-A-B' style schedule." (p.48)
  */
-import type { OneRmEntry, Settings } from '../types'
+import type { Settings } from '../types'
 import {
   setsRange,
   type BlockPosition,
   type Cluster,
   type ClusterExercise,
   type PlannedExercise,
-  type PlannedSet,
   type Prescription,
   type Protocol,
   type ProtocolContext,
   type SessionPlan,
 } from '../protocol'
-import {
-  DEFAULT_BAR_SETUP,
-  bodyweightReps,
-  loadBar,
-  targetLoad,
-  weightedBodyweightAddedKg,
-  type BarSetup,
-} from '../lib/barbell'
+import { MAIN_REST_SEC, SUPP_REST_SEC, planExercise } from '../lib/planExercise'
+
+export { MAIN_REST_SEC, SUPP_REST_SEC, planExercise } from '../lib/planExercise'
 
 // ---------------------------------------------------------------------------
 // Clusters (pp.48–49)
@@ -161,153 +155,6 @@ const mainLiftsFor = (letter: GreyManDay): ClusterExercise[] =>
   letter === 'A'
     ? [GM_MAIN[0], GM_MAIN[1]] // Bench, Squat
     : [GM_MAIN[2], GM_MAIN[3]] // OHP, Deadlift
-
-// ---------------------------------------------------------------------------
-// Turning a prescription into sets
-// ---------------------------------------------------------------------------
-
-const barSetupFrom = (settings: Settings): BarSetup =>
-  settings.bar?.platePairsKg?.length
-    ? { barKg: settings.bar.barKg, plates: settings.bar.platePairsKg.map((kg) => ({ kg })) }
-    : DEFAULT_BAR_SETUP
-
-/** The number the percentage multiplies. `tm90` never fires for Grey Man. */
-function basisKg(entry: OneRmEntry, basis: Prescription['basis']): number {
-  const kg = entry.kg + (entry.progressedKg ?? 0)
-  return basis === 'tm90' ? kg * 0.9 : kg
-}
-
-/**
- * Build the sets for one exercise. Returns a `PlannedExercise` with no weights
- * and an explanatory note when the 1RM is not known yet — better an honest gap
- * than a fabricated load.
- */
-/**
- * Rest between sets, per cluster, from the book (p.52, p.53).
- *
- *   Main: "Rest for approximately 2-5 minutes or more in between sets."
- *   S:    "Rest for 1-2 minutes between sets."
- *
- * These are different numbers for different work, and the app used a flat 120 s
- * for both (audit book-01 F3).
- */
-export const MAIN_REST_SEC = { min: 120, max: 300 } as const
-export const SUPP_REST_SEC = { min: 60, max: 120 } as const
-
-export function planExercise(
-  ex: ClusterExercise,
-  p: Prescription,
-  ctx: ProtocolContext,
-  rest: { min: number; max: number } = MAIN_REST_SEC,
-): PlannedExercise {
-  const entry = ctx.maxes[ex.id]
-  const count = p.setsMin
-  // Carried onto every returned shape below, so the session can offer the 5th
-  // set the book prints (p.51) and rest the right amount (pp.52-53).
-  const meta = {
-    setsMin: p.setsMin,
-    setsMax: p.setsMax,
-    restSecMin: rest.min,
-    restSecMax: rest.max,
-  }
-  const loading = { ...p.loading, kind: ex.defaultLoading } as Prescription['loading']
-  const percent = 'percent' in p.loading ? (p.loading.percent ?? 0) : 0
-
-  /** A gap on screen with the reason, rather than a fabricated load. */
-  const unresolved = (note: string): PlannedExercise => ({
-    name: ex.name,
-    exerciseId: ex.id,
-    loaded: true,
-    note,
-    ...meta,
-    sets: Array.from({ length: count }, () => ({ reps: p.reps })),
-  })
-
-  if (loading.kind === 'unloaded') {
-    return {
-      name: ex.name,
-      exerciseId: ex.id,
-      loaded: false,
-      ...meta,
-      sets: Array.from({ length: count }, () => ({ reps: p.reps })),
-    }
-  }
-
-  if (!entry) return unresolved(`Set your 1RM for ${ex.name} to see the working weight (${percent}%).`)
-
-  // The stored max carries the unit it was measured in. If the exercise's loading
-  // kind has since been changed — the S-cluster builder allows exactly that — the
-  // number means something different and MUST NOT be silently reinterpreted: a
-  // 100 kg barbell 1RM read as per-dumbbell would prescribe 70 kg in each hand.
-  const wantsPerDumbbell = loading.kind === 'dumbbell'
-  const isPerDumbbell = entry.unit === 'perDumbbell'
-  const usesWeight = loading.kind === 'dumbbell' || loading.kind === 'barbell'
-  if (usesWeight && wantsPerDumbbell !== isPerDumbbell) {
-    return unresolved(
-      `${ex.name}'s 1RM was recorded ${isPerDumbbell ? 'per dumbbell' : 'as a barbell total'} but it is now set up as ${wantsPerDumbbell ? 'a dumbbell' : 'a barbell'} lift. Re-test it to see a weight.`,
-    )
-  }
-
-  let set: PlannedSet
-
-  switch (loading.kind) {
-    case 'bodyweightReps': {
-      // The percentage applies to MAX REPS, not to weight (p.90). A row with no
-      // maxReps cannot produce a rep count — 0 reps is not a prescription.
-      if (!entry.maxReps || entry.maxReps <= 0) {
-        return unresolved(`Record your max reps for ${ex.name} — bodyweight work is a percentage of that (p.90).`)
-      }
-      // `loaded: false` below — there is no weight to record, and the session
-      // screen was giving these a "Weight on the bar" kg field (audit code-03
-      // F10). Weighted bodyweight is different: its added kg is a real load.
-      set = { reps: bodyweightReps(entry.maxReps, percent) }
-      break
-    }
-    case 'weightedBodyweight': {
-      // Bodyweight MUST be part of the sum (p.90). Defaulting it to zero produces
-      // precisely the "things will get too heavy too fast" failure the book warns
-      // about — 70% of a 120 kg system max would hang 84 kg off a dip belt
-      // instead of telling you that you need assistance.
-      const bw = ctx.settings.bodyweightKg
-      if (!bw || bw <= 0) {
-        return unresolved(`Set your bodyweight in Settings — it has to be part of the sum for ${ex.name} (p.90).`)
-      }
-      const added = weightedBodyweightAddedKg(basisKg(entry, p.basis), bw, percent)
-      set = { reps: p.reps, weight: Math.max(0, added), targetKg: added, underFloor: added < 0 }
-      break
-    }
-    case 'dumbbell': {
-      const raw = targetLoad(basisKg(entry, p.basis), percent)
-      const step = ctx.settings.dbIncrement || 2
-      // Nearest, ties down — the same rule as the bar (docs/mass-design.md §4).
-      const kg = -Math.round(-raw / step) * step
-      set = { reps: p.reps, weight: kg, perDumbbell: true, targetKg: raw }
-      break
-    }
-    default: {
-      const raw = targetLoad(basisKg(entry, p.basis), percent)
-      const bar = loadBar(raw, barSetupFrom(ctx.settings))
-      set = {
-        reps: p.reps,
-        weight: bar.totalKg,
-        targetKg: bar.targetKg,
-        perSide: bar.perSide,
-        belowBar: bar.belowBar,
-        exhausted: bar.exhausted,
-      }
-      break
-    }
-  }
-
-  return {
-    name: ex.name,
-    exerciseId: ex.id,
-    // A bodyweight-reps prescription is a REP count, not a load (p.90).
-    loaded: loading.kind !== 'bodyweightReps',
-    ...meta,
-    sets: Array.from({ length: count }, () => ({ ...set })),
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Session resolution

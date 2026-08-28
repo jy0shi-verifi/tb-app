@@ -2,9 +2,11 @@
 
 Read this first, then **`HANDOFF.md`** for where work actually stopped and what comes next, and
 **`docs/BACKLOG.md`** for the durable list of outstanding work — **if something is not in that file it
-will be forgotten.** For the full architecture reference see **`docs/codebase-map.md`** (dated map of
-every subsystem, with file:line references); for the MASS rebuild see **`docs/mass-design.md`** and the
-book extraction in **`docs/MASS/MASS-extraction.md`**.
+will be forgotten.** Cursor’s 2026-08-28 pickup (agent switch, verified git state, how we work from
+here) is **`docs/CURSOR-PICKUP.md`**. For the full architecture reference see **`docs/codebase-map.md`**
+(dated map of every subsystem, with file:line references — compiled against `master` @ v23; MASS
+schema and dispatch live on `mass-extraction`); for the MASS rebuild see **`docs/mass-design.md`** and
+the book extraction in **`docs/MASS/MASS-extraction.md`**.
 
 ---
 
@@ -119,15 +121,16 @@ Strava run and an evening lift coexist (closing code-01 F7 properly rather than 
 conditioning sharing a lifting day can be ticked (p.99), and tomorrow's session can be pulled forward
 when Josh is short of time. **No Dexie migration was required** — see `docs/mass-design.md` §13.
 
-**Verified at handoff:** 322 unit + 68 e2e green, typecheck/lint/build clean, and the real 23-session
-backup round-trips through the schema unchanged.
+**Verified at Alpha/Bravo handoff (v45):** 348 unit green, targeted Grey Man / Plan / Specificity e2e
+green (19), typecheck/lint/build clean. Josh has not fully QA'd the Spec UI yet — that waits on the
+UX pass, not more templates.
 
 **Not built:** the other three General templates (Mass, Gladiator, Fighter HT), Base Building
-(**book-sanctioned** to skip for a runner — p.18, p.151, not a deviation), and nutrition/supplement
-tracking. **Specificity (Alpha/Bravo) is no longer optional**: Josh ruled on 2026-08-24 that it is
-required before the app is finished, since without it the app cannot run the book's Standard Cycle
-(p.140) or any General:Specificity ratio (pp.141–142). The model accommodates all of them. See
-`docs/BACKLOG.md`.
+(**book-sanctioned** to skip for a runner — p.18, p.151, not a deviation), nutrition/supplement
+tracking (MacroFactor owns food; a later stats hook is backlog, not now), and **Operator (Tactical
+Barbell I)** (backlog **E7**). **Specificity Alpha and Bravo are in** (`PROTOCOLS.alpha` / `bravo`).
+The app offers both and does not auto-pick (p.69). **Next is UX / flow / year-planning, not more
+templates** (`docs/mass-design.md` §14.5). See `docs/BACKLOG.md`.
 
 **"Load demo history"** seeds the whole timeline: 26 weeks of Beginner, then four Grey Man blocks with a
 bridge week, landing mid-block. Both halves run the real `sessionFor`, so seeded weights are the ones the

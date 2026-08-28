@@ -33,9 +33,11 @@ import type { PlannedBlock } from '../program'
  * A named starting point.
  *
  * A LIST, not a constant, at Josh's instruction (2026-08-24): *"we can have more
- * than one default (depending on current goal)."* It holds one entry today
- * because Specificity is not built; adding the full p.140 Standard Cycle and a
- * 2:1 ratio preset must then be data, not a rewrite. See backlog E6.
+ * than one default (depending on current goal)."* One entry today because
+ * Specificity is not built. 2026-08-28: the preset he will actually run is
+ * ongoing MASS bulk (Grey Man looping); the book's p.140 cycle and a 2:1 ratio
+ * are additional entries once Alpha exists. Operator (TB1) is not a MASS preset.
+ * See backlog E6 / E7 and docs/mass-design.md §14.
  *
  * `cite` is mandatory. A preset with no page reference is not a preset — it is
  * an opinion wearing the book's clothes.
@@ -68,7 +70,7 @@ export const PLAN_PRESETS: PlanPreset[] = [
       { protocolId: 'bridge', weeks: 1 },
     ],
     cite: 'p.140',
-    note: 'The printed cycle turns to Specificity after this bridge week. Specificity isn’t built yet, so the plan stops here and asks you what to do next.',
+    note: 'The printed cycle turns to Specificity after this bridge week. Add an Alpha or Bravo block there — both are in the planner.',
   },
 ]
 

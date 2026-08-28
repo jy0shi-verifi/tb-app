@@ -128,16 +128,12 @@ describe('stats stay inside one protocol', () => {
 
 describe('the write path cannot cross protocols', () => {
   it('applyBeginnerProgress refuses a Grey Man session outright', () => {
-    // The A0 bug: finishing a Grey Man day ran Beginner's linear progression,
-    // which maps exercises onto LP_A/LP_B BY ARRAY POSITION — so a 100 kg bench
-    // on the bar was written as a 100 kg-per-dumbbell goblet squat, on the
-    // programme Josh actually uses every morning.
     const gm = MIXED[3]
-    // The name check alone did NOT stop this: 'Goblet / Front-rack Squat' is a
-    // legitimate Grey Man S-cluster choice AND LP_A's first lift, so a colliding
-    // name walked straight past it and wrote 100 kg as a per-dumbbell weight.
-    // The guard is now the protocol itself, per CLAUDE.md's own house rule.
     expect(applyBeginnerProgress(settings(), 'A', gm.exercises, 'gm')).toBeNull()
+  })
+
+  it('also refuses Alpha — same type:lift trap', () => {
+    expect(applyBeginnerProgress(settings(), 'A', MIXED[3].exercises, 'alpha')).toBeNull()
   })
 
   it('still runs normally for a genuine Beginner session', () => {
@@ -177,6 +173,12 @@ describe('maxes never cross scopes', () => {
     const forGm = narrowMaxes(rows, PROTOCOLS.gm)
     expect(Object.keys(forGm)).toEqual(['squat'])
     expect(forGm.bg_squat).toBeUndefined()
+  })
+
+  it('Alpha shares that mass scope — a Grey Man squat 1RM is usable on MS day', () => {
+    const forAlpha = narrowMaxes(rows, PROTOCOLS.alpha)
+    expect(forAlpha.squat.kg).toBe(140)
+    expect(forAlpha.bg_squat).toBeUndefined()
   })
 
   it('and Beginner only its own', () => {

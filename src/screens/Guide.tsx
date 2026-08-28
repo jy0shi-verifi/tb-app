@@ -60,8 +60,8 @@ const SECTIONS: Section[] = [
           (p.143)
         </p>
         <p className="mt-2 text-muted">
-          The app runs the General side, using the <b>Grey Man</b> template. Specificity isn’t built
-          yet.
+          The app runs <b>Grey Man</b> for General Mass, and <b>Alpha</b> or <b>Bravo</b> for
+          Specificity. Put them in the block plan.
         </p>
       </>
     ),
@@ -362,8 +362,9 @@ const SECTIONS: Section[] = [
           weeks
         </p>
         <p className="mt-2 text-muted">
-          Specificity isn’t built yet, so the app’s default plan runs the four General blocks and the
-          bridge week, then asks what to do next.
+          The default starter plan runs the four General blocks and the bridge, then the planner
+          asks what to do next. Alpha and Bravo are in the block list — add them when you want the
+          scalpel (p.153).
         </p>
         <p className="mt-3">
           <b>Bridge Week</b> is a week off between blocks: deload, let the work come to fruition, and

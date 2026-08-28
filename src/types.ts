@@ -216,6 +216,15 @@ export interface Settings {
   /** MASS state. `sCluster` is the user-built Grey Man supplementary cluster (p.49). */
   mass?: {
     sCluster?: { s1?: ClusterExerciseRef[]; s2?: ClusterExerciseRef[] }
+    /** Alpha MS cluster (p.71). Absent → printed Bench / Squat / Deadlift. */
+    msCluster?: ClusterExerciseRef[]
+    /**
+     * Hypertrophy cluster for Alpha and Bravo (p.72, p.80, p.85). One list,
+     * both templates — the book says sample H clusters work with either.
+     */
+    hCluster?: { h1?: ClusterExerciseRef[]; h2?: ClusterExerciseRef[] }
+    /** Conventional DL once or twice a week on Alpha MS days (p.74). Default 2. */
+    deadliftPerWeek?: 1 | 2
     /**
      * Days carrying a conditioning session, 0=Mon..6=Sun. The book fixes the
      * count (1–3 Green a week, p.99) but not the days, so this is a choice —

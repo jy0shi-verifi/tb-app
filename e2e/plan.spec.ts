@@ -82,12 +82,12 @@ test('the S-cluster builder enforces the book’s 4–6 limit', async ({ page, s
   await expect(page.getByText('5 of 4–6')).toBeVisible()
 
   await page.getByLabel('New supplementary exercise').fill('Barbell Curl')
-  await page.getByRole('button', { name: 'Add', exact: true }).click()
+  await page.getByRole('button', { name: 'Add to S' }).click()
   await expect(page.getByText('6 of 4–6')).toBeVisible()
 
   // "Use no more than 4 to 6" (p.49) — at 6 the Add button is disabled.
   await page.getByLabel('New supplementary exercise').fill('Calf Raise')
-  await expect(page.getByRole('button', { name: 'Add', exact: true })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Add to S' })).toBeDisabled()
 })
 
 test('a custom S cluster reaches the session', async ({ page, seed }) => {
