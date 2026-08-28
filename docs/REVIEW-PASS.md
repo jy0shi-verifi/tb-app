@@ -1,118 +1,303 @@
-# Specialist review pass — prompt for a new chat
+# Specialist review stack — paste this entire file into a new chat
 
-Paste the block below into a **new** Cursor chat on branch `mass-extraction`. Keep this file; the tab
-will vanish.
-
-Josh, 2026-08-28: he **tried the v46 year calendar and it is not good enough**. Do not defend it.
-Diagnose, then (only after a merged list) rebuild the planner UX. The engine and `plan.blocks`
-model stay.
+Josh, 2026-08-28: **the v46 year calendar is not good enough.** Do not defend it. Token cost is
+not a constraint — thoroughness is. Do not implement until Phase 2 is on screen and Josh has
+answered the book-facing questions.
 
 ---
 
-You are working on **tb-app**, branch **`mass-extraction`**, preview **tb2.joshua-birch.co.uk (v46)**.
-Sole user: **Josh**. Phone-first PWA. Offline-first. No auth.
+You are working on **tb-app**, git branch **`mass-extraction`**, live preview
+**https://tb2.joshua-birch.co.uk** (footer must read **v46**; if it does not, hard-refresh / kill
+the PWA cache). Sole user: **Josh**. Phone-first PWA. Offline-first. No auth.
 
-Read first, in order: `CLAUDE.md`, `HANDOFF.md`, `docs/BACKLOG.md` (section **NEXT**),
-`docs/mass-design.md` §14.5, this file. Book claims need page numbers from `docs/MASS/`. The book
-wins over taste. Do not invent coaching, rounding rules, or templates.
+Read first, in this order, before launching anyone:
 
-This chat is **high-signal review then one implementer**. Context from the v46 UX pass is in the
-repo, not in the previous tab. Do not re-derive MASS from scratch.
+1. `CLAUDE.md`
+2. `HANDOFF.md`
+3. `docs/BACKLOG.md` section **NEXT**
+4. `docs/mass-design.md` **§11.4** (planRules two-tier) and **§14.5**
+5. This file
 
-## The job
+Book claims need page numbers from `docs/MASS/` (extraction, not the gitignored PDF). The book
+wins over taste. Do not invent coaching, rounding rules, or templates. Do not touch `master`.
+Do not `npm run deploy` (production). Data loss is the highest-severity failure.
 
-v46 shipped a first year calendar (`src/components/PlanYear.tsx`, helpers in
-`src/lib/planCalendar.ts`). Josh used it. His verdict: **it isn’t very good**. His original bar
-(2026-08-28) still stands:
+This is a **new** chat. Zero memory of the previous tab except what is on disk.
 
-> A calendar where I enter a start date (or the end of my current plan) and click / drag blocks
-> so I can see exactly where each block lands in the year. Example: it is August, I want to bulk
-> over winter, holiday booked in May — plan as many MASS cycles as fit, then something else
-> before the holiday (Operator was the example; **Operator is not in this pass**). The whole plan
-> process should be intuitive instead of a wall of text and numbers.
+---
 
-Also still true: after setup, Today runs the plan automatically; Grey Man loops; Bridge about
-every 2–3 months (p.93, WARNED not BLOCKED); Spec is Alpha **or** Bravo, never auto-pick (p.69);
-`planRules` two-tier stays.
+## What Josh actually wants
 
-**Headline:** replace or radically redesign the calendar interaction until a phone user can lay
-out a year and *see the dates*. Secondary: walk the rest of the app and mark anything that still
-needs code.
+After a short setup (programme, working maxes, clusters, a plan), the app **takes over** each
+morning: what to do, every weight, plates, rest. He must also be able to **lay out a year**
+without already knowing MASS vocabulary.
 
-## How to run this chat
+His own words for the planner (2026-08-28):
 
-**Phase 1 — read-only specialists in parallel** (Task/subagents). Each has a profession. Each
-must **use the running app** (browser at phone viewport 390px, or Playwright) **and** the code —
-not screenshots of code comments. Each returns a ranked list only:
+> I want a calendar view, where I enter my start date (or end date of my current plan) and then
+> I can click / drag blocks into the calendar in real time so I can see exactly where each
+> block lands in the year.
+>
+> It might be August, end of summer and I want to bulk over the winter but have a holiday
+> booked in May. I would plan as many mass cycles as I can, and then 6 weeks worth of Operator
+> (once in, not in right now so use this example loosely) before my holiday to cut down the fat.
+>
+> Essentially, I want the entire plan process to be intuitive instead of a wall of text and
+> numbers.
 
-- route / component
-- what’s wrong (quote UI; file:line)
-- proposed **code** change (concrete, not “improve the UX”)
-- book page **or** “UX only / no book claim”
-- severity: blocks year-plan | blocks first-run | daily | polish
+He then tried v46’s calendar and said **it isn’t very good**.
 
-Do **not** restyle the brand (Oswald/Inter, existing dark mode). Do **not** start E2/E7.
+Operator / Tactical Barbell I is **not in this pass** (backlog E7). Time off / a gap before a
+holiday **is** in this pass. Specificity is Alpha **or** Bravo — he chooses, **never auto-pick**
+(MASS p.69). Bridge about every 2–3 months is **advice** (p.93) → `planRules` WARNED, never
+BLOCKED. Grey Man / Spec blocks are **3 weeks** (p.40, p.67) — that is a fact; the UI must make
+3-week units easy to place, not pretend they can be 1-week Grey Man.
 
-Specialists (launch all):
+`plan.blocks` stays an ordered list of `{ protocolId, weeks }`. Holes in the year are `off`
+blocks (`src/protocols/off.ts`), not a second timeline and not a fake Bridge.
 
-1. **Interaction designer — year calendar (lead).** Profession: product designer who has shipped
-   phone calendars / timeline editors (Fantastical, Linear cycle, training-plan apps). Drive
-   `/plan` as Josh would: start date, drop Grey Man, park a holiday in May as time off, insert
-   Alpha or Bravo without knowing “block vs cycle”. Judge HTML5 drag on a phone, week cells,
-   month wrapping, “Empty week places”, preset Apply replacing the year, inability to split a
-   3-week unit (book: blocks are 3 weeks, p.40 — that’s a fact, not a UI excuse to be unusable).
-   Propose one interaction model (e.g. month grid with real week rows, chip-then-tap, handle
-   resize of *time off only*, list+timeline dual view). Keep `PlannedBlock[]` sequential; holes
-   are `off` weeks.
+---
 
-2. **Mobile PWA / touch.** Profession: iOS-style PWA. 44px targets, one-handed, no hover, no
-   desktop drag. Settings, Plan cluster builders, Session, tab bar. F22 header pill still
-   shows *today’s* protocol when viewing another date.
+## How you will run this chat (mandatory process)
 
-3. **First-run without the book.** Onboarding → maxes → `/plan` → first Today. Plain English
-   first, book name second. Flag leftover jargon. Short walk was the chosen Consolidation
-   shape (not the full p.147 list).
+### Phase 1 — diagnose only. No edits. No restyle. No deploy.
 
-4. **Daily loop.** Today, Session (main vs S already split — check if it actually reads),
-   Program week, pull-forward, Green-on-lift as Today-tick-only, Forced Progression banner.
+Launch **all twelve specialists in one turn**, in parallel, via the Task tool
+(`subagent_type: "generalPurpose"` unless noted, `model: "inherit"`). Do **not** batch them
+into one agent. Do **not** skip any. Do **not** summarise them into a short list in your own
+head and skip the launch.
 
-5. **Book-fidelity of the planner (not the grids).** Presets vs p.140 / p.142 / p.93; never
-   auto-pick Alpha/Bravo; two-tier `planRules`; time off is not a Bridge (pp.92–93). Do not
-   invent a holiday protocol beyond “nothing prescribed”.
+Each specialist prompt must be **self-contained**. They cannot see this chat. Paste into every
+prompt: workspace path, branch, tb2 URL, v46, phone viewport **390×844**, the copy rule
+(plain English first, book name second), the product facts at the bottom of this file, and
+their profession-specific brief.
 
-6. **Accessibility + visual QA.** Existing identity. Contrast, a11y names, truncation, History
-   on Grey Man, DEFAULT_SETTINGS flash leftovers. `EXERCISE_INFO` has no barbell lifts — do
-   **not** invent form cues; only flag the gap.
+**Every specialist must actually use the app**, not only grep:
 
-**Phase 2 — one synthesis.** Merge. Kill taste-only conflicts. Rank: year-calendar blockers
-first (Josh already rejected v46), then first-run, then daily, then polish. **Ask Josh before**
-changing book-facing behaviour (auto-inserting Bridges, hiding Alpha/Bravo, splitting a 3-week
-Grey Man into 1+2).
+- Browser tools against `https://tb2.joshua-birch.co.uk` **and/or** `npm run dev` at
+  `http://localhost:5173`, locked to 390×844.
+- If the origin is empty: Settings → **Load demo history** (it confirms; snapshots first) so
+  Grey Man + a plan exist. If you cannot load demo, seed via Playwright `seedState` in `e2e/helpers.ts`.
+- Click. Scroll. Try to drag. Try to place a May holiday. Open a session. Open Program. Open
+  History. Do not stop at a screenshot of the first paint.
 
-**Phase 3 — one implementer.** Rebuild the planner UI to the merged spec. Browser + phone
-viewport. `npm run typecheck`, unit tests, relevant e2e. Bump `APP_VERSION` by hand. 
-`npm run deploy:v2` (never `npm run deploy`). Update `HANDOFF.md` + `docs/BACKLOG.md`.
+**Return format (every specialist, no exceptions).** Ranked list. Each finding:
 
-## Product facts the review must not break
+```
+ID: <profession-prefix>-<n>
+Route: /path  (and component file:line)
+What I did: <the click path that surfaced this>
+What is wrong: <quote visible copy; describe the interaction failure>
+Who it hurts: first-run | daily morning | year-plan | a11y | data
+Proposed code change: <concrete — files, components, interaction, not “make it nicer”>
+Book: p.<n>  OR  UX only / no book claim
+Severity: P0 blocks the job  |  P1 daily pain  |  P2 polish
+Confidence: observed in running app  |  code-only  |  both
+```
 
-- Dates local `YYYY-MM-DD`; plan start snaps to Monday or the week **rotates**.
-- Under a plan, `currentPhaseId` / `phaseStartDate` are stale — `resolvePosition()`.
-- `protocol.exercisesFor(settings)`; MASS 1RMs `maxScope: 'mass'`.
-- One lift-family row and one cardio-family row per date. Never two lifts.
-- Green may share a lift day; Black must not.
-- `off` is a registered protocol (`src/protocols/off.ts`) so unknown ids cannot fall through
-  to Beginner.
-- Data loss is highest severity. Do not touch `master`. Beginner must keep working.
+Minimum **8 findings** per specialist unless they honestly exhaust the surface (then say so
+and list what they walked). Include **at least two things that are fine** under “Do not
+change” so we do not re-litigate the engine.
 
-## Out of scope
+Forbidden in Phase 1: writing src/, restyling, adding templates, inventing EXERCISE_INFO
+cues, promoting WARNED planRules to BLOCKED, auto-picking Alpha vs Bravo.
 
-Mass Template, Gladiator, Fighter HT (E2); Operator / TB1 (E7); named H clusters; H2-Saturday;
-extra DL sets; intensity-tactics UI; MacroFactor (E4); Base Building (skip, p.18, p.151).
+### Phase 2 — one synthesis, still no code
+
+When all twelve have returned, **you** (parent) merge:
+
+1. Dedupe. One finding, many witnesses → keep the best evidence.
+2. Kill taste-only conflicts (two fonts, two calendar metaphors). Pick **one** planner
+   interaction model and say why it matches Josh’s paragraph.
+3. Rank: **year-calendar P0** first (already rejected), then first-run P0, then daily P0/P1,
+   then polish.
+4. Split the merged list into:
+   - **Do now** (needs code in this chat after Josh answers)
+   - **Ask Josh** (book-facing or irreversible IA)
+   - **Backlog** (real, not this week)
+   - **Not a bug** (engine / book facts that look wrong)
+
+Put the merged list on screen. **Stop.** Use a structured question tool if you have one.
+Do not start Phase 3 until Josh answers at least:
+
+- A) Calendar metaphor: month grid with week rows vs horizontal year timeline vs list+mini-map
+- B) Placing a block: chip-then-tap a week vs drag from a tray vs “add N Grey Mans until date D”
+- C) Holiday: time-off weeks you stretch, vs “I am away these dates” which inserts `off`
+- D) Anything that would auto-insert Bridges, hide Alpha/Bravo, or split a 3-week Grey Man
+
+### Phase 3 — one implementer (only after Josh answers)
+
+One visual language. One calendar. Rebuild `PlanYear` / `/plan` to the chosen model. Keep
+`PlannedBlock[]` + `off`. Phone viewport verification, `npm run typecheck`, unit tests,
+relevant e2e. Bump `APP_VERSION` by hand. `npm run deploy:v2`. Update `HANDOFF.md` and
+`docs/BACKLOG.md`. Beginner must keep working.
+
+---
+
+## The twelve specialists
+
+Copy each brief in full. Add to every brief:
+
+Workspace: the tb-app repo on `mass-extraction`. Preview: tb2.joshua-birch.co.uk (v46).
+Phone: 390×844. Book: `docs/MASS/`. Engine files you must not “fix”: Grey Man grid
+(`src/protocols/greyman.ts`), plate math (`src/lib/barbell.ts`), `planRules` tiers.
+Calendar files: `src/components/PlanYear.tsx`, `src/lib/planCalendar.ts`, `src/screens/Plan.tsx`,
+`src/lib/planRules.ts`, `src/protocols/off.ts`, `src/screens/NextCycle.tsx`.
+
+### 1. Lead interaction designer — year planner
+
+Profession: senior product designer who has shipped **phone** calendar/timeline editors
+(training plans, Fantastical-style month, Linear cycles). You are not a developer who
+“adds a date picker”.
+
+Job: prove whether a person can do Josh’s May-holiday scenario in under two minutes without
+a briefing. Start date (or “continue from plan end”). See **months**, not a bag of 3-week
+chips. Click or drag **on a phone**. Watch the later blocks **move in real time**.
+
+Walk: `/plan` empty, `/plan` with a year painted, `/next-cycle`, Settings → Year plan.
+Attempt: HTML5 drag; tap empty week; “Empty week places”; Apply preset (does it blow away
+the year?); insert time off before a selected block; drop a block mid-Grey-Man (3-week
+units cannot split — is that explained or just an alert?).
+
+Deliver: **one** recommended interaction model with ASCII wireframes for (a) year overview
+(b) one month (c) placing a 3-week Grey Man (d) placing a 2-week holiday. Then the ranked
+findings list. Name every current control that should die.
+
+### 2. Mobile PWA / touch engineer
+
+Profession: iOS PWA. Thumb zone, 44×44, no hover, no desktop `draggable`, safe areas,
+one-handed gym use.
+
+Walk every route at 390×844: `/` `/program` `/history` `/guide` `/settings` `/maxes` `/plan`
+`/progression` `/next-cycle` `/session/:date`. Measure tap targets on PlanYear week cells,
+cluster remove, loading `<select>`, tab bar. HTML5 drag on iPhone: does it even start?
+Horizontal overflow on `/plan`. Keyboard on date inputs.
+
+F22: header pill is `resolvePosition(today)` — view a past session and report what the
+chrome says.
+
+### 3. New-user researcher — never read MASS
+
+Profession: user researcher. You have never heard of Grey Man, Bridge, S/MS/H, 1RM, Green,
+block vs cycle. Pretend.
+
+Walk a **new install** if you can (or read Onboarding + Maxes + Plan + Today as if first
+open). Flag every label that requires the book. Copy rule: plain English first, book name
+in parentheses. Short walk was chosen (not the full p.147 ten steps). Onboarding must not
+sell Beginner/Runna while Grey Man is the default.
+
+### 4. Daily-use coach — morning loop
+
+Profession: strength coach who is **not** allowed to invent prescriptions. You only check
+whether the app tells Josh what to do tomorrow morning.
+
+Walk: Today (lift + Green alongside), Session (main vs accessories headings — v46 claimed
+book-01 F5; verify it **reads** as two structures, not two labels on one column), rest
+timer copy, plates, 5th set only on main, drop-1RM only on main, Program week, pull-forward,
+Forced Progression banner at a block seam (`/progression`), plan-complete → `/next-cycle`.
+
+Alpha/Bravo days: “heavy strength (MS)” vs “hypertrophy (H)” — or still “H1”?
+
+### 5. MASS book-fidelity auditor — planner only
+
+Profession: the person who would have caught the last rebuild’s invented rules. You do
+**not** re-audit the p.51 grid (it is pinned by tests). You audit **planning**.
+
+Read: `docs/MASS/extract/09-block-programming-faqs.md`, `src/lib/planRules.ts`, presets,
+`off` vs Bridge (`src/protocols/bridge.ts` vs `off.ts`). Check: p.40 3-week fact; p.69 no
+auto-pick; p.93 Bridge advice not law; p.140 Standard Cycle shape; p.142 Example 3 = 2:1;
+p.141 author counts Bridge as a cycle slot. Time off must never be labelled Bridge.
+Applying a Spec preset must ask Alpha **or** Bravo.
+
+### 6. Information architect / copy chief
+
+Profession: IA. Name things by what Josh controls. Kill dual vocab (Block plan vs Year
+plan vs Next cycle vs Programme). Glossary: block = 3-week unit; cycle = a sequence;
+Bridge = recovery week the book names; time off = nothing prescribed.
+
+Walk nav labels, ScreenHeaders, Settings rows, Guide first accordion, Today blurbs,
+preset names. Propose a **single** glossary the whole app will use. Flag walls of
+quoted book text that should be one sentence + a cite.
+
+### 7. Visual designer — existing brand only
+
+Profession: visual designer. Identity is **already** Oswald + Inter, topo header, ember
+accent, dark mode. **Do not reinvent. Do not ship AI-SaaS glassmorphism.** Judge whether
+PlanYear looks like a calendar or like a CSS grid of pills. Contrast of week cells.
+Month labels. Colour meaning (GM / Bridge / Alpha / Bravo / off) with a legend. Empty
+weeks. Dark mode duplication in `src/index.css` is a maintenance risk — report, don’t
+restyle yet.
+
+### 8. Accessibility specialist
+
+Profession: a11y. Keyboard, screen reader, `aria-label` / `aria-current` on tabs (v46
+added labels — verify in the a11y tree, don’t trust the PR). Calendar: are week cells
+buttons with names (“week of 4 May, Grey Man, week 2 of 3”) or nameless coloured
+divs? Focus order. Confirm dialogs. Date inputs. Reduced motion.
+
+### 9. Data-safety engineer
+
+Profession: someone who treats IndexedDB as the only copy of a life. Walk plan writes:
+empty plan, delete last block, clear plan, apply preset over a live year, change start
+date (Monday snap / week rotate), `off` id must resolve (`protocolFor('off')` must not
+be Beginner). `parseBackup` row shape (v46 F9). Snapshots before destructive actions.
+No Dexie version bump unless you can prove you need one — prefer not.
+
+### 10. Exploratory QA on the live site
+
+Profession: exploratory tester. tb2 v46, demo history. Charter: “Can I plan a year and
+then do tomorrow?” Time-box **a real session** of clicking, not a code review. Log bugs
+with reproduction steps. Include Program vs pulled-forward session, Green tick vs
+Session read-only, History leading with MASS vs Beginner, onboarding if you reset.
+
+### 11. Frontend engineer — PlanYear implementation
+
+Profession: React engineer reviewing a failed v1. Read `PlanYear.tsx` + `planCalendar.ts`
+end to end. HTML5 drag, `window.alert` on illegal drop, `window.prompt` (gone?) ,
+preset Apply replacing blocks, `placing` state, 6-column month wrap, `HORIZON = 52`.
+List structural reasons the UI cannot meet Josh’s paragraph **even if we restyle it**.
+Propose the data helpers the next UI needs (e.g. `insertOffCoveringDates(start,end)`,
+`blockStartingMonday`, `snapDropToBlockBoundary`). Keep sequential `PlannedBlock[]`.
+
+### 12. End-to-end flow producer — setup to week 1
+
+Profession: you design first-run checklists. Walk: pick MASS → maxes (2–3 reps, no true
+single, p.63) → accessories (book examples vs builder) → year calendar → first Today.
+Is there a hole (Back from maxes → Settings)? Does defaultPlan paint 52 weeks before he
+has seen the calendar? Should onboarding land on `/plan` after maxes? Consolidation
+p.147 items 1–5 stay skipped (nutrition / Base Building). Do not build the ten-step
+wizard unless the merged list says the short walk is still failing.
+
+---
+
+## Product facts nobody may break
+
+- Dates are local `YYYY-MM-DD`. A non-Monday plan start **rotates** the week, it does not
+  shift it. Writes snap to Monday (`mondayOnOrBefore`).
+- Under a plan, `settings.currentPhaseId` and `phaseStartDate` are stale leftovers. Screens
+  use `resolvePosition()` and `pos.blockStartDate`.
+- Real exercise list: `protocol.exercisesFor(settings)`. MASS 1RMs: `maxScope: 'mass'`
+  (never mix with Beginner per-dumbbell).
+- One lift-family row and one cardio-family row per date. Never two lifts. Lookup by
+  family, never `.first()` on a date.
+- Green may share a lifting day (p.99). Black must not.
+- Alpha: same lift on MS and H is wanted. Bravo: same compound on consecutive days is a
+  **warning**, not a hard block.
+- Deadlift override is conventional `id === 'deadlift'` only.
+- Forced Progression is block-to-block (p.53, p.90), increment 4.5 kg lower / 2.5 kg
+  upper (labelled deviation, `docs/mass-design.md` §12).
+
+## Out of scope (do not start, do not “just add”)
+
+E2 Mass / Gladiator / Fighter HT. E7 Operator. Named H clusters (Camp Drvar, etc.).
+H2-on-Saturday. Extra DL sets. Intensity-tactics UI. MacroFactor / food (E4). Base
+Building (skip, p.18, p.151). Invented EXERCISE_INFO for Bench/Squat/OHP/Deadlift.
 
 ## Done when
 
-Josh can, on a phone, lay out “bulk through winter, time off in May, Spec where I choose” and
-**see the months**, then Today runs it. The calendar no longer feels like a coloured chip grid
-with desktop drag. Findings that need code are in BACKLOG if not fixed in the same chat.
+Phase 1+2 are complete in **this** chat: twelve ranked lists, one merged list, Josh has
+answered A–D. Phase 3 (if he says go) ships a planner he can demo on a phone: bulk through
+winter, **see May**, drop time off, Spec only when he picks Alpha or Bravo, then Today
+runs it. Footer version bumped. tb2 deployed with `npm run deploy:v2`.
 
 ---

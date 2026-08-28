@@ -47,10 +47,11 @@ onboarding, specificity).
 
 ## What to do next
 
-**Paste `docs/REVIEW-PASS.md` into a new chat.** Several named-profession subagents (calendar
-interaction designer first), then one merged list, then one implementer. Josh’s bar: start date,
-click/drag (that actually works on a phone), see where each block lands in the year, time off for
-a May holiday. Operator was an example for *later* — do not build it.
+**Paste the entire `docs/REVIEW-PASS.md` into a new chat** (that file *is* the prompt). Twelve
+named-profession subagents in one parallel Task launch, each must use the running app at 390×844,
+then one merged list, then stop for Josh on A–D, then one implementer. Josh’s bar: start date,
+click/drag that works on a phone, see where each block lands in the year, time off for a May
+holiday. Operator was an example for *later* — do not build it.
 
 Do not defend `PlanYear.tsx`. Treat v46 as a failed first sketch of the calendar, not a product.
 
