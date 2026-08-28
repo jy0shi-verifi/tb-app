@@ -5,7 +5,8 @@
 
 **Status:** Grey Man + Bridge + F1 + **Specificity Alpha and Bravo** are in the engine. Josh has
 not finished a phone QA of Spec and does not need to yet. **Next chat is UX / flow / year-planning,
-not more templates** (`docs/mass-design.md` §14.5, `docs/BACKLOG.md` "NEXT").
+not more templates** (`docs/mass-design.md` §14.5, `docs/BACKLOG.md` "NEXT"). Paste-ready
+agent prompt: **`docs/UX-PASS.md`**.
 
 Read in this order:
 

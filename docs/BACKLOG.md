@@ -162,9 +162,10 @@ Bar for this pass:
 - **Not food.** MacroFactor stays the nutrition app. A future read of MF stats is remembered under
   **E4**, not this pass.
 
-How to run the next chat: several specialist review passes (journey, visual, accessibility, first-run
-without the book, year-planner), then **one** implementation pass that takes the merged list. Do not
-ship a committee of conflicting restyles. Book page numbers still win over taste.
+How to run the next chat: paste **`docs/UX-PASS.md`**. Several specialist review passes (journey,
+visual, accessibility, first-run without the book, year-planner), then **one** implementation pass
+that takes the merged list. Do not ship a committee of conflicting restyles. Book page numbers still
+win over taste.
 
 Fold into this pass rather than treating them as "later polish":
 
