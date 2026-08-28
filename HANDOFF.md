@@ -1,12 +1,11 @@
 # HANDOFF
 
-**Last updated:** 2026-08-28 evening · **Branch:** `mass-extraction` · **tb2: v45**
+**Last updated:** 2026-08-28 (handoff after v46) · **Branch:** `mass-extraction` · **tb2: v46**
 (`https://tb2.joshua-birch.co.uk`).
 
-**Status:** Grey Man + Bridge + F1 + **Specificity Alpha and Bravo** are in the engine. Josh has
-not finished a phone QA of Spec and does not need to yet. **Next chat is UX / flow / year-planning,
-not more templates** (`docs/mass-design.md` §14.5, `docs/BACKLOG.md` "NEXT"). Paste-ready
-agent prompt: **`docs/UX-PASS.md`**.
+**Status:** Engine unchanged. v46 UX/year-plan is **on tb2**. Josh tried the calendar: **it isn’t
+good enough.** Next chat is a specialist review stack, then a planner rebuild — paste
+**`docs/REVIEW-PASS.md`**. Do not add templates (E2/E7).
 
 Read in this order:
 
@@ -20,71 +19,42 @@ Read in this order:
 ## Where we are
 
 `master` is untouched (live Beginner @ v23). `mass-extraction` is the rebuild. Josh is months from
-switching — still cutting on Beginner, no barbell/rack yet. **Beginner must keep working.**
+switching. **Beginner must keep working.**
 
-**v44 signed off (2026-08-28 morning).** Content-first until Grey Man + Spec prescribed correctly.
-**v45** added Alpha and Bravo as real `Protocol`s (own grids, shared MASS 1RMs, one H cluster).
-Deployed with `npm run deploy:v2` (not production).
+**v46 (this session).** Specialist reviews then one implementer (`docs/UX-PASS.md`). Josh asked for a
+**year calendar** (click/drag blocks, see dates, time off for holidays) instead of a wall of numbered
+rows. Operator stays out. Alpha/Bravo are never auto-picked (p.69).
 
-Josh, same evening: the UI and journey are **not** complete; he only cares that the **code is in
-place**. Before any further templates, the app must be usable by someone who has **never read the
-books** (his bar: himself). Automatic after setup; easy to plan a **year**; book-faithful; flexible.
-Food stays in **MacroFactor** — a later read-only stats hook is backlog **E4**, not now.
+### What landed
 
-Runna is Beginner-only. B1 (Strava on tb2) stays deferred until he asks.
+- **Year calendar** on `/plan` — 52-week view, drag a block onto a week, tap empty weeks (fills gaps
+  with **Time off**), insert time off before a selected block. `off` is a real protocol so it cannot
+  fall through to Beginner.
+- **E6 presets:** Grey Man year first (16× GM + 4 Bridges); truncated Standard Cycle; full Standard
+  Cycle and 2:1 (p.140 / p.142) ask Alpha **or** Bravo on apply.
+- **Short first-run walk:** onboarding copy no longer sells Beginner on the Grey Man path; maxes →
+  year plan CTA; Today countdown is MASS-aware.
+- **book-01 F5:** Session and Today split main vs accessories (MS vs H). Extra sets / drop-1RM stay
+  on main/MS.
+- History leads with MASS maxes on Grey Man; nav `aria-label`; tap targets; confirm delete; empty
+  plan clears `phaseStartDate`; `parseBackup` refuses shapeless session rows.
+- Default onboarding plan is the suggested year, not the 13-week truncation.
 
-### Specificity (this session — E1a / E1b)
-
-| | Where |
-|---|---|
-| Shared load math | `src/lib/planExercise.ts` (extracted from Grey Man; do not duplicate) |
-| Stable custom ids | `src/lib/exerciseId.ts` (`uniqueExerciseId` — code-02 F17 for **new** adds) |
-| Shared Spec defaults | `src/protocols/specificity.ts` — MS = BP/SQ/DL; H = Bravo p.81 example; `maxScope: 'mass'` |
-| Alpha | `src/protocols/alpha.ts` — p.74 grid, DL 1-set override, `deadliftPerWeek` 1\|2 |
-| Bravo | `src/protocols/bravo.ts` — p.81 mid-week % bump 50→55 / 60→65 / 70→75 |
-| Registry | `PROTOCOLS.alpha` / `bravo` in `src/program.ts`. **Not** in `SELECTABLE_PROTOCOLS`. On Plan next to Bridge (`PLAN_BLOCK_PROTOCOLS`). |
-| Settings (no Dexie bump, `BACKUP_VERSION` **2**) | `mass.msCluster`, `mass.hCluster` `{h1,h2}`, `mass.deadliftPerWeek`. One H cluster for both templates (p.85). `sCluster` still Grey Man only. |
-| Plan / Maxes | S + MS + H builders always; consecutive-compound **warning** for Bravo; Maxes preview from **current** block's grid |
-| Tests | `test/alpha.test.ts`, `test/bravo.test.ts`, mixed-protocol + planRules, `e2e/specificity.spec.ts` |
-
-**Out of this pass (still parked):** Camp Drvar / Keeny-Meeny / Bulgarian / `tm90`, H2→Saturday, extra
-DL sets, intensity-tactics UI, full E6 preset list as a *separate* "more templates" job, Operator, the
-other three General templates.
-
-**Verified:** 348 unit · typecheck/lint · 19 targeted e2e (greyman + plan + specificity) after
-Playwright Chromium install. First e2e run failed only because the browser was missing.
-
-### Already shipped (do not re-litigate)
-
-Forced Progression, snapshots (Dexie v3), guided planner `/next-cycle`, F1 two-sessions-a-day, Green
-on lift days, Guide from the book, OAuth `state` + same-origin token check. Details in git history
-and the previous HANDOFF body if needed.
+**Verified:** typecheck · lint (existing warnings only) · 353 unit · targeted e2e (greyman, plan,
+onboarding, specificity).
 
 ---
 
 ## What to do next
 
-**`docs/BACKLOG.md` → "NEXT — UX, flow, and a year the app can run".** That is the work.
+**Paste `docs/REVIEW-PASS.md` into a new chat.** Several named-profession subagents (calendar
+interaction designer first), then one merged list, then one implementer. Josh’s bar: start date,
+click/drag (that actually works on a phone), see where each block lands in the year, time off for
+a May holiday. Operator was an example for *later* — do not build it.
 
-Suggested shape for the next chat (Josh's own instruction): several professional review passes
-(journey, visual, a11y, first-run without the book, year-planner), then **one** implementer who
-merges the list. Do not restyle from five conflicting briefs. The book still wins.
+Do not defend `PlanYear.tsx`. Treat v46 as a failed first sketch of the calendar, not a product.
 
-**In scope for that pass (not "more templates"):**
-
-1. Make Today / Session / Plan / Maxes / Progression / Next-cycle / onboarding make sense without MASS.
-2. **E6** — presets so he can drop a year of Grey Man + bridges + Spec and the app runs it.
-   Indefinite-bulk first; also cited p.140 and 2:1 examples.
-3. First-timer walk (book-04 F13 Consolidation, p.147); Session main vs S / MS vs H (book-01 F5).
-4. The code-03 UI list (F19–F27, History lying on Grey Man, DEFAULT_SETTINGS flash, tap targets).
-
-**Optional hour-one (not blockers):** code-01 F9 (`parseBackup` row shape), code-02 F12 (empty plan →
-stale `phaseStartDate`), code-03 F19 (confirm delete block).
-
-**Do not start next:** E2 (Mass / Gladiator / Fighter HT), E7 (Operator), named sample H clusters,
-MacroFactor integration.
-
-Nothing else is outstanding that should delay the UX chat.
+Still not next: E2, E7, named H samples, MacroFactor, B1 Strava on tb2.
 
 ---
 
@@ -127,14 +97,11 @@ npm run deploy:v2              # only after app changes; tb2, not production
 ```
 
 Settings → **Load demo history** (confirms, snapshots first), or Programme → Grey Man, then 1RM maxes
-and Block plan. Add Alpha/Bravo on `/plan` like Bridge. Footer should read **v45**.
-
-`/progression` via Today when a block ends; `/next-cycle` when a plan runs out.
+and Block plan. Add Alpha/Bravo on `/plan` like Bridge. Footer should read **v46**.
 
 ## State of the tree at handoff
 
-- `mass-extraction` committed and pushed (`v45` Alpha/Bravo + this handoff). `master` and `strip-tb`
+- `mass-extraction` committed and pushed (v46 + `docs/REVIEW-PASS.md`). `master` / `strip-tb`
   untouched.
 - `.claude/launch.json` deleted in the working tree — predates MASS; **left uncommitted**.
 - `backups/` gitignored. MASS PDF / page images gitignored; extraction is tracked.
-- Josh has not fully checked Spec in the running app; that is the UX pass's job, not a blocker.

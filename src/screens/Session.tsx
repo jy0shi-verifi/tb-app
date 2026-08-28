@@ -18,6 +18,7 @@ import { Button, Card, SegmentedPicker, SetCheck, SessionIcon } from '../compone
 import Celebration, { type CelebrationContent } from '../components/Celebration'
 import ConditioningAlongside from '../components/ConditioningAlongside'
 import ShareWin from '../components/ShareWin'
+import { clusterHeading } from '../lib/plainCopy'
 import type { LoggedExercise, OneRmEntry, SessionLog } from '../types'
 
 interface SetState {
@@ -69,6 +70,7 @@ interface ExState {
   /** Per-cluster rest, in seconds (p.52, p.53). */
   restSecMin?: number
   restSecMax?: number
+  cluster?: 'main' | 's' | 'ms' | 'h'
 }
 interface MetaState {
   done: boolean
@@ -366,6 +368,7 @@ export default function Session() {
           setsMax: e.setsMax,
           restSecMin: e.restSecMin,
           restSecMax: e.restSecMax,
+          cluster: e.cluster,
           sets: e.sets.map((s, j) => {
             const ss = saved?.sets[j]
             return {
@@ -887,8 +890,15 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
         ex.map((e, ei) => {
           const info = EXERCISE_INFO[e.name]
           const open = openInfo === e.name
+          const heading = clusterHeading(e.cluster)
+          const prev = ei > 0 ? clusterHeading(ex[ei - 1]?.cluster) : null
+          const mainWork = e.cluster === 'main' || e.cluster === 'ms' || e.cluster == null
           return (
-          <Card key={ei}>
+          <div key={ei} className="space-y-2">
+            {heading && heading !== prev && (
+              <p className="eyebrow text-muted">{heading}</p>
+            )}
+          <Card>
             <div className="mb-2">
               {info ? (
                 <button
@@ -987,7 +997,7 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
                 />
               ))}
             </div>
-            {massLift && (
+            {massLift && mainWork && (
               <SetCountControls ex={e} onAdd={() => addSet(ei)} onRemove={() => removeSet(ei)} />
             )}
             {massLift && (
@@ -995,10 +1005,11 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
                 struggled={e.struggled}
                 onToggle={() => toggleStruggled(ei)}
                 entry={e.exerciseId ? maxes[e.exerciseId] : undefined}
-                onDrop={() => void dropMax(e.exerciseId)}
+                onDrop={mainWork ? () => void dropMax(e.exerciseId) : undefined}
               />
             )}
           </Card>
+          </div>
           )
         })
       ) : (
@@ -1055,7 +1066,7 @@ Drop ${entry.exerciseName} by ${GM_FAILURE_DROP_PCT}%, from ${Math.round(now * 1
             <div className="px-4 py-3 flex items-center gap-3">
               <Timer size={22} />
               <div className="flex-1">
-                <p className="text-xs text-white/80">Rest</p>
+                <p className="text-xs text-white/80">Rest · book range is on each lift</p>
                 <p className="num-display text-2xl leading-none">
                   {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
                 </p>
@@ -1158,7 +1169,7 @@ function StruggleControls({
   struggled: boolean
   onToggle: () => void
   entry?: OneRmEntry
-  onDrop: () => void
+  onDrop?: () => void
 }) {
   return (
     <div className="mt-3 pt-3 border-t border-line flex flex-wrap items-center gap-2">
@@ -1172,7 +1183,7 @@ function StruggleControls({
       >
         {struggled ? '✓ Struggled with this' : 'Struggled with this'}
       </button>
-      {entry && (
+      {entry && onDrop && (
         <button
           type="button"
           onClick={onDrop}

@@ -3,13 +3,12 @@
 The durable list of outstanding work. **Nothing here is "remembered" anywhere else** — if it is not in
 this file it will be forgotten. Add to it rather than relying on a chat thread.
 
-**Last reviewed: 2026-08-28 evening** (v45 Alpha/Bravo in; Josh: UX/flow/year-planning **before** more
-templates). Prior: v44 signed off; eight-agent audit 2026-08-24. IDs like `code-03 F7` are the audit's
-own numbering — `docs/audit/` has the evidence. Binding direction: `docs/mass-design.md` **§14**
-(especially **§14.5**).
+**Last reviewed: 2026-08-28 (v46 UX/year-plan).** Prior: v45 Alpha/Bravo; eight-agent audit 2026-08-24.
+IDs like `code-03 F7` are the audit's own numbering — `docs/audit/` has the evidence. Binding
+direction: `docs/mass-design.md` **§14** (especially **§14.5**).
 
-**Status: 348 unit green** · typecheck (covering `src`, `test`, `e2e` **and** `functions`),
-lint clean · Alpha/Bravo in as **v45**.
+**Status: 353 unit green** · typecheck · lint (existing warnings) · **v46** year calendar + first-run
+copy.
 
 ---
 
@@ -34,6 +33,7 @@ remainder, re-derived by walking all eight reports rather than trusting the summ
 | **A15** | **The guided planner** at `/next-cycle`, replacing the dead "Resume" button. Two-tier guardrails; presets are a **list** with mandatory page citations. | `d266e61` |
 | **F1** | **Two sessions in one day.** A date now holds one lift-family row and one cardio-family row — never two lifts, which is Josh's own rule and therefore the discriminator, so there is no slot index. Closes **code-01 F7** properly (a Strava run and an evening lift coexist) and gives same-day Green conditioning somewhere to be ticked (p.99). Adds pulling tomorrow's session forward, with the borrowed day showing as covered. **No Dexie migration** — `sessions.date` was already non-unique and the assumption lived in the reads; a unique compound index was rejected because it populates over existing rows and one stray duplicate would stop the database opening. `docs/mass-design.md` §13. | *this session* |
 | **E1a / E1b** | **Specificity Alpha and Bravo** as separate protocols (`src/protocols/alpha.ts`, `bravo.ts`). Shared MASS 1RMs and one H cluster. Deadlift override; Bravo mid-week % bump. | v45 |
+| **E6** | Year-keyed presets + calendar planner. Indefinite Grey Man bulk first; Standard Cycle and 2:1 with Alpha/Bravo choice (p.69). Time-off blocks. | v46 |
 
 ### Book fidelity
 
@@ -143,69 +143,46 @@ contain `Goblet / Front-rack Squat`, which is also LP_A's first lift. It now tak
 
 ## Still open
 
-### NEXT — UX, flow, and a year the app can run (Josh, 2026-08-28)
+### NEXT — calendar is not good enough; specialist review then rebuild
 
-Grey Man + Alpha + Bravo **prescribe**. Josh has not finished a phone QA pass and does not need to
-before this: the UI is not the product yet. **Stop adding templates** (E2, E7, named H-cluster
-samples, Bulgarian / `tm90`, H2-on-Saturday, extra DL sets, intensity-tactics UI) until a person who
-has never read MASS — Josh — can use tb2 without a briefing.
+Josh, 2026-08-28, after trying v46: the year calendar **isn’t very good**. Paste
+**`docs/REVIEW-PASS.md`**. Do not start E2 / E7.
 
-Bar for this pass:
+v46 still on tb2 (first-run copy, E6 presets, F5 split, F9/F12/F19). The calendar interaction is
+the product gap. Engine and `plan.blocks` stay.
 
-- **Automatic.** The app should take over after a short setup: 1RMs, clusters, a plan. Daily: what to
-  lift, every weight, plates, rest, Green/Black on the right days, Forced Progression at block seams.
-- **A year if he wants one.** Lay out GM × N, bridges where the book wants them (~every 2–3 months,
-  p.93), Spec inserted as the scalpel, then the app runs it. That is **planner UX plus E6 presets**,
-  not a new protocol.
-- **Intuitive and flexible**, still **exactly what the book prints**. Options the book hands over stay
-  choices; facts stay facts (`planRules` two-tier).
-- **Not food.** MacroFactor stays the nutrition app. A future read of MF stats is remembered under
-  **E4**, not this pass.
+Also still worth the review stack:
 
-How to run the next chat: paste **`docs/UX-PASS.md`**. Several specialist review passes (journey,
-visual, accessibility, first-run without the book, year-planner), then **one** implementation pass
-that takes the merged list. Do not ship a committee of conflicting restyles. Book page numbers still
-win over taste.
-
-Fold into this pass rather than treating them as "later polish":
-
-| ID | Why it belongs here |
+| ID | Item |
 |---|---|
-| **E6** | Goal-keyed presets *are* "plan a year and the app takes over". Indefinite MASS bulk first; also p.140 Standard Cycle and 2:1 (p.142), each cited. The truncated starter plan is not his bulk plan. |
-| **book-04 F13** | Consolidation checklist (p.147) — ten ordered steps a first-timer could be walked through. Today it is Guide prose. |
-| **book-01 F5** | Session screen: main vs S (and MS vs H) as separate structures, not one flat list (p.50). |
-| **book-04 F2** | Block numbering vs the author's count (Bridge as a block, p.141) — confusing in a year view. |
-| code-03 F19–F27, F20–F25 | Plan/Settings tap targets, empty-plan "Rest", History lying about Beginner on Grey Man, DEFAULT_SETTINGS flash, nav names, truncated exercise names. |
-| — | `EXERCISE_INFO` has no barbell lifts — form copy must be real, not invented. |
-
-Optional **hour-one correctness** before restyling (not blockers, but they bite a year-long plan):
-
-- **code-01 F9** — `parseBackup` does not validate row shape.
-- **code-02 F12** — deleting every block reverts to a stale `phaseStartDate`.
-- **code-03 F19** — delete-block has no confirmation.
+| book-04 F13 | Full Consolidation checklist as a numbered walk — short setup exists; p.147 items 1–5 stay skipped |
+| — | Program week tap vs pulled-forward second session |
+| — | Green-on-lift-day as a loggable Session, not only a Today tick |
+| — | `EXERCISE_INFO` barbell lifts — sourced cues only, do not invent |
+| — | Dark mode token duplication in `src/index.css` |
 
 ### Book fidelity — small, real, unaddressed
 
 | ID | Item |
 |---|---|
-| book-01 F5 | **Main and supplementary clusters render as one flat list** on the Session screen, despite p.50 stressing they have separate structures. Rest is now per-cluster, but visually they are still one undifferentiated column. |
+| book-01 F5 | **Done in v46** — Session/Today headings for main vs S / MS vs H (p.50). |
 | book-01 F8 | **A/B restarts at every block, so two A days meet across the seam** of adjacent blocks. The book does not address it (Ambiguity §18). Decide and declare, or leave and document. |
 | book-01 F11 | **"Four days off" (p.48) vs "3 days of conditioning" (p.39)** — the book's own tension, unresolved in our text. |
 | book-03 F9, F10, F11 | Three small transcription/wording gaps in conditioning `detail` strings, a code comment misdescribing the default-days deviation, and Endurance Predator's card rendering a stray separator. |
-| book-04 F2 | **Block numbering diverges from the author's own count** — he counts the Bridge as one of five blocks (p.141); we number training blocks. Cosmetic, but confusing read against the book. |
-| book-04 F13 | **The Consolidation checklist (p.147) is not a flow.** Ten ordered steps the app could walk a first-timer through; today it is prose in the Guide. |
+| book-04 F2 | **Block numbering vs author’s 5-block cycle (p.141)** — calendar uses dates; preset notes explain seven rows vs five slots. Engine indices unchanged. |
+| book-04 F13 | **Partial in v46** — short setup walk exists; not the printed ten-step Consolidation list. |
 | book-04 F12 (E5) | **OMS Protocol** (pp.144–145) — its 3–6 week blocks are the one book-sanctioned non-3 length, and would need the planner's hard block-length rule relaxed per protocol. |
 
 ### Correctness — small, real, unaddressed
 
 | ID | Item |
 |---|---|
-| code-01 F9 | **`parseBackup` validates table shape but never row shape.** A malformed session row imports and blows up later, at render. The version gate is solid now (F11); the rows are not. |
+| code-01 F9 | **Done in v46** — `parseBackup` refuses session/settings rows that are not objects with a date/`id`. |
 | code-02 F8 | **`before` and `complete` pin `day`/`week`**, and those values get written into history if a session is logged in either state. |
-| code-02 F12 | **Deleting every block silently reverts to the stale `phaseStartDate`**, which under a plan is months out. Should refuse, or clear both. |
+| code-02 F12 | **Done in v46** — emptying the plan clears it and snaps `phaseStartDate` to this Monday. |
 | code-02 F15 | **`loadBar` allocates memory proportional to the target weight.** Fine at human loads; unbounded in principle. |
 | code-02 F17 | **S-cluster exercise ids** — new adds use `uniqueExerciseId` (S/MS/H). Existing stored ids are unchanged. |
-| code-03 F19 | **Deleting a block has no confirmation**, and an empty plan turns every day into "Rest". |
+| code-03 F19 | **Done in v46** — delete block / clear plan confirm. |
 | — | **`sessions.date` is not a unique index** — now deliberate (F1): a date legitimately holds two rows, and uniqueness is a property of `(date, family)` that the code enforces. An engine-level unique index was considered and rejected; `docs/mass-design.md` §13 says why. |
 
 ### UI polish — now in the UX pass above
@@ -215,13 +192,13 @@ this *instead of* E2/E7. Rows remain listed so IDs are not lost.
 
 | ID | Item |
 |---|---|
-| code-03 F20 | Beginner's dumbbell progress panel still leads History, even on Grey Man. |
-| code-03 F21 | "Barbell strength" on History lists three dumbbell lifts. |
+| code-03 F20 | **Done in v46** — MASS maxes lead History when present; Beginner panel only if still on Beginner or no mass 1RMs. |
+| code-03 F21 | **Done in v46** — panel retitled “Working maxes”; `/DB` suffix kept per unit. |
 | code-03 F22 | The header pill shows the current phase, not the day being viewed. |
-| code-03 F23 | A flash of `DEFAULT_SETTINGS` renders before IndexedDB resolves on some screens. |
-| code-03 F24 | Small tap targets remain on Plan and Settings. |
-| code-03 F25 | Nav links expose no accessible name. |
-| code-03 F27 | S-cluster exercise names truncate. |
+| code-03 F23 | **Partial in v46** — Layout skeletons until IndexedDB answers; some screens still use `useSettings()`. |
+| code-03 F24 | **Partial in v46** — Plan/Settings hit areas enlarged; not every control remeasured. |
+| code-03 F25 | **Done in v46** — tab `aria-label`. |
+| code-03 F27 | **Done in v46** — cluster names wrap. |
 | — | **Dark mode is defined twice** in `src/index.css` — ~40 duplicated lines to keep in sync. |
 | — | **`EXERCISE_INFO` has no barbell lifts**, so Bench/Squat/OHP/Deadlift have no form content. Needs real coaching content, not invented content. |
 

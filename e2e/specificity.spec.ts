@@ -58,7 +58,7 @@ test('a Bravo H1 day uses the early-week percentage, not Thursday’s bump', asy
 test('the plan screen can append Alpha and Bravo blocks', async ({ page, seed }) => {
   await seed({ settings: { currentPhaseId: 'gm', phaseStartDate: MONDAY } })
   await page.goto('/plan')
-  await page.getByRole('button', { name: 'Create a starter plan' }).click()
+  await page.getByRole('button', { name: 'Paint a Grey Man year' }).click()
   await page.getByRole('button', { name: /Specificity Alpha/ }).click()
   await page.getByRole('button', { name: /Specificity Bravo/ }).click()
   await expect(page.getByText('Specificity Alpha', { exact: true }).first()).toBeVisible()

@@ -73,7 +73,7 @@ export function bravoSessionFor(pos: BlockPosition, ctx: ProtocolContext): Sessi
   const weekN = Math.min(Math.max(pos.week, 1), SPEC_BLOCK_WEEKS)
   const grid = BRAVO_GRID[weekN]
   const rx = bravoLateWeek(pos.day) ? grid.late : grid.early
-  const exercises = hClusterOf(ctx.settings, slot).map((ex) => planExercise(ex, rx, ctx, SUPP_REST_SEC))
+  const exercises = hClusterOf(ctx.settings, slot).map((ex) => planExercise(ex, rx, ctx, SUPP_REST_SEC, 'h'))
 
   return {
     type: 'lift',

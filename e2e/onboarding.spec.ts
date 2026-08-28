@@ -32,7 +32,8 @@ test('a new install is offered Grey Man, and picking it lands on the 1RM screen'
   expect(s!.currentPhaseId).toBe('gm')
   // ...and it starts on the book's Standard Cycle, truncated (p.140).
   const plan = s!.plan as { startDate: string; blocks: { protocolId: string }[] }
-  expect(plan.blocks.map((b) => b.protocolId)).toEqual(['gm', 'gm', 'gm', 'gm', 'bridge'])
+  expect(plan.blocks.filter((b: { protocolId: string }) => b.protocolId === 'gm').length).toBe(16)
+  expect(plan.blocks.filter((b: { protocolId: string }) => b.protocolId === 'bridge').length).toBe(4)
 })
 
 test('picking Beginner lands on Today and never returns to onboarding', async ({ page }) => {

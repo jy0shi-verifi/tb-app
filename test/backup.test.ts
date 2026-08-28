@@ -105,4 +105,9 @@ describe('parseBackup — rejections', () => {
   it('does not mistake an explicit empty oneRm for a missing one', () => {
     expect(parseBackup(v2Payload({ oneRm: [] })).oneRm).toEqual([])
   })
+
+  it('refuses a session row that is not an object with a date (code-01 F9)', () => {
+    expect(() => parseBackup(v2Payload({ sessions: [null] }))).toThrow(/session row/)
+    expect(() => parseBackup(v2Payload({ sessions: [{ title: 'no date' }] }))).toThrow(/session row/)
+  })
 })

@@ -5,11 +5,17 @@ import { rowOfFamily, type SessionFamily } from './lib/sessions'
 import type { MaxEntry, OneRmEntry, SessionLog, Settings } from './types'
 
 export function useSettings(): Settings {
-  return useLiveQuery(
+  const row = useLiveQuery(
     async () => (await db.settings.get('app')) ?? DEFAULT_SETTINGS,
     [],
-    DEFAULT_SETTINGS,
+    undefined as Settings | undefined,
   )
+  return row ?? DEFAULT_SETTINGS
+}
+
+/** False until IndexedDB has answered — do not paint DEFAULT_SETTINGS as truth. */
+export function useSettingsReady(): boolean {
+  return useLiveQuery(() => db.settings.get('app').then((r) => r ?? true), []) !== undefined
 }
 
 /** The frozen v1 table. Nothing writes it; kept for backup round-tripping. */

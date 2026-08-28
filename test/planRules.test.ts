@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
   PLAN_PRESETS,
   planHasErrors,
+  presetBlocks,
   validatePlan,
   type PlanProblem,
 } from '../src/lib/planRules'
@@ -29,31 +30,40 @@ const bridge = () => ({ protocolId: 'bridge', weeks: 1 })
 
 // ---------------------------------------------------------------------------
 
-describe('the default plan is the Standard Cycle, truncated (p.140)', () => {
-  it('is four Grey Man blocks then a bridge — twelve weeks of General, then a week off', () => {
+describe('the default plan is ongoing Grey Man bulk (p.93)', () => {
+  it('is four Grey Man + Bridge, four times — a suggested year, not the truncated Standard Cycle', () => {
     const p = defaultPlan('2026-08-17')
-    expect(p.blocks).toEqual([gm(), gm(), gm(), gm(), bridge()])
-    expect(planWeeks(p.blocks)).toBe(13)
+    expect(planWeeks(p.blocks)).toBe(52)
+    expect(p.blocks.filter((b) => b.protocolId === 'gm')).toHaveLength(16)
+    expect(p.blocks.filter((b) => b.protocolId === 'bridge')).toHaveLength(4)
   })
 
   it('is NOT the old shape, which moved the bridge and dropped the terminal one', () => {
-    // Audit A14: `gm, gm, bridge, gm, gm` put the bridge at week 7 and ended on
-    // a training block — an undeclared departure from the printed table.
     const p = defaultPlan('2026-08-17')
     expect(p.blocks.map((b) => b.protocolId)).not.toEqual(['gm', 'gm', 'bridge', 'gm', 'gm'])
-    expect(p.blocks[p.blocks.length - 1].protocolId).toBe('bridge')
   })
 
   it('every preset carries a page citation — a preset without one is an opinion', () => {
     for (const preset of PLAN_PRESETS) {
       expect(preset.cite).toMatch(/p\.\d+/)
-      expect(check(preset.blocks).filter((p) => p.level === 'error')).toEqual([])
+      const spec = preset.specChoice ? 'alpha' : undefined
+      expect(check(presetBlocks(preset, spec)).filter((p) => p.level === 'error')).toEqual([])
+    }
+  })
+
+  it('never auto-picks Alpha or Bravo (p.69)', () => {
+    const withSpec = PLAN_PRESETS.filter((p) => p.specChoice)
+    expect(withSpec.length).toBeGreaterThan(0)
+    for (const preset of withSpec) {
+      expect(() => presetBlocks(preset)).toThrow(/p\.69/)
+      expect(presetBlocks(preset, 'alpha').some((b) => b.protocolId === 'alpha')).toBe(true)
+      expect(presetBlocks(preset, 'bravo').some((b) => b.protocolId === 'bravo')).toBe(true)
     }
   })
 
   it('is a LIST, so a second goal is data rather than a rewrite (Josh, 2026-08-24)', () => {
     expect(Array.isArray(PLAN_PRESETS)).toBe(true)
-    expect(PLAN_PRESETS.length).toBeGreaterThanOrEqual(1)
+    expect(PLAN_PRESETS.length).toBeGreaterThanOrEqual(3)
   })
 })
 

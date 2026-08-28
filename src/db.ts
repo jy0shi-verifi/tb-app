@@ -243,6 +243,14 @@ export function parseBackup(json: string): Backup {
     throw new Error('Backup is missing its data tables — it may be truncated.')
   if (!data.settings.some((s) => s?.id === 'app'))
     throw new Error('Backup has no app settings row — it may be corrupt.')
+  for (const row of data.sessions) {
+    if (!row || typeof row !== 'object' || typeof (row as { date?: unknown }).date !== 'string')
+      throw new Error('Backup has a session row the app cannot read — it may be corrupt.')
+  }
+  for (const row of data.settings) {
+    if (!row || typeof row !== 'object' || typeof (row as { id?: unknown }).id !== 'string')
+      throw new Error('Backup has a settings row the app cannot read — it may be corrupt.')
+  }
   // Upgrade path for v1 files: the table simply did not exist yet. A present but
   // non-array `oneRm` is corruption, not an old file, so it is rejected.
   if (data.oneRm === undefined) data.oneRm = []

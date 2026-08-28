@@ -1,19 +1,13 @@
 import { useState } from 'react'
-import { Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { useSettings, useSessions } from '../hooks'
 import { saveSettings } from '../db'
 import {
-  PLAN_BLOCK_PROTOCOLS,
-  PROTOCOLS,
-  blockWeeksOf,
-  defaultPlan,
   mondayOnOrBefore,
-  planWeeks,
   protocolFor,
   resolvePosition,
 } from '../program'
-import { planHasErrors, validatePlan } from '../lib/planRules'
-import PlanProblems from '../components/PlanProblems'
+import PlanYear from '../components/PlanYear'
 import { S_CLUSTER_MAX, S_CLUSTER_MIN, GM_S1_EXAMPLE, GM_S2_EXAMPLE } from '../protocols/greyman'
 import {
   ALPHA_MS_STANDARD,
@@ -35,7 +29,7 @@ import {
   RECOVERY_RUN_EXEMPT_MIN,
 } from '../protocols/conditioning'
 import { conditioningDaysFor, conditioningLoad, conditioningPickFor } from '../protocols/conditioningPlan'
-import { today, addDays, isoDate, mondayIndex, parseISO, DAY_NAMES } from '../lib/date'
+import { today, addDays, isoDate, mondayIndex, DAY_NAMES } from '../lib/date'
 import { Card, Button } from '../components/ui'
 import ScreenHeader from '../components/ScreenHeader'
 import type { ClusterExerciseRef } from '../types'
@@ -67,14 +61,14 @@ export default function Plan() {
 
   return (
     <div className="space-y-4 stagger">
-      <ScreenHeader title="Block plan" fallback={'/settings'} />
+      <ScreenHeader title="Year plan" fallback={'/settings'} />
       <Card elev="1">
         <p className="eyebrow text-muted">Programme</p>
-        <h2 className="display-hero text-xl text-ink">Plan your blocks</h2>
+        <h2 className="display-hero text-xl text-ink">Lay out the year</h2>
         <p className="text-xs text-muted mt-2">
-          “Both General and Specificity consist of <b>3-week blocks</b>” (p.40). A longer stint is
-          more blocks, not a longer one. Bridge a week between them whenever you need to — the author
-          recommends one every two to three months (p.93).
+          Training comes in <b>3-week blocks</b> (p.40). Put Grey Man on a loop, a recovery week
+          (Bridge) about every 2–3 months (p.93), and Specificity (Alpha or Bravo — you choose, p.69)
+          where you want to zoom in. Then the app runs the dates.
         </p>
       </Card>
 
@@ -106,143 +100,26 @@ function BlockPlanner() {
   const startDate = s.plan?.startDate ?? thisMonday()
   const pos = resolvePosition(s, today())
 
-  /**
-   * Every write snaps the start to a Monday.
-   *
-   * A plan is a sequence of whole weeks and every protocol names its lifting
-   * days by weekday, so a non-Monday start does not shift the plan — it ROTATES
-   * it. Grey Man's Mon/Wed/Fri landed on Wed/Fri/Sun and was still labelled
-   * "Mon" (audit A16). The date input is constrained too, but this is the
-   * backstop, because the input can be typed into.
-   */
-  const write = (next: { protocolId: string; weeks: number }[], start = startDate) =>
-    saveSettings({ plan: { startDate: mondayOnOrBefore(start), blocks: next } })
-
-  const problems = validatePlan(blocks, (id) => protocolFor(id), s.plan?.startDate, (d) =>
-    mondayIndex(parseISO(d)),
-  )
-
-  const add = (protocolId: string) =>
-    write([...blocks, { protocolId, weeks: PROTOCOLS[protocolId]?.blockWeeks ?? 3 }])
-
-  const move = (i: number, by: number) => {
-    const j = i + by
-    if (j < 0 || j >= blocks.length) return
-    const next = [...blocks]
-    ;[next[i], next[j]] = [next[j], next[i]]
-    write(next)
+  const write = (next: { protocolId: string; weeks: number }[], start = startDate) => {
+    if (next.length === 0) {
+      return saveSettings({ plan: undefined, phaseStartDate: mondayOnOrBefore(start) })
+    }
+    return saveSettings({ plan: { startDate: mondayOnOrBefore(start), blocks: next } })
   }
 
   return (
     <Card>
-      <p className="eyebrow text-muted mb-2">Block sequence</p>
-
-      {blocks.length === 0 ? (
-        <>
-          <p className="text-xs text-muted mb-3">
-            The book’s Standard Cycle for a first-timer is General, General, Bridge, Specificity,
-            Specificity (p.140). The starter plan is the four Grey Man blocks and the bridge — twelve
-            weeks of lifting. Add Alpha or Bravo after that.
-          </p>
-          <Button onClick={() => saveSettings({ plan: defaultPlan(startDate) })}>
-            Create a starter plan
-          </Button>
-        </>
-      ) : (
-        <>
-          <div className="space-y-2">
-            {blocks.map((b, i) => {
-              const p = protocolFor(b.protocolId)
-              const active = i === pos.blockIndex
-              return (
-                <div
-                  key={i}
-                  className={`flex items-center gap-2 rounded-field p-2 ${active ? 'bg-load-soft' : 'bg-[var(--color-surface-sunk)]'}`}
-                >
-                  <span className="w-5 text-center text-xs font-bold text-muted num-display">
-                    {i + 1}
-                  </span>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-ink text-[15px] truncate">{p.name}</p>
-                    <p className="text-xs text-muted">
-                      {blockWeeksOf(b)} {blockWeeksOf(b) === 1 ? 'week' : 'weeks'}
-                      {active ? ` · now, week ${pos.week}` : ''}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => move(i, -1)}
-                    aria-label={`Move block ${i + 1} earlier`}
-                    className="p-2 text-muted"
-                  >
-                    <ArrowUp size={16} />
-                  </button>
-                  <button
-                    onClick={() => move(i, 1)}
-                    aria-label={`Move block ${i + 1} later`}
-                    className="p-2 text-muted"
-                  >
-                    <ArrowDown size={16} />
-                  </button>
-                  <button
-                    onClick={() => write(blocks.filter((_, j) => j !== i))}
-                    aria-label={`Remove block ${i + 1}`}
-                    className="p-2 text-muted"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              )
-            })}
-          </div>
-
-          <p className="text-xs text-muted mt-3">
-            {planWeeks(blocks)} weeks in total, starting{' '}
-            <input
-              type="date"
-              aria-label="Plan start date"
-              value={s.plan?.startDate ?? startDate}
-              onChange={(e) => write(blocks, e.target.value)}
-              className="rounded-field bg-[var(--color-surface-sunk)] border border-[var(--color-field-border)] px-2 py-1 text-ink"
-            />
-          </p>
-
-          {problems.length > 0 && (
-            <div className="mt-3">
-              <PlanProblems problems={problems} />
-              {planHasErrors(problems) && (
-                <p className="text-[11px] text-muted mt-2">
-                  Fix the blocked items — the book states those. The rest are the author’s advice and
-                  the plan will run either way.
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-2 mt-3">
-            {PLAN_BLOCK_PROTOCOLS.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => add(p.id)}
-                className="inline-flex items-center gap-1 rounded-pill bg-brand/10 text-brand-ink text-[12px] font-bold px-3 min-h-9"
-              >
-                <Plus size={14} /> {p.name}
-              </button>
-            ))}
-            <button
-              onClick={() => add('bridge')}
-              className="inline-flex items-center gap-1 rounded-pill bg-[var(--color-surface-sunk)] text-muted text-[12px] font-bold px-3 min-h-9"
-            >
-              <Plus size={14} /> Bridge week
-            </button>
-            <button
-              onClick={() => saveSettings({ plan: undefined })}
-              className="ml-auto text-[12px] font-bold text-muted px-2 min-h-9"
-            >
-              Clear plan
-            </button>
-          </div>
-        </>
-      )}
+      <PlanYear
+        blocks={blocks}
+        startDate={startDate}
+        storedStart={s.plan?.startDate}
+        activeBlockIndex={pos.blockIndex}
+        onWrite={write}
+        onClear={() => {
+          if (!window.confirm('Clear the whole year plan? Logged sessions stay.')) return
+          void saveSettings({ plan: undefined, phaseStartDate: thisMonday() })
+        }}
+      />
     </Card>
   )
 }
@@ -304,14 +181,14 @@ function SupplementaryBuilder() {
       <div className="space-y-1.5">
         {items.map((e) => (
           <div key={e.id} className="flex items-center gap-2 rounded-field bg-[var(--color-surface-sunk)] p-2">
-            <span className="flex-1 min-w-0 truncate text-[14px] text-ink">{e.name}</span>
+            <span className="flex-1 min-w-0 break-words text-[14px] text-ink">{e.name}</span>
             <select
               aria-label={`${e.name} loading`}
               value={e.defaultLoading}
               onChange={(ev) =>
                 setLoading(which, e.id, ev.target.value as ClusterExerciseRef['defaultLoading'])
               }
-              className="rounded-pill bg-surface text-[11px] font-bold text-muted px-2 py-1"
+              className="rounded-pill bg-surface text-[11px] font-bold text-muted px-2 py-2 min-h-11"
             >
               <option value="barbell">Barbell</option>
               <option value="dumbbell">Dumbbell</option>
@@ -319,7 +196,7 @@ function SupplementaryBuilder() {
               <option value="weightedBodyweight">Weighted BW</option>
               <option value="unloaded">No load</option>
             </select>
-            <button onClick={() => remove(which, e.id)} aria-label={`Remove ${e.name}`} className="p-1.5 text-muted">
+            <button onClick={() => remove(which, e.id)} aria-label={`Remove ${e.name}`} className="min-h-11 min-w-11 inline-flex items-center justify-center text-muted">
               <Trash2 size={15} />
             </button>
           </div>
@@ -466,7 +343,7 @@ function MsClusterBuilder() {
       <div className="space-y-1.5 mb-3">
         {list.map((e) => (
           <div key={e.id} className="flex items-center gap-2 rounded-field bg-[var(--color-surface-sunk)] p-2">
-            <span className="flex-1 min-w-0 truncate text-[14px] text-ink">{e.name}</span>
+            <span className="flex-1 min-w-0 break-words text-[14px] text-ink">{e.name}</span>
             <LoadingSelect
               name={e.name}
               value={e.defaultLoading}
@@ -475,7 +352,7 @@ function MsClusterBuilder() {
             <button
               onClick={() => save(list.filter((x) => x.id !== e.id))}
               aria-label={`Remove ${e.name}`}
-              className="p-1.5 text-muted"
+              className="min-h-11 min-w-11 inline-flex items-center justify-center text-muted"
             >
               <Trash2 size={15} />
             </button>
@@ -562,7 +439,7 @@ function HClusterBuilder() {
       <div className="space-y-1.5">
         {items.map((e) => (
           <div key={e.id} className="flex items-center gap-2 rounded-field bg-[var(--color-surface-sunk)] p-2">
-            <span className="flex-1 min-w-0 truncate text-[14px] text-ink">{e.name}</span>
+            <span className="flex-1 min-w-0 break-words text-[14px] text-ink">{e.name}</span>
             <LoadingSelect
               name={e.name}
               value={e.defaultLoading}
@@ -578,7 +455,7 @@ function HClusterBuilder() {
                 which === 'h1' ? save(h1.filter((x) => x.id !== e.id), h2) : save(h1, h2.filter((x) => x.id !== e.id))
               }
               aria-label={`Remove ${e.name}`}
-              className="p-1.5 text-muted"
+              className="min-h-11 min-w-11 inline-flex items-center justify-center text-muted"
             >
               <Trash2 size={15} />
             </button>

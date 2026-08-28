@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Home, CalendarDays, History as HistoryIcon, BookOpen, Settings as SettingsIcon } from 'lucide-react'
-import { useSettings } from '../hooks'
+import { useSettings, useSettingsReady } from '../hooks'
 import { PROTOCOLS, resolvePosition } from '../program'
 import { today } from '../lib/date'
 import { Wordmark } from './ui'
@@ -24,16 +24,36 @@ const buzz = () => {
 
 export default function Layout() {
   const settings = useSettings()
+  const ready = useSettingsReady()
   const { pathname } = useLocation()
   const [scrolled, setScrolled] = useState(false)
   const pageTitle = NAV.find((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to)))?.label ?? 'Tactical Barbell'
 
   const pos = resolvePosition(settings, today())
-  // resolvePosition already falls back to a real phase, so this cannot be undefined
-  // for a stored id that no longer exists.
   const phase = PROTOCOLS[pos.phaseId]
   const context =
     pos.status === 'active' ? `${phase.name} · Wk ${pos.week}` : (phase?.name ?? 'Tactical Barbell')
+
+  if (!ready) {
+    return (
+      <>
+        <div className="grain" aria-hidden />
+        <div className="relative z-[1] h-[100dvh] flex flex-col">
+          <header className="safe-top topo-hero text-white shrink-0">
+            <div className="max-w-xl mx-auto px-4 h-14 flex items-center">
+              <Wordmark size="sm" onDark />
+            </div>
+          </header>
+          <main className="flex-1 min-h-0 overflow-y-auto">
+            <div className="max-w-xl mx-auto px-4 pt-5 space-y-4" aria-busy="true" aria-label="Loading">
+              <div className="skeleton h-24 rounded-card" />
+              <div className="skeleton h-40 rounded-card" />
+            </div>
+          </main>
+        </div>
+      </>
+    )
+  }
 
   return (
     <>
@@ -84,6 +104,7 @@ export default function Layout() {
                 key={n.to}
                 to={n.to}
                 end={n.end}
+                aria-label={n.label}
                 onClick={buzz}
                 className={({ isActive }) =>
                   `flex flex-col items-center gap-0.5 pt-2 pb-1.5 text-[11px] font-bold active:scale-90 transition-transform ${

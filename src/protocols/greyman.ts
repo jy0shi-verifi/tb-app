@@ -187,10 +187,10 @@ export function greyManSessionFor(pos: BlockPosition, ctx: ProtocolContext): Ses
   const supp = letter === 'A' ? sClusterOf(ctx.settings, 's1') : sClusterOf(ctx.settings, 's2')
 
   const exercises: PlannedExercise[] = [
-    ...mainLiftsFor(letter).map((ex) => planExercise(ex, grid.main, ctx, MAIN_REST_SEC)),
+    ...mainLiftsFor(letter).map((ex) => planExercise(ex, grid.main, ctx, MAIN_REST_SEC, 'main')),
     // "The main cluster and supplementary cluster have separate structures"
     // (p.50) — including their rest intervals (p.53).
-    ...supp.map((ex) => planExercise(ex, grid.supp, ctx, SUPP_REST_SEC)),
+    ...supp.map((ex) => planExercise(ex, grid.supp, ctx, SUPP_REST_SEC, 's')),
   ]
 
   return {
@@ -248,9 +248,9 @@ export const GREY_MAN_PROTOCOL: Protocol = {
   // "Use Green sessions when training General Mass blocks." (p.20)
   conditioning: 'green',
   clusters: {
-    main: cluster('main', 'Main cluster', GM_MAIN, false, 'MASS p.48 — fixed, the same for everyone'),
-    s1: cluster('s1', 'Supplementary S1', GM_S1_EXAMPLE, true, 'MASS p.49 — you build this (4–6 total, split S1/S2)'),
-    s2: cluster('s2', 'Supplementary S2', GM_S2_EXAMPLE, true, 'MASS p.49 — you build this (4–6 total, split S1/S2)'),
+    main: cluster('main', 'Main lifts', GM_MAIN, false, 'Fixed for everyone (MASS p.48)'),
+    s1: cluster('s1', 'Accessories — day A (S1)', GM_S1_EXAMPLE, true, 'MASS p.49 — you build this (4–6 total, split S1/S2)'),
+    s2: cluster('s2', 'Accessories — day B (S2)', GM_S2_EXAMPLE, true, 'MASS p.49 — you build this (4–6 total, split S1/S2)'),
   },
   exercisesFor: greyManExercises,
   sessionFor: greyManSessionFor,

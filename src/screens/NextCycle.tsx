@@ -4,15 +4,16 @@ import { Flag, Plus, Repeat } from 'lucide-react'
 import { useSettings } from '../hooks'
 import { saveSettings } from '../db'
 import {
+  PLAN_BLOCK_PROTOCOLS,
   PROTOCOLS,
-  SELECTABLE_PROTOCOLS,
+  defaultPlan,
   blockWeeksOf,
   mondayOnOrBefore,
   planWeeks,
   protocolFor,
   resolvePosition,
 } from '../program'
-import { PLAN_PRESETS, planHasErrors, validatePlan, type PlanPreset } from '../lib/planRules'
+import { PLAN_PRESETS, planHasErrors, presetBlocks, validatePlan, type PlanPreset } from '../lib/planRules'
 import { addDays, isoDate, parseISO, prettyDate, today } from '../lib/date'
 import { Card, Button } from '../components/ui'
 import ScreenHeader from '../components/ScreenHeader'
@@ -127,7 +128,7 @@ export default function NextCycle() {
           (p.40) — so a longer stint is more blocks, not a longer one.
         </p>
         <div className="flex flex-wrap gap-2">
-          {SELECTABLE_PROTOCOLS.filter((p) => p.family !== 'legacy').map((p) => (
+          {PLAN_BLOCK_PROTOCOLS.map((p) => (
             <button
               key={p.id}
               disabled={busy}
@@ -160,7 +161,7 @@ export default function NextCycle() {
           onClick={async () => {
             if (!window.confirm('Start a brand-new plan from this Monday?')) return
             const start = mondayOnOrBefore(isoDate(today()))
-            await saveSettings({ plan: { startDate: start, blocks: [...PLAN_PRESETS[0].blocks] } })
+            await saveSettings({ plan: defaultPlan(start) })
             nav('/plan')
           }}
         >
@@ -184,33 +185,44 @@ function PresetCard({
   busy: boolean
   onPick: (blocks: { protocolId: string; weeks: number }[]) => void
 }) {
-  const problems = validatePlan(preset.blocks, (id) => protocolFor(id))
+  const apply = (spec?: 'alpha' | 'bravo') => onPick(presetBlocks(preset, spec))
+  const sample = preset.specChoice ? null : presetBlocks(preset)
+  const problems = sample ? validatePlan(sample, (id) => protocolFor(id)) : []
   return (
     <Card>
       <p className="eyebrow text-muted mb-1">{preset.name}</p>
       <p className="text-xs text-muted">{preset.goal}</p>
-      <div className="flex flex-wrap gap-1.5 my-3">
-        {preset.blocks.map((b, i) => (
-          <span
-            key={i}
-            className="rounded-pill bg-[var(--color-surface-sunk)] text-[11px] font-bold text-muted px-2.5 py-1"
-          >
-            {PROTOCOLS[b.protocolId]?.name ?? b.protocolId} · {blockWeeksOf(b)}w
-          </span>
-        ))}
-      </div>
+      {sample && (
+        <div className="flex flex-wrap gap-1.5 my-3">
+          {sample.map((b, i) => (
+            <span
+              key={i}
+              className="rounded-pill bg-[var(--color-surface-sunk)] text-[11px] font-bold text-muted px-2.5 py-1"
+            >
+              {PROTOCOLS[b.protocolId]?.name ?? b.protocolId} · {blockWeeksOf(b)}w
+            </span>
+          ))}
+        </div>
+      )}
       <p className="text-[11px] text-muted mb-1">
-        {planWeeks(preset.blocks)} weeks · {preset.cite}
+        {sample ? `${planWeeks(sample)} weeks` : 'Pick Alpha or Bravo'} · {preset.cite}
       </p>
       {preset.note && <p className="text-[11px] text-muted mb-3 italic">{preset.note}</p>}
       <PlanProblems problems={problems} />
-      <Button
-        className="w-full mt-2"
-        disabled={busy || planHasErrors(problems)}
-        onClick={() => onPick(preset.blocks.map((b) => ({ ...b })))}
-      >
-        Add {preset.name}
-      </Button>
+      {preset.specChoice ? (
+        <div className="flex gap-2 mt-2">
+          <Button className="flex-1" disabled={busy} onClick={() => apply('alpha')}>
+            Add with Alpha
+          </Button>
+          <Button className="flex-1" variant="secondary" disabled={busy} onClick={() => apply('bravo')}>
+            Add with Bravo
+          </Button>
+        </div>
+      ) : (
+        <Button className="w-full mt-2" disabled={busy || planHasErrors(problems)} onClick={() => apply()}>
+          Add {preset.name}
+        </Button>
+      )}
     </Card>
   )
 }

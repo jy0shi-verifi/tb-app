@@ -34,11 +34,14 @@ export function basisKg(entry: OneRmEntry, basis: Prescription['basis']): number
   return basis === 'tm90' ? kg * 0.9 : kg
 }
 
+export type ExerciseCluster = 'main' | 's' | 'ms' | 'h'
+
 export function planExercise(
   ex: ClusterExercise,
   p: Prescription,
   ctx: ProtocolContext,
   rest: { min: number; max: number } = MAIN_REST_SEC,
+  cluster?: ExerciseCluster,
 ): PlannedExercise {
   const entry = ctx.maxes[ex.id]
   const count = p.setsMin
@@ -47,6 +50,7 @@ export function planExercise(
     setsMax: p.setsMax,
     restSecMin: rest.min,
     restSecMax: rest.max,
+    cluster,
   }
   const loading = { ...p.loading, kind: ex.defaultLoading } as Prescription['loading']
   const percent = 'percent' in p.loading ? (p.loading.percent ?? 0) : 0

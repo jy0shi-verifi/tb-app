@@ -23,14 +23,7 @@ import ConditioningAlongside from '../components/ConditioningAlongside'
 import type { SessionLog } from '../types'
 import type { SessionPlan } from '../protocol'
 
-/** One line of context per protocol, shown under the date. */
-const BLURBS: Record<string, string> = {
-  beginner:
-    'Linear Progression, plus your own running from Runna. Add weight when you earn it; the runs build the engine.',
-  gm: 'Grey Man — two main lifts a day, alternating A/B, then your supplementary cluster. Green conditioning on the days between.',
-  bridge:
-    'Bridge week — a week off between blocks so the work comes to fruition. Light activity only; test your 1RMs if the next block needs it.',
-}
+import { PROTOCOL_BLURB, clusterHeading } from '../lib/plainCopy'
 
 export default function Today() {
   const settings = useSettings()
@@ -97,32 +90,52 @@ export default function Today() {
 
   // ---- before the phase starts ----
   if (pos.status === 'before') {
-    const days = diffDays(parseISO(settings.phaseStartDate), now)
+    const startIso = settings.plan?.startDate ?? settings.phaseStartDate
+    const days = diffDays(parseISO(startIso), now)
+    const gm = pos.phaseId === 'gm' || protocolFor(pos.phaseId).family === 'general'
     return (
       <div className="space-y-4 stagger">
         <Card elev="hero" pad="lg" className="topo-hero text-white text-center relative overflow-hidden border-white/10">
           <p className="eyebrow hero-text text-gold-hi">{phase.name} starts in</p>
           <p className="num-display text-7xl my-1 hero-text">{days}</p>
           <p className="text-sm text-white/85">
-            day{days === 1 ? '' : 's'} — {prettyDate(parseISO(settings.phaseStartDate))}
+            day{days === 1 ? '' : 's'} — {prettyDate(parseISO(startIso))}
           </p>
         </Card>
 
         <Card>
           <p className="eyebrow text-muted mb-2">Your first week</p>
-          <ul className="text-sm text-ink/90 space-y-1.5">
-            <li>💪 3 strength days (Mon · Wed · Fri) — A/B, 3 × 8–12</li>
-            <li>🏃 3 runs (Tue · Thu · Sat) — your Runna plan</li>
-            <li>😴 Rest Sunday</li>
-          </ul>
+          {gm ? (
+            <ul className="text-sm text-ink/90 space-y-1.5">
+              <li>💪 Mon · Wed · Fri — two big lifts, then accessories</li>
+              <li>🚶 Easy conditioning (Green) on the days between — walking is enough</li>
+              <li>😴 Recovery is part of the work</li>
+            </ul>
+          ) : (
+            <ul className="text-sm text-ink/90 space-y-1.5">
+              <li>💪 3 strength days (Mon · Wed · Fri) — A/B, 3 × 8–12</li>
+              <li>🏃 3 runs (Tue · Thu · Sat) — your Runna plan</li>
+              <li>😴 Rest Sunday</li>
+            </ul>
+          )}
         </Card>
 
         <Card>
           <p className="eyebrow text-muted mb-2">Before you start</p>
           <ul className="text-sm text-ink/90 space-y-1.5">
-            <li>• Sort your dumbbells &amp; bench</li>
-            <li>• Pick your flat run route</li>
-            <li>• Lay your kit out the night before</li>
+            {gm ? (
+              <>
+                <li>• Enter working maxes from a 2–3 rep test (p.63)</li>
+                <li>• Accessories default to the book’s examples — change them on Year plan if you want</li>
+                <li>• Lay kit out the night before</li>
+              </>
+            ) : (
+              <>
+                <li>• Sort your dumbbells &amp; bench</li>
+                <li>• Pick your flat run route</li>
+                <li>• Lay your kit out the night before</li>
+              </>
+            )}
           </ul>
         </Card>
       </div>
@@ -148,11 +161,10 @@ export default function Today() {
             <ProgressionBanner blockIndex={progression.index} onOpen={() => nav('/progression')} />
           )}
           <Card className="space-y-2 border-warm-edge/40 bg-warm">
-            <p className="font-bold text-ink">Cycle complete 🏁</p>
+            <p className="font-bold text-ink">This sequence has ended</p>
             <p className="text-sm text-muted">
-              Your plan has run its course. “After completing a standard cycle, reassess and
-              determine if you need to change the ratio of time spent in General vs Specificity.”
-              (p.140)
+              The blocks you laid out have run their course — the programme has not. Reassess how
+              much time to spend on overall size (General) vs a zoom-in (Specificity) (p.140).
             </p>
             <button
               onClick={() => nav('/next-cycle')}
@@ -208,7 +220,7 @@ export default function Today() {
   const coveredBy = coverFor(sessions, iso)
   // Protocol-specific, not hardcoded — this line described Beginner's linear
   // progression and was showing above Grey Man sessions.
-  const blurb = BLURBS[pos.phaseId] ?? BLURBS.beginner
+  const blurb = PROTOCOL_BLURB[pos.phaseId] ?? PROTOCOL_BLURB.beginner
   const meta = SESSION_META[plan.type]
   // lifts open the session logger; runs (Runna-owned) mark-complete on Today
   const isLoggable = plan.type === 'lift' || plan.type === 'se' || (plan.intervals?.length ?? 0) > 0
@@ -411,9 +423,11 @@ export default function Today() {
             It's been {lapsedDays} days — don't jump ahead into heavier weeks. Pick up where you left
             off and ease back in.
           </p>
-          <button onClick={realign} className="text-brand-ink font-bold text-sm mt-1 min-h-[44px] inline-flex items-center">
-            Resume from week {lastDoneSession?.week} →
-          </button>
+          {!settings.plan?.blocks?.length && (
+            <button onClick={realign} className="text-brand-ink font-bold text-sm mt-1 min-h-[44px] inline-flex items-center">
+              Resume from week {lastDoneSession?.week} →
+            </button>
+          )}
         </Card>
       ) : missed && dismissedDate !== missed.date ? (
         <Card pad="sm" className="flex items-center gap-3 border-warm-edge/40 bg-warm">
@@ -476,8 +490,14 @@ export default function Today() {
             <div className="mt-4 divide-y divide-line/60">
               {plan.exercises.map((ex, i) => {
                 const first = ex.sets[0]
+                const heading = clusterHeading(ex.cluster)
+                const prev = i > 0 ? clusterHeading(plan.exercises[i - 1]?.cluster) : null
                 return (
-                  <div key={i} className="flex items-center justify-between py-2 gap-3">
+                  <div key={i}>
+                    {heading && heading !== prev && (
+                      <p className="eyebrow text-muted pt-3 pb-1">{heading}</p>
+                    )}
+                    <div className="flex items-center justify-between py-2 gap-3">
                     <div className="min-w-0">
                       <p className="font-medium text-ink text-[15px]">{ex.name}</p>
                       {/* F12: "Set your 1RM for X" was inert text with no route to
@@ -507,6 +527,7 @@ export default function Today() {
                         </span>
                       )}
                     </div>
+                  </div>
                   </div>
                 )
               })}

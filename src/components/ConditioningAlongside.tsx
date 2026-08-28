@@ -39,7 +39,7 @@ export default function ConditioningAlongside({
           <p className="text-[15px] font-medium text-ink">
             Also today: {c.name}
             <span className="text-[11px] font-bold text-muted ml-1.5 uppercase tracking-wide">
-              Green
+              {c.colour === 'black' ? 'Hard (Black)' : 'Easy (Green)'}
             </span>
           </p>
           {c.scheme && <p className="text-xs text-muted mt-0.5">{c.scheme}</p>}

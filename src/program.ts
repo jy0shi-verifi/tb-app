@@ -5,10 +5,11 @@ import { GREY_MAN_PROTOCOL } from './protocols/greyman'
 import { ALPHA_PROTOCOL } from './protocols/alpha'
 import { BRAVO_PROTOCOL } from './protocols/bravo'
 import { BRIDGE_PROTOCOL } from './protocols/bridge'
+import { OFF_PROTOCOL } from './protocols/off'
 import { conditioningBriefFor, conditioningSessionFor } from './protocols/conditioningPlan'
 import type { BlockPosition, Protocol, ProtocolContext, SessionPlan } from './protocol'
 import type { OneRmEntry } from './types'
-import { PLAN_PRESETS } from './lib/planRules'
+import { PLAN_PRESETS, presetBlocks } from './lib/planRules'
 
 // The resolved plan shapes now live in ./protocol so the protocol layer does not
 // depend on any one programme. Re-exported here because screens import them from
@@ -33,6 +34,7 @@ export const PROTOCOLS: Record<string, Protocol> = {
   alpha: ALPHA_PROTOCOL,
   bravo: BRAVO_PROTOCOL,
   bridge: BRIDGE_PROTOCOL,
+  off: OFF_PROTOCOL,
 }
 
 /** Standalone programmes in Settings. Specificity and Bridge are blocks, not a home programme. */
@@ -85,7 +87,7 @@ export interface PlannedBlock {
  * training week onto Wed/Fri/Sun while still labelling it "Mon" (audit A16).
  */
 export function defaultPlan(startDate: string): NonNullable<Settings['plan']> {
-  return { startDate: mondayOnOrBefore(startDate), blocks: [...PLAN_PRESETS[0].blocks] }
+  return { startDate: mondayOnOrBefore(startDate), blocks: presetBlocks(PLAN_PRESETS[0]) }
 }
 
 /**

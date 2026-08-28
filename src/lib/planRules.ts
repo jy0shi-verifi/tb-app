@@ -32,45 +32,77 @@ import type { PlannedBlock } from '../program'
 /**
  * A named starting point.
  *
- * A LIST, not a constant, at Josh's instruction (2026-08-24): *"we can have more
- * than one default (depending on current goal)."* One entry today because
- * Specificity is not built. 2026-08-28: the preset he will actually run is
- * ongoing MASS bulk (Grey Man looping); the book's p.140 cycle and a 2:1 ratio
- * are additional entries once Alpha exists. Operator (TB1) is not a MASS preset.
- * See backlog E6 / E7 and docs/mass-design.md §14.
+ * A LIST, not a constant (Josh, 2026-08-24). Indefinite MASS bulk is first
+ * (Grey Man looping, Bridge ~every 3 months, p.93). The printed Standard Cycle
+ * and the 2:1 example (p.140, p.142) need Alpha or Bravo at apply time — never
+ * auto-picked (p.69). Operator is not a MASS preset.
  *
- * `cite` is mandatory. A preset with no page reference is not a preset — it is
- * an opinion wearing the book's clothes.
+ * `cite` is mandatory. A preset with no page reference is not a preset.
  */
+export type PresetSlot = 'gm' | 'bridge' | 'spec'
+
 export interface PlanPreset {
   id: string
   name: string
-  /** The goal it serves, shown under the name. */
   goal: string
-  blocks: PlannedBlock[]
+  slots: PresetSlot[]
   cite: string
-  /** Anything the user should know about how it differs from the printed cycle. */
   note?: string
+  /** When true, each `spec` slot is filled only after he picks Alpha or Bravo. */
+  specChoice?: boolean
+}
+
+const GM = (): PlannedBlock => ({ protocolId: 'gm', weeks: 3 })
+const BRIDGE = (): PlannedBlock => ({ protocolId: 'bridge', weeks: 1 })
+
+/** Four Grey Man blocks + a Bridge — ~13 weeks, the 2–3 month cadence (p.93). */
+const GM_THEN_BRIDGE: PresetSlot[] = ['gm', 'gm', 'gm', 'gm', 'bridge']
+
+export function presetBlocks(preset: PlanPreset, spec?: 'alpha' | 'bravo'): PlannedBlock[] {
+  return preset.slots.map((slot) => {
+    if (slot === 'gm') return GM()
+    if (slot === 'bridge') return BRIDGE()
+    if (spec !== 'alpha' && spec !== 'bravo') {
+      throw new Error('This preset needs Alpha or Bravo — the book does not pick (p.69).')
+    }
+    return { protocolId: spec, weeks: 3 }
+  })
 }
 
 export const PLAN_PRESETS: PlanPreset[] = [
   {
+    id: 'indefinite-bulk',
+    name: 'Grey Man for a year',
+    goal: 'Keep building overall size. Grey Man on a loop, a recovery week about every three months.',
+    slots: [...GM_THEN_BRIDGE, ...GM_THEN_BRIDGE, ...GM_THEN_BRIDGE, ...GM_THEN_BRIDGE],
+    cite: 'p.41, p.93',
+    note: 'Suggested Bridges, not a law — “as needed”, roughly every two to three months (p.93). Drag on the year calendar or insert time off around holidays.',
+  },
+  {
     id: 'standard-general',
-    name: 'Standard Cycle',
-    goal: 'Building overall size — the author’s recommendation for a first cycle',
-    // p.140 prints "General — 6 Weeks" twice, and this project already settled
-    // (extraction, cross-chapter reconciliation §1; p.40, p.67) that a 6-week
-    // General stint IS two 3-week blocks. So blocks 1-2 of the printed cycle are
-    // these four, and the printed cycle's block 3 is the Bridge.
-    blocks: [
-      { protocolId: 'gm', weeks: 3 },
-      { protocolId: 'gm', weeks: 3 },
-      { protocolId: 'gm', weeks: 3 },
-      { protocolId: 'gm', weeks: 3 },
-      { protocolId: 'bridge', weeks: 1 },
-    ],
+    name: 'First cycle (General half)',
+    goal: 'Twelve weeks of Grey Man, then a Bridge — the Standard Cycle up to where Specificity begins.',
+    slots: [...GM_THEN_BRIDGE],
     cite: 'p.140',
-    note: 'The printed cycle turns to Specificity after this bridge week. Add an Alpha or Bravo block there — both are in the planner.',
+    note: 'The printed cycle then adds two Specificity blocks. Apply “Standard Cycle” and pick Alpha or Bravo, or drop them on the calendar.',
+  },
+  {
+    id: 'standard-cycle',
+    name: 'Standard Cycle',
+    goal: 'The author’s first-cycle table: General, General, Bridge, Specificity, Specificity.',
+    slots: ['gm', 'gm', 'gm', 'gm', 'bridge', 'spec', 'spec'],
+    cite: 'p.140',
+    specChoice: true,
+    note: 'Printed as five cycle slots (Bridge counts, p.141). Here that is seven 3-week/1-week rows. You choose Alpha or Bravo — the book does not (p.69).',
+  },
+  {
+    id: 'ratio-2-1',
+    name: '2:1 General to Specificity',
+    goal: 'The author’s “solid balanced” long-term option (Example 3).',
+    slots: ['gm', 'gm', 'spec', 'bridge'],
+    cite: 'p.142',
+    specChoice: true,
+    note: 'Repeat this on the calendar as needed. Throw in extra Bridges as needed (p.141).',
   },
 ]
 
@@ -156,7 +188,10 @@ export function validatePlan(
 
   // --- advice, not law ---
 
-  const training = blocks.filter((b) => protocolFor(b.protocolId).family !== 'base')
+  const training = blocks.filter((b) => {
+    const f = protocolFor(b.protocolId).family
+    return f !== 'base' && f !== 'off' && f !== 'legacy'
+  })
   const general = training.filter((b) => protocolFor(b.protocolId).family === 'general')
   const specificity = training.filter((b) => protocolFor(b.protocolId).family === 'specificity')
 
@@ -182,10 +217,12 @@ export function validatePlan(
   const MAX_WEEKS_WITHOUT_BRIDGE = 13
   let run = 0
   blocks.forEach((b, i) => {
-    if (protocolFor(b.protocolId).id === 'bridge') {
+    const p = protocolFor(b.protocolId)
+    if (p.id === 'bridge') {
       run = 0
       return
     }
+    if (p.family === 'off') return
     run += Math.max(1, b.weeks)
     if (run > MAX_WEEKS_WITHOUT_BRIDGE) {
       problems.push({

@@ -62,16 +62,15 @@ test('the plan screen builds a starter plan and shows where you are', async ({ p
   await seed({ settings: { currentPhaseId: 'gm', phaseStartDate: MONDAY } })
   await page.goto('/plan')
 
-  await expect(page.getByText('No block plan yet', { exact: false })).toBeVisible()
-  await page.getByRole('button', { name: 'Create a starter plan' }).click()
+  await expect(page.getByRole('button', { name: 'Paint a Grey Man year' })).toBeVisible()
+  await page.getByRole('button', { name: 'Paint a Grey Man year' }).click()
 
-  await expect(page.getByText('13 weeks in total', { exact: false })).toBeVisible()
-  // `exact` matters: the "+ Bridge week" add button also contains the words.
-  await expect(page.getByText('Bridge Week', { exact: true })).toBeVisible()
+  await expect(page.getByText(/52 weeks · General 16/).first()).toBeVisible()
+  await expect(page.getByText('Bridge', { exact: false }).first()).toBeVisible()
 
   const s = await readSettings(page)
   expect(s).toBeDefined()
-  expect((s!.plan as { blocks: unknown[] }).blocks).toHaveLength(5)
+  expect((s!.plan as { blocks: unknown[] }).blocks).toHaveLength(20)
 })
 
 test('the S-cluster builder enforces the book’s 4–6 limit', async ({ page, seed }) => {

@@ -2,7 +2,8 @@
 
 Read this first, then **`HANDOFF.md`** for where work actually stopped and what comes next, and
 **`docs/BACKLOG.md`** for the durable list of outstanding work — **if something is not in that file it
-will be forgotten.** Cursor’s 2026-08-28 pickup (agent switch, verified git state, how we work from
+will be forgotten.** The next-chat prompt (calendar rebuild + specialist stack) is
+**`docs/REVIEW-PASS.md`**. Cursor’s 2026-08-28 pickup (agent switch, verified git state, how we work from
 here) is **`docs/CURSOR-PICKUP.md`**. For the full architecture reference see **`docs/codebase-map.md`**
 (dated map of every subsystem, with file:line references — compiled against `master` @ v23; MASS
 schema and dispatch live on `mass-extraction`); for the MASS rebuild see **`docs/mass-design.md`** and

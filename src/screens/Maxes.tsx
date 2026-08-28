@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useSettings, useAllOneRm } from '../hooks'
 import { protocolFor, resolvePosition } from '../program'
 import { protocolExercises, type Cluster, type ClusterExercise, type Prescription } from '../protocol'
@@ -31,7 +32,7 @@ function liveClusters(protocol: { id: string; clusters: Record<string, Cluster> 
 import { estimate1RM } from '../lib/calc'
 import { loadBar, DEFAULT_BAR_SETUP, targetLoad, type BarSetup } from '../lib/barbell'
 import { db } from '../db'
-import { Card, Pill } from '../components/ui'
+import { Card, Pill, Button } from '../components/ui'
 import ScreenHeader from '../components/ScreenHeader'
 import { today } from '../lib/date'
 import type { OneRmEntry } from '../types'
@@ -73,6 +74,7 @@ const barSetupFrom = (plates?: number[], barKg?: number): BarSetup =>
   plates?.length ? { barKg: barKg ?? 20, plates: plates.map((kg) => ({ kg })) } : DEFAULT_BAR_SETUP
 
 export default function Maxes() {
+  const nav = useNavigate()
   const settings = useSettings()
   const rows = useAllOneRm()
   // The protocol actually running today. Under a block plan `currentPhaseId` is
@@ -183,14 +185,14 @@ export default function Maxes() {
 
   return (
     <div className="space-y-4 stagger">
-      <ScreenHeader title="1RM maxes" fallback={'/settings'} />
+      <ScreenHeader title="Working maxes" fallback={'/'} />
       <Card elev="1">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="eyebrow text-muted">Test day</p>
             <h2 className="display-hero text-xl text-ink">{protocol.name} maxes</h2>
           </div>
-          <Pill tone="soft-brand">True 1RM</Pill>
+          <Pill tone="soft-brand">No true single</Pill>
         </div>
         <p className="text-xs text-muted mt-2">
           Enter a <b>2–3 rep</b> test set and the app works out your 1RM, then every working weight
@@ -306,10 +308,15 @@ export default function Maxes() {
 
       <Card elev="1">
         <p className="text-xs text-muted">
-          Percentages run off your <b>1RM</b>. {protocol.name} never uses a training max — the book
-          recommends one for the Bulgarian cluster alone (pp.88–89).
+          Percentages run off this max. {protocol.name} does not use a training max.
         </p>
       </Card>
+      <Button className="w-full" onClick={() => nav('/plan')}>
+        Next — lay out the year →
+      </Button>
+      <button type="button" onClick={() => nav('/')} className="w-full text-[12px] font-bold text-muted min-h-11">
+        Skip to Today
+      </button>
     </div>
   )
 }

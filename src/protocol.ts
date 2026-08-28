@@ -186,6 +186,11 @@ export interface PlannedExercise {
    */
   restSecMin?: number
   restSecMax?: number
+  /**
+   * Which cluster this exercise belongs to — so the session can split main vs
+   * accessories instead of one flat list (p.50). Absent on Beginner.
+   */
+  cluster?: 'main' | 's' | 'ms' | 'h'
 }
 
 /**
@@ -260,7 +265,7 @@ export interface BlockPosition {
 // Protocol
 // ---------------------------------------------------------------------------
 
-export type ProtocolFamily = 'general' | 'specificity' | 'base' | 'legacy'
+export type ProtocolFamily = 'general' | 'specificity' | 'base' | 'legacy' | 'off'
 
 /**
  * Which conditioning sessions pair with this protocol.

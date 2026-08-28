@@ -172,7 +172,7 @@ export default function Settings() {
               className={fieldCls}
             />
           </Row>
-          <Row label="Block plan" hint="Sequence your 3-week blocks, build your S cluster, set conditioning days.">
+          <Row label="Year plan" hint="Calendar of 3-week blocks, accessories, and easy conditioning days.">
             <Link
               to="/plan"
               className="inline-flex items-center justify-center rounded-pill bg-brand/10 text-brand-ink text-[13px] font-bold px-4 min-h-11"
@@ -218,7 +218,7 @@ export default function Settings() {
             <input
               type="checkbox"
               aria-label="Microplates"
-              className="size-6 accent-[var(--color-brand)]"
+              className="min-h-11 min-w-11 accent-[var(--color-brand)]"
               checked={(s.bar?.platePairsKg ?? DEFAULT_PLATES).includes(0.5)}
               onChange={(e) =>
                 saveSettings({

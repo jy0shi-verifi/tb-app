@@ -81,20 +81,12 @@ describe('block plans (MASS p.40, p.140)', () => {
     expect(resolvePosition(withPlan([{ protocolId: 'gm', weeks: 3 }]), on(-7)).status).toBe('before')
   })
 
-  it('the starter plan is the p.140 Standard Cycle, truncated at the bridge', () => {
+  it('the starter plan is a suggested Grey Man year with Bridges (p.93)', () => {
     const plan = defaultPlan('2026-08-17')
-    // p.140 prints "General — 6 Weeks" twice, which is four 3-week blocks
-    // (p.40, p.67), then "Bridge — 1 Week". We stop exactly where the printed
-    // cycle turns to Specificity. Alpha/Bravo exist; adding them to the default
-    // preset is E6. The previous shape — [3, 3, 1, 3, 3] — moved the bridge.
-    // The previous shape — [3, 3, 1, 3, 3] — moved the bridge to week 7 and
-    // dropped the terminal one, an undeclared departure (audit A14).
-    expect(plan.blocks.map((b) => b.protocolId)).toEqual(['gm', 'gm', 'gm', 'gm', 'bridge'])
-    expect(plan.blocks.map((b) => b.weeks)).toEqual([3, 3, 3, 3, 1])
+    expect(plan.blocks.filter((b) => b.protocolId === 'gm')).toHaveLength(16)
+    expect(plan.blocks.filter((b) => b.protocolId === 'bridge')).toHaveLength(4)
+    expect(planWeeks(plan.blocks)).toBe(52)
     expect(plan.blocks.map((b) => b.weeks)).not.toEqual([3, 3, 1, 3, 3])
-    expect(planWeeks(plan.blocks)).toBe(13)
-    // Every training block is 3 weeks — "Both General and Specificity consist of
-    // 3-week blocks" (p.40). Only the bridge week is not.
     for (const b of plan.blocks) {
       if (b.protocolId !== 'bridge') expect(b.weeks).toBe(3)
     }

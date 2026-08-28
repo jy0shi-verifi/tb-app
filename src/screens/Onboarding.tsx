@@ -112,31 +112,31 @@ export default function Onboarding() {
             </div>
             <p className="text-muted mt-3 leading-relaxed">
               This app runs your training for you — it tells you exactly what to do each morning
-              and tracks every weight. You just show up.
+              and works out every weight. You pick a programme next.
             </p>
 
             <div className="space-y-3 mt-6">
-              <Card className="flex items-start gap-3">
-                <span className="inline-flex items-center justify-center w-10 h-10 rounded-chip bg-accent/15 text-accent-ink shrink-0">
-                  <Footprints size={20} />
-                </span>
-                <div>
-                  <p className="font-semibold text-ink">Running: your own plan</p>
-                  <p className="text-sm text-muted">
-                    Follow your Runna plan — runs log themselves here automatically once they sync
-                    from Strava.
-                  </p>
-                </div>
-              </Card>
               <Card className="flex items-start gap-3">
                 <span className="inline-flex items-center justify-center w-10 h-10 rounded-chip bg-brand/12 text-brand-ink shrink-0">
                   <Dumbbell size={20} />
                 </span>
                 <div>
-                  <p className="font-semibold text-ink">Lifting: three days a week</p>
+                  <p className="font-semibold text-ink">Set up once</p>
                   <p className="text-sm text-muted">
-                    Two dumbbell sessions that alternate, 3 sets of 8–12. Clear all three sets at 12
-                    and the app adds weight for you — no thinking required.
+                    Programme, working maxes, and a year of blocks if you want one. Then each morning
+                    is just Today.
+                  </p>
+                </div>
+              </Card>
+              <Card className="flex items-start gap-3">
+                <span className="inline-flex items-center justify-center w-10 h-10 rounded-chip bg-accent/15 text-accent-ink shrink-0">
+                  <Footprints size={20} />
+                </span>
+                <div>
+                  <p className="font-semibold text-ink">You still run</p>
+                  <p className="text-sm text-muted">
+                    Easy conditioning lives in the plan. Longer running stays yours — Strava can log
+                    it. Runna is only for Beginner Mode.
                   </p>
                 </div>
               </Card>
@@ -175,8 +175,8 @@ export default function Onboarding() {
                   className="rounded-field border border-[var(--color-field-border)] bg-[var(--color-surface-sunk)] px-4 py-3 font-semibold text-ink transition"
                 />
                 <p className="text-xs text-muted mt-2">
-                  Defaults to next Monday — {prettyDate(parseISO(start))}. A block starts on a
-                  Monday; anything else rotates the whole training week.
+                  Defaults to next Monday — {prettyDate(parseISO(start))}. A 3-week block starts on a
+                  Monday; any other weekday rotates the whole training week.
                 </p>
               </div>
 
@@ -284,8 +284,8 @@ function ProgrammeStep({
           'gm',
           'Grey Man',
           'Barbell + rack',
-          'Tactical Barbell’s Mass Protocol. Two main lifts a day on Mon/Wed/Fri, alternating A/B, plus a supplementary cluster you build yourself. Every weight comes off your 1RMs.',
-          'MASS pp.48–53 · 3-week blocks (p.40)',
+          'Barbell hypertrophy (Grey Man): two big lifts Mon/Wed/Fri that swap each session, then accessories you choose. Every weight is a percentage of the heaviest you can lift once (1RM), estimated from a hard 2–3 reps — not a true single.',
+          'MASS pp.48–53 · 3-week blocks (p.40) · testing p.63',
           Dumbbell,
         )}
         {opt(
@@ -301,8 +301,9 @@ function ProgrammeStep({
       {choice === 'gm' && (
         <Card className="mt-4">
           <p className="text-xs text-muted">
-            Next you’ll set your <b>1RMs</b>. Grey Man can’t prescribe a single weight without them —
-            test a 2–3 rep set per lift and the app works the rest out (p.63, p.90).
+            Next you’ll set your <b>working maxes (1RMs)</b>. Test a hard 2–3 reps per lift — you
+            don’t attempt a true single (p.63, p.90). Then you’ll see a year calendar to drop blocks
+            onto.
           </p>
         </Card>
       )}

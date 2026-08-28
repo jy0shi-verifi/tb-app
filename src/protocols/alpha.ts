@@ -81,9 +81,9 @@ function planMsLifts(week: AlphaWeek, ctx: ProtocolContext, firstMsOfWeek: boole
   return cluster.flatMap((ex) => {
     if (isConventionalDeadlift(ex)) {
       if (!includeDl) return []
-      return [planExercise(ex, week.dl, ctx, MAIN_REST_SEC)]
+      return [planExercise(ex, week.dl, ctx, MAIN_REST_SEC, 'ms')]
     }
-    return [planExercise(ex, week.ms, ctx, MAIN_REST_SEC)]
+    return [planExercise(ex, week.ms, ctx, MAIN_REST_SEC, 'ms')]
   })
 }
 
@@ -109,7 +109,7 @@ export function alphaSessionFor(pos: BlockPosition, ctx: ProtocolContext): Sessi
   }
 
   const which = slot === 'h1' ? 'h1' : 'h2'
-  const exercises = hClusterOf(ctx.settings, which).map((ex) => planExercise(ex, grid.h, ctx, SUPP_REST_SEC))
+  const exercises = hClusterOf(ctx.settings, which).map((ex) => planExercise(ex, grid.h, ctx, SUPP_REST_SEC, 'h'))
   return {
     type: 'lift',
     title: slot === 'h1' ? 'Alpha — H1' : 'Alpha — H2',
