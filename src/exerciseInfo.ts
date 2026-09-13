@@ -93,6 +93,38 @@ export const EXERCISE_INFO: Record<string, ExerciseInfo> = {
     ],
   },
 
+  // --- Dumbbell A/B/C split moves ---
+  'Bulgarian Split Squat': {
+    targets: ['quads', 'glutes', 'hamstrings'],
+    howTo: [
+      'Stand a stride’s length in front of a bench, a dumbbell in each hand by your sides.',
+      'Rest the top of one foot behind you on the bench; the front foot is far enough forward that its knee stays over the ankle.',
+      'Keeping your torso tall, bend the front knee and lower straight down until the front thigh is about parallel — the back knee drops toward the floor.',
+      'Drive up through the front heel to stand. Keep your weight in the front leg.',
+      'Do all reps on one leg, then switch. Start light — balance comes with practice.',
+    ],
+  },
+  'DB Lateral Raise': {
+    targets: ['shoulders'],
+    howTo: [
+      'Stand tall with a light dumbbell in each hand by your sides, palms facing in, a slight bend in the elbows.',
+      'Lead with your elbows and raise the dumbbells out to the sides until they’re about shoulder height — like pouring from a jug.',
+      'Keep the movement slow and controlled; don’t swing or shrug your shoulders up to your ears.',
+      'Lower under control back to your sides. Breathe out as you lift.',
+      'This is a small muscle — go lighter and chase the 12–15 reps, not the weight.',
+    ],
+  },
+  'DB Curl': {
+    targets: ['biceps'],
+    howTo: [
+      'Stand tall with a dumbbell in each hand by your sides, palms facing forward.',
+      'Keeping your elbows pinned to your sides, curl the dumbbells up toward your shoulders.',
+      'Squeeze your biceps at the top, then lower under control all the way down.',
+      'Don’t swing your body or let your elbows drift forward — the upper arms stay still.',
+      'You can curl both together or alternate arms. Breathe out as you lift.',
+    ],
+  },
+
   // --- Base Building SE circuit moves ---
   'Push-ups': {
     targets: ['chest', 'shoulders', 'triceps', 'core'],
