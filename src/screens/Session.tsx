@@ -3,13 +3,24 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createPortal } from 'react-dom'
 import { Check, Timer, X, Plus, Minus, Smile, Meh, Frown, ChevronDown } from 'lucide-react'
-import { maxesMap, resolvePosition, sessionFor, type SessionPlan } from '../program'
+import {
+  isLp,
+  lpApplyProgress,
+  lpDeloadPatch,
+  lpLiftId,
+  lpLiftMeta,
+  lpStall,
+  lpWorkingKg,
+  maxesMap,
+  resolvePosition,
+  sessionFor,
+  type SessionPlan,
+} from '../program'
 import { EXERCISE_INFO } from '../exerciseInfo'
 import ExerciseDetail from '../components/ExerciseDetail'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
 import { db, DEFAULT_SETTINGS, saveSettings } from '../db'
 import IntervalTimer from '../components/IntervalTimer'
-import { applyBeginnerProgress, beginnerDayLetter, beginnerLiftId, beginnerStall, REP_HI } from '../beginner'
 import { estimate1RM } from '../lib/calc'
 import { bestEst1RM, lastPerformance } from '../lib/stats'
 import { Button, Card, SegmentedPicker, SetCheck, SessionIcon } from '../components/ui'
@@ -201,15 +212,15 @@ export default function Session() {
   useEffect(() => {
     if (!ready || !plan || ex !== null) return
     const fromLog = logged && logged.exercises.length > 0
-    const beginnerLift = settings.programMode === 'beginner' && plan.type === 'lift'
+    const lpLift = isLp(settings) && plan.type === 'lift'
     setEx(
       plan.exercises.map((e, i) => {
         const saved = fromLog ? logged!.exercises[i] : undefined
-        // Beginner double progression: pre-fill last time's reps (so the natural move
-        // is to beat them), UNLESS a +2 kg bump just raised the working weight — then
+        // LP double progression: pre-fill last time's reps (so the natural move
+        // is to beat them), UNLESS a bump just raised the working weight — then
         // keep the range floor the plan already set (reps reset on a weight bump).
         const working = e.sets[0]?.weight
-        const last = beginnerLift && !fromLog ? lastPerformance(allSessions, e.name, iso) : null
+        const last = lpLift && !fromLog ? lastPerformance(allSessions, e.name, iso) : null
         const prefill = last && last.weight === working ? last.reps : null
         return {
           name: e.name,
@@ -348,7 +359,7 @@ export default function Session() {
   const isSE = plan.type === 'se'
   const restSec = restSeconds(plan, pos.week, settings.restSec)
   const inc = settings.dbIncrement
-  const beginnerLift = settings.programMode === 'beginner' && plan.type === 'lift'
+  const lpLift = isLp(settings) && plan.type === 'lift'
 
   const setSet = (ei: number, si: number, patch: Partial<SetState>) => {
     touched.current = true
@@ -358,14 +369,14 @@ export default function Session() {
       ),
     )
   }
-  // Deload a stalled beginner lift: drop this session's sets to the lighter weight AND
+  // Deload a stalled LP lift: drop this session's sets to the lighter weight AND
   // persist it as the new working weight, so LP resumes building from there.
   const applyDeload = (ei: number, liftId: string, toKg: number) => {
     touched.current = true
     setEx((prev) =>
       prev!.map((e, i) => (i === ei ? { ...e, sets: e.sets.map((s) => ({ ...s, weight: String(toKg) })) } : e)),
     )
-    saveSettings({ beginner: { lifts: { ...(settings.beginner?.lifts ?? {}), [liftId]: toKg } } })
+    saveSettings(lpDeloadPatch(settings, liftId, toKg))
   }
   const startRest = () => {
     primeAudio() // unlock audio within this tap so the end-beep can sound
@@ -421,10 +432,10 @@ export default function Session() {
     setMeta((m) => ({ ...m, ...patch }))
   }
 
-  // Leaving a session: in Beginner mode, run the LP double-progression off what was
-  // actually logged (bump a lift 2 kg once all 3 sets hit 12), then go back.
+  // Leaving a session: in an LP program (Beginner or A/B/C), run the double-progression
+  // off what was actually logged (bump a lift once all 3 sets hit the top), then go back.
   async function finish() {
-    if (settings?.programMode === 'beginner' && plan?.type === 'lift' && pos && ex) {
+    if (settings && isLp(settings) && plan?.type === 'lift' && pos && ex) {
       const loggedEx = ex.map((e) => ({
         name: e.name,
         sets: e.sets.map((s) => ({
@@ -433,8 +444,8 @@ export default function Session() {
           done: s.done,
         })),
       }))
-      const next = applyBeginnerProgress(settings, beginnerDayLetter(pos.week, pos.day), loggedEx)
-      if (next) await saveSettings({ beginner: { lifts: next } })
+      const patch = lpApplyProgress(settings, pos, loggedEx)
+      if (patch) await saveSettings(patch)
     }
     nav(-1)
   }
@@ -592,13 +603,16 @@ export default function Session() {
               )}
               {e.note && <p className="text-xs text-muted mt-0.5">{e.note}</p>}
             </div>
-            {beginnerLift &&
+            {lpLift &&
               (() => {
                 const last = lastPerformance(allSessions, e.name, iso)
-                const liftId = beginnerLiftId(e.name)
-                const working = liftId ? settings.beginner?.lifts?.[liftId] ?? 0 : 0
-                const stall = liftId ? beginnerStall(allSessions, e.name, working, inc, iso) : null
-                const atTop = e.sets.filter((s) => s.done && Number(s.reps) >= REP_HI).length
+                const liftId = lpLiftId(e.name, settings)
+                const meta = lpLiftMeta(e.name, settings)
+                const repHi = meta?.repHi ?? 12
+                const step = meta?.step ?? 2
+                const working = liftId ? lpWorkingKg(e.name, settings) : 0
+                const stall = liftId ? lpStall(settings, allSessions, e.name, working, inc, iso) : null
+                const atTop = e.sets.filter((s) => s.done && Number(s.reps) >= repHi).length
                 const need = e.sets.length - atTop
                 return (
                   <div className="-mt-1 mb-2 space-y-1.5">
@@ -632,8 +646,8 @@ export default function Session() {
                         }`}
                       >
                         {need <= 0
-                          ? '✓ +2 kg next session'
-                          : `${need} more ${need === 1 ? 'set' : 'sets'} at ${REP_HI} → +2 kg`}
+                          ? `✓ +${step} kg next session`
+                          : `${need} more ${need === 1 ? 'set' : 'sets'} at ${repHi} → +${step} kg`}
                       </span>
                     )}
                   </div>

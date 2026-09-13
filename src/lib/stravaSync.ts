@@ -144,13 +144,17 @@ export async function syncStrava(): Promise<number> {
     if (prev?.stravaId) continue // already synced this day
     if (prev && (prev.type === 'lift' || prev.type === 'se')) continue // don't clobber a logged lift
 
-    // Beginner mode: running is owned by Runna. Log ANY run (whatever day it lands
-    // on) and keep Runna's own activity name — never rename it on Strava. TB mode:
-    // only auto-tick a scheduled run/HIC day and name it by where it lands.
-    const beginnerRun = settings.programMode === 'beginner' || pos.phaseId === 'beginner'
+    // LP programs (Beginner / Dumbbell A/B/C): running is owned by Runna. Log ANY run
+    // (whatever day it lands on) and keep Runna's own activity name — never rename it on
+    // Strava. TB mode: only auto-tick a scheduled run/HIC day and name it by where it lands.
+    const runnaOwned =
+      settings.programMode === 'beginner' ||
+      settings.programMode === 'abc' ||
+      pos.phaseId === 'beginner' ||
+      pos.phaseId === 'abc'
     let recType: 'run' | 'hic' = 'run'
     let name: string
-    if (beginnerRun) {
+    if (runnaOwned) {
       name = a.name?.trim() || 'Run'
     } else {
       const plan = sessionFor(pos.phaseId, pos.week, pos.day, maxes, settings)
@@ -180,7 +184,7 @@ export async function syncStrava(): Promise<number> {
     synced++
 
     // Push the programme name back onto Strava (TB only; never overwrite Runna's names).
-    if (!beginnerRun && canWrite && a.name !== name) {
+    if (!runnaOwned && canWrite && a.name !== name) {
       try {
         await updateStravaActivityName(token, a.id, name)
       } catch {
