@@ -19,6 +19,10 @@ export default function Program() {
   const now = today()
   const todayIso = isoDate(now)
   const pos = resolvePosition(settings, now)
+  // Open-ended LP programs (Beginner / A/B/C) have a sentinel 999-week length —
+  // never render a thousand rows; show a rolling window around where you are.
+  const openEnded = phase.lengthWeeks >= 999
+  const blockWeeks = openEnded ? Math.max(12, pos.week + 4) : phase.lengthWeeks
 
   const [view, setView] = useState<'week' | 'block'>('week')
   const [week, setWeek] = useState(pos.week)
@@ -127,7 +131,11 @@ export default function Program() {
         <>
           <div className="px-1">
             <p className="eyebrow text-muted">{phase.name}</p>
-            <p className="text-xs text-muted">{phase.lengthWeeks} weeks · the whole block at a glance</p>
+            <p className="text-xs text-muted">
+              {openEnded
+                ? 'Recent & upcoming weeks at a glance'
+                : `${phase.lengthWeeks} weeks · the whole block at a glance`}
+            </p>
           </div>
           <Card className="p-2">
             <div className="grid grid-cols-[2.4rem_repeat(7,1fr)] gap-1 mb-1">
@@ -139,7 +147,7 @@ export default function Program() {
               ))}
             </div>
             <div className="space-y-1">
-              {Array.from({ length: phase.lengthWeeks }, (_, wi) => {
+              {Array.from({ length: blockWeeks }, (_, wi) => {
                 const w = wi + 1
                 const weekStart = addDays(parseISO(settings.phaseStartDate), wi * 7)
                 const pct = wavePct(w)

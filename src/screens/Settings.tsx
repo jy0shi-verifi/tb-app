@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react'
 import { Download, Upload } from 'lucide-react'
-import { useSettings } from '../hooks'
+import { useSettings, useSessions } from '../hooks'
 import { applyTheme, importBackup, parseBackup, saveSettings } from '../db'
 import { downloadBackup } from '../lib/backup'
 import { PHASES } from '../program'
 import { defaultBeginnerWeights } from '../beginner'
-import { isoDate, today, addDays, mondayIndex } from '../lib/date'
+import { seedAbcWeights } from '../abc'
+import { isoDate, today, addDays, mondayIndex, nextMonday } from '../lib/date'
 import { Button, Card, SegmentedPicker } from '../components/ui'
 import { beginStravaAuth, disconnectStrava, stravaCanWrite, stravaConfigured } from '../lib/strava'
 import { syncStrava, importStravaHistory, devTagLatestAsOperatorRun } from '../lib/stravaSync'
@@ -24,6 +25,7 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 
 export default function Settings() {
   const s = useSettings()
+  const sessions = useSessions()
   const fileRef = useRef<HTMLInputElement>(null)
   const [msg, setMsg] = useState<string>('')
 
@@ -55,11 +57,22 @@ export default function Settings() {
   const fieldCls =
     'rounded-field border border-[var(--color-field-border)] bg-[var(--color-surface-sunk)] text-ink px-3.5 py-2.5 font-semibold min-h-[2.75rem]'
 
-  const isBeginner = s.programMode === 'beginner'
+  const mode: 'tb' | 'beginner' | 'abc' = s.programMode ?? 'tb'
+  const MODE_COPY: Record<typeof mode, { name: string; desc: string }> = {
+    tb: { name: 'Tactical Barbell', desc: 'Base Building → Operator — the full periodised plan.' },
+    beginner: {
+      name: 'Beginner',
+      desc: 'Linear Progression (dumbbell A/B) + Couch-to-5K — a gentler on-ramp.',
+    },
+    abc: {
+      name: 'Dumbbell A/B/C',
+      desc: 'A minimalist 3-day dumbbell split (Mon/Wed/Fri) with double progression, plus your Runna runs.',
+    },
+  }
   async function switchToBeginner() {
     if (
       !window.confirm(
-        'Switch to Beginner mode?\n\nThis swaps your plan to Linear Progression + Couch-to-5K — a gentler on-ramp. Your Tactical Barbell setup is kept; you can switch back any time.',
+        'Switch to Beginner mode?\n\nThis swaps your plan to Linear Progression + Couch-to-5K — a gentler on-ramp. Your other setups are kept; you can switch back any time.',
       )
     )
       return
@@ -72,8 +85,23 @@ export default function Settings() {
     })
     setMsg('Beginner mode on — Linear Progression + Couch-to-5K.')
   }
+  async function switchToAbc() {
+    if (
+      !window.confirm(
+        'Switch to Dumbbell A/B/C?\n\nA minimalist 3-day dumbbell split (Mon/Wed/Fri) with double progression, plus your Runna runs. Bench, row and overhead press start from your recent working weights; your other setups are kept and you can switch back any time.',
+      )
+    )
+      return
+    await saveSettings({
+      programMode: 'abc',
+      currentPhaseId: 'abc',
+      phaseStartDate: nextMonday(),
+      abc: { lifts: seedAbcWeights(sessions) },
+    })
+    setMsg('Dumbbell A/B/C on — starting from your recent weights, plus your Runna runs.')
+  }
   async function switchToTB() {
-    if (!window.confirm('Switch back to Tactical Barbell (Base Building → Operator)?')) return
+    if (!window.confirm('Switch to Tactical Barbell (Base Building → Operator)?')) return
     await saveSettings({ programMode: 'tb', currentPhaseId: 'base-building' })
     setMsg('Tactical Barbell mode.')
   }
@@ -88,19 +116,25 @@ export default function Settings() {
       <Card>
         <p className="eyebrow text-muted mb-2">Program mode</p>
         <p className="text-xs text-muted mb-3 leading-relaxed">
-          {isBeginner
-            ? 'You’re on Beginner mode — Linear Progression (dumbbell A/B) + Couch-to-5K. Build a base, then step up to Tactical Barbell.'
-            : 'Tactical Barbell (Base Building → Operator). New to training? Beginner mode is a gentler on-ramp.'}
+          You’re on <b>{MODE_COPY[mode].name}</b> — {MODE_COPY[mode].desc}
         </p>
-        {isBeginner ? (
-          <Button variant="secondary" className="w-full" onClick={switchToTB}>
-            Switch to Tactical Barbell
-          </Button>
-        ) : (
-          <Button className="w-full" onClick={switchToBeginner}>
-            Switch to Beginner mode (LP + C25K)
-          </Button>
-        )}
+        <div className="space-y-2">
+          {mode !== 'tb' && (
+            <Button variant="secondary" className="w-full" onClick={switchToTB}>
+              Switch to Tactical Barbell
+            </Button>
+          )}
+          {mode !== 'beginner' && (
+            <Button variant="secondary" className="w-full" onClick={switchToBeginner}>
+              Switch to Beginner (LP + C25K)
+            </Button>
+          )}
+          {mode !== 'abc' && (
+            <Button variant="secondary" className="w-full" onClick={switchToAbc}>
+              Switch to Dumbbell A/B/C
+            </Button>
+          )}
+        </div>
       </Card>
 
       <Card>
