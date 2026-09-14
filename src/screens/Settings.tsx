@@ -3,7 +3,7 @@ import { Download, Upload } from 'lucide-react'
 import { useSettings, useSessions } from '../hooks'
 import { applyTheme, importBackup, parseBackup, saveSettings } from '../db'
 import { downloadBackup } from '../lib/backup'
-import { PHASES } from '../program'
+import { PHASES, isLp } from '../program'
 import { defaultBeginnerWeights } from '../beginner'
 import { seedAbcWeights } from '../abc'
 import { isoDate, today, addDays, mondayIndex, nextMonday } from '../lib/date'
@@ -102,7 +102,8 @@ export default function Settings() {
   }
   async function switchToTB() {
     if (!window.confirm('Switch to Tactical Barbell (Base Building → Operator)?')) return
-    await saveSettings({ programMode: 'tb', currentPhaseId: 'base-building' })
+    const mon = isoDate(addDays(today(), -mondayIndex(today())))
+    await saveSettings({ programMode: 'tb', currentPhaseId: 'base-building', phaseStartDate: mon })
     setMsg('Tactical Barbell mode.')
   }
 
@@ -191,35 +192,41 @@ export default function Settings() {
       <Card>
         <p className="eyebrow text-muted mb-2">Program</p>
         <div className="divide-y divide-line/60">
-          <Row
-            label="Load basis"
-            hint="How every weight is worked out. K. Black recommends the 90% Training Max for high-frequency templates like Operator — you grease the groove and can hit every session, even on a bad day. True 1RM is heavier, for advanced lifters who find the TM too light."
-          >
-            <SegmentedPicker<LoadBasis>
+          {/* Load basis + phase picker only apply to Tactical Barbell (Operator uses tested
+              maxes); LP programs (Beginner / A/B/C) derive weight from in-session progression. */}
+          {!isLp(s) && (
+            <Row
               label="Load basis"
-              value={s.loadBasis}
-              options={[
-                { v: 'tm', label: 'Training Max (90%)' },
-                { v: '1rm', label: 'True 1RM' },
-              ]}
-              onChange={(v) => {
-                if (v !== s.loadBasis && window.confirm('Change how every weight is worked out? This rescales all your loads.'))
-                  saveSettings({ loadBasis: v })
-              }}
-            />
-          </Row>
-          <Row label="Current phase" hint="Advanced — the app normally moves you between phases at the right time.">
-            <SegmentedPicker<string>
-              label="Current phase"
-              value={s.currentPhaseId}
-              options={Object.values(PHASES).map((p) => ({ v: p.id, label: p.name }))}
-              onChange={(v) => {
-                if (v !== s.currentPhaseId && window.confirm('Switch phase? This changes your plan and where you are in it.'))
-                  saveSettings({ currentPhaseId: v })
-              }}
-            />
-          </Row>
-          <Row label="Phase start date" hint="The Monday your current phase's week 1 began.">
+              hint="How every weight is worked out. K. Black recommends the 90% Training Max for high-frequency templates like Operator — you grease the groove and can hit every session, even on a bad day. True 1RM is heavier, for advanced lifters who find the TM too light."
+            >
+              <SegmentedPicker<LoadBasis>
+                label="Load basis"
+                value={s.loadBasis}
+                options={[
+                  { v: 'tm', label: 'Training Max (90%)' },
+                  { v: '1rm', label: 'True 1RM' },
+                ]}
+                onChange={(v) => {
+                  if (v !== s.loadBasis && window.confirm('Change how every weight is worked out? This rescales all your loads.'))
+                    saveSettings({ loadBasis: v })
+                }}
+              />
+            </Row>
+          )}
+          {!isLp(s) && (
+            <Row label="Current phase" hint="Advanced — the app normally moves you between phases at the right time.">
+              <SegmentedPicker<string>
+                label="Current phase"
+                value={s.currentPhaseId}
+                options={Object.values(PHASES).map((p) => ({ v: p.id, label: p.name }))}
+                onChange={(v) => {
+                  if (v !== s.currentPhaseId && window.confirm('Switch phase? This changes your plan and where you are in it.'))
+                    saveSettings({ currentPhaseId: v })
+                }}
+              />
+            </Row>
+          )}
+          <Row label="Phase start date" hint="The Monday your current plan's week 1 began.">
             <input
               type="date"
               aria-label="Phase start date"

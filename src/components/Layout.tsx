@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { Home, CalendarDays, History as HistoryIcon, Calculator, BookOpen, Settings as SettingsIcon } from 'lucide-react'
 import { useSettings } from '../hooks'
-import { PHASES, resolvePosition } from '../program'
+import { PHASES, resolvePosition, isLp } from '../program'
 import { today } from '../lib/date'
 import { Wordmark } from './ui'
 
@@ -27,7 +27,12 @@ export default function Layout() {
   const settings = useSettings()
   const { pathname } = useLocation()
   const [scrolled, setScrolled] = useState(false)
-  const pageTitle = NAV.find((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to)))?.label ?? 'Tactical Barbell'
+  // LP programs (Beginner / A/B/C) have no tested max — that tab is just working weights.
+  const labelFor = (n: (typeof NAV)[number]) => (n.to === '/maxes' && isLp(settings) ? 'Weights' : n.label)
+  const pageTitle = (() => {
+    const n = NAV.find((n) => (n.end ? pathname === n.to : pathname.startsWith(n.to)))
+    return n ? labelFor(n) : 'Tactical Barbell'
+  })()
 
   const pos = resolvePosition(settings, today())
   const phase = PHASES[settings.currentPhaseId]
@@ -95,7 +100,7 @@ export default function Layout() {
                     >
                       <Icon size={24} strokeWidth={isActive ? 2.4 : 1.9} />
                     </span>
-                    {n.label}
+                    {labelFor(n)}
                   </>
                 )}
               </NavLink>
