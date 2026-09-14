@@ -8,6 +8,7 @@ import {
   abcStall,
   applyAbcProgress,
   defaultAbcWeights,
+  seedAbcWeights,
 } from '../src/abc'
 import type { LoggedExercise, Settings, SessionLog } from '../src/types'
 
@@ -115,6 +116,48 @@ describe('applyAbcProgress (double progression)', () => {
     )
     const next = applyAbcProgress(base, 4, at15)
     expect(next!.abc_lat).toBe(7) // 5 + 2
+  })
+})
+
+describe('seedAbcWeights (carry over recent weights on switch)', () => {
+  const liftSession = (date: string, exercises: LoggedExercise[]): SessionLog => ({
+    date,
+    phaseId: 'operator',
+    week: 1,
+    day: 0,
+    type: 'lift',
+    title: 'Operator',
+    done: true,
+    createdAt: 1,
+    exercises,
+  })
+
+  it('carries over shared movements from the log and defaults the rest', () => {
+    const sessions = [
+      // older, heavier bench that should be ignored in favour of the most recent
+      liftSession('2026-08-01', [
+        { name: 'DB Bench Press', sets: [{ weight: 30, reps: 5, done: true }] },
+      ]),
+      // most recent session — these weights should seed A/B/C
+      liftSession('2026-09-10', [
+        { name: 'DB Bench Press', sets: [{ weight: 24, reps: 6, done: true }, { weight: 24, reps: 6, done: true }] },
+        { name: '1-Arm DB Row', sets: [{ weight: 22, reps: 8, done: true }] },
+        { name: 'DB Overhead Press', sets: [{ weight: 16, reps: 8, done: true }] },
+      ]),
+    ]
+    const seeded = seedAbcWeights(sessions)
+    expect(seeded.abc_bench).toBe(24) // most recent, not the older 30
+    expect(seeded.abc_row).toBe(22)
+    expect(seeded.abc_ohp).toBe(16)
+    // movements with no history keep their light defaults
+    const d = defaultAbcWeights()
+    expect(seeded.abc_split).toBe(d.abc_split)
+    expect(seeded.abc_lat).toBe(d.abc_lat)
+    expect(seeded.abc_curl).toBe(d.abc_curl)
+  })
+
+  it('returns the plain defaults when there is no history', () => {
+    expect(seedAbcWeights([])).toEqual(defaultAbcWeights())
   })
 })
 

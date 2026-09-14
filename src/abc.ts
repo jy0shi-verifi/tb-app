@@ -3,6 +3,7 @@
 // the off days. Mirrors the shape of beginner.ts so it plugs into the same screens.
 import type { LoggedExercise, Settings, SessionLog } from './types'
 import type { PlannedExercise, SessionPlan } from './program'
+import { lastPerformance } from './lib/stats'
 
 export interface AbcLift {
   id: string
@@ -38,6 +39,22 @@ const RUN_DAYS = [1, 3, 5] // Tue Thu Sat
 
 export function defaultAbcWeights(): Record<string, number> {
   return Object.fromEntries(ABC_LIFTS.map((l) => [l.id, l.startKg]))
+}
+
+/**
+ * Starting working weights when switching INTO A/B/C: for any movement already in the
+ * training log (bench, row, overhead press carry over from Operator/Beginner), start
+ * from the most recent weight actually lifted — it's the same lift, so it should be
+ * liftable. Movements with no history (split squat, lateral raise, curl) fall back to
+ * their light defaults.
+ */
+export function seedAbcWeights(sessions: SessionLog[]): Record<string, number> {
+  const out = defaultAbcWeights()
+  for (const l of ABC_LIFTS) {
+    const perf = lastPerformance(sessions, l.name, '9999-12-31')
+    if (perf?.weight && perf.weight > 0) out[l.id] = perf.weight
+  }
+  return out
 }
 
 /** Working weight (kg/DB) for a lift — the stored LP weight, or its start default. */

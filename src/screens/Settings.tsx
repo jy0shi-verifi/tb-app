@@ -1,11 +1,11 @@
 import { useRef, useState } from 'react'
 import { Download, Upload } from 'lucide-react'
-import { useSettings } from '../hooks'
+import { useSettings, useSessions } from '../hooks'
 import { applyTheme, importBackup, parseBackup, saveSettings } from '../db'
 import { downloadBackup } from '../lib/backup'
 import { PHASES } from '../program'
 import { defaultBeginnerWeights } from '../beginner'
-import { defaultAbcWeights } from '../abc'
+import { seedAbcWeights } from '../abc'
 import { isoDate, today, addDays, mondayIndex, nextMonday } from '../lib/date'
 import { Button, Card, SegmentedPicker } from '../components/ui'
 import { beginStravaAuth, disconnectStrava, stravaCanWrite, stravaConfigured } from '../lib/strava'
@@ -25,6 +25,7 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 
 export default function Settings() {
   const s = useSettings()
+  const sessions = useSessions()
   const fileRef = useRef<HTMLInputElement>(null)
   const [msg, setMsg] = useState<string>('')
 
@@ -87,7 +88,7 @@ export default function Settings() {
   async function switchToAbc() {
     if (
       !window.confirm(
-        'Switch to Dumbbell A/B/C?\n\nA minimalist 3-day dumbbell split (Mon/Wed/Fri) with double progression, plus your Runna runs. Your other setups are kept; you can switch back any time.',
+        'Switch to Dumbbell A/B/C?\n\nA minimalist 3-day dumbbell split (Mon/Wed/Fri) with double progression, plus your Runna runs. Bench, row and overhead press start from your recent working weights; your other setups are kept and you can switch back any time.',
       )
     )
       return
@@ -95,9 +96,9 @@ export default function Settings() {
       programMode: 'abc',
       currentPhaseId: 'abc',
       phaseStartDate: nextMonday(),
-      abc: { lifts: defaultAbcWeights() },
+      abc: { lifts: seedAbcWeights(sessions) },
     })
-    setMsg('Dumbbell A/B/C on — Mon/Wed/Fri lifting + your Runna runs.')
+    setMsg('Dumbbell A/B/C on — starting from your recent weights, plus your Runna runs.')
   }
   async function switchToTB() {
     if (!window.confirm('Switch to Tactical Barbell (Base Building → Operator)?')) return

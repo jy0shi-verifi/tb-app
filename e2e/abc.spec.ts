@@ -1,4 +1,4 @@
-import { test, expect, seedState, mondayOffset, plusDays } from './helpers'
+import { test, expect, seedState, readSettings, mondayOffset, plusDays } from './helpers'
 
 const ABC_WEIGHTS = { abc_split: 8, abc_bench: 10, abc_row: 10, abc_ohp: 6, abc_lat: 5, abc_curl: 8 }
 
@@ -75,6 +75,46 @@ test('A/B/C off-day is a Runna-owned run slot (no interval timer)', async ({ pag
   await expect(page.getByRole('heading', { name: 'Run' })).toBeVisible()
   await expect(page.getByText(/Runna/i)).toBeVisible()
   await expect(page.getByText(/JOG|WALK/)).toHaveCount(0)
+})
+
+test('switching to A/B/C carries over recent weights for shared lifts', async ({ page }) => {
+  const mon = mondayOffset(0)
+  // Start on Tactical Barbell with a recent lift log using the shared movements at
+  // heavier-than-default weights (bench/row/OHP). Split squat / lateral / curl are new.
+  await seedState(page, {
+    settings: { currentPhaseId: 'operator', programMode: 'tb', phaseStartDate: mon },
+    sessions: [
+      {
+        date: plusDays(mon, -3),
+        phaseId: 'operator',
+        week: 1,
+        day: 0,
+        type: 'lift',
+        title: 'Operator',
+        done: true,
+        createdAt: 1,
+        exercises: [
+          { name: 'DB Bench Press', sets: [{ weight: 26, reps: 6, done: true }, { weight: 26, reps: 6, done: true }] },
+          { name: '1-Arm DB Row', sets: [{ weight: 22, reps: 8, done: true }] },
+          { name: 'DB Overhead Press', sets: [{ weight: 16, reps: 8, done: true }] },
+        ],
+      },
+    ],
+  })
+
+  page.on('dialog', (d) => d.accept())
+  await page.goto('/settings')
+  await page.getByRole('button', { name: /Switch to Dumbbell A\/B\/C/ }).click()
+  await expect(page.getByText(/starting from your recent weights/i)).toBeVisible()
+
+  const saved = await readSettings(page)
+  const lifts = (saved?.abc as { lifts: Record<string, number> }).lifts
+  expect(lifts.abc_bench).toBe(26) // carried over
+  expect(lifts.abc_row).toBe(22)
+  expect(lifts.abc_ohp).toBe(16)
+  expect(lifts.abc_split).toBe(8) // no history → light default
+  expect(lifts.abc_lat).toBe(5)
+  expect(lifts.abc_curl).toBe(8)
 })
 
 test('History shows the A/B/C progress view (start → current per lift)', async ({ page }) => {
