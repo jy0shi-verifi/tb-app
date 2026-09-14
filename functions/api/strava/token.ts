@@ -7,6 +7,8 @@
 //   STRAVA_CLIENT_ID     — public Strava app Client ID (filled in below)
 //   STRAVA_CLIENT_SECRET — Pages secret: `wrangler pages secret put STRAVA_CLIENT_SECRET`
 
+import { originOk, rejectOrigin } from '../../_lib/origin'
+
 const STRAVA_CLIENT_ID = '263946' // Strava app Client ID (public)
 
 interface Env {
@@ -18,6 +20,7 @@ export async function onRequestPost(context: {
   env: Env
 }): Promise<Response> {
   const { request, env } = context
+  if (!originOk(request)) return rejectOrigin()
   if (!env.STRAVA_CLIENT_SECRET || STRAVA_CLIENT_ID === '__STRAVA_CLIENT_ID__') {
     return json({ error: 'strava not configured on server' }, 500)
   }
