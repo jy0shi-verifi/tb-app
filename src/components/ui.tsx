@@ -180,7 +180,7 @@ export function SegmentedPicker<T extends string>({
 }) {
   return (
     <div
-      role="group"
+      role="radiogroup"
       aria-label={label}
       className="grid gap-1 p-1 rounded-chip bg-[var(--color-surface-sunk)] elev-sunk"
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0,1fr))` }}
@@ -199,7 +199,9 @@ export function SegmentedPicker<T extends string>({
         return (
           <button
             key={v}
-            aria-pressed={on}
+            type="button"
+            role="radio"
+            aria-checked={on}
             onClick={() => onChange(v)}
             style={selectedStyle}
             className={`rounded-inner min-h-[2.75rem] text-xs font-bold flex items-center justify-center gap-1.5 transition-[background,color,box-shadow] duration-150 ${cls}`}

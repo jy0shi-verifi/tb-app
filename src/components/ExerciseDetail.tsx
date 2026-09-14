@@ -53,6 +53,8 @@ export default function ExerciseDetail({
               loading="lazy"
               allowFullScreen
               referrerPolicy="strict-origin-when-cross-origin"
+              sandbox="allow-scripts allow-same-origin allow-presentation"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
             />
           </div>
         ) : (

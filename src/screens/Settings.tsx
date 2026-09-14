@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react'
 import { Download, Upload } from 'lucide-react'
-import { useSettings } from '../hooks'
+import { useSettings, useSessions } from '../hooks'
 import { applyTheme, importBackup, parseBackup, saveSettings } from '../db'
 import { downloadBackup } from '../lib/backup'
-import { PHASES } from '../program'
+import { PHASES, isLp } from '../program'
 import { defaultBeginnerWeights } from '../beginner'
-import { isoDate, today, addDays, mondayIndex } from '../lib/date'
+import { seedAbcWeights } from '../abc'
+import { isoDate, today, addDays, mondayIndex, nextMonday } from '../lib/date'
 import { Button, Card, SegmentedPicker } from '../components/ui'
+import { confirmAction } from '../components/ConfirmDialog'
 import { beginStravaAuth, disconnectStrava, stravaCanWrite, stravaConfigured } from '../lib/strava'
 import { syncStrava, importStravaHistory, devTagLatestAsOperatorRun } from '../lib/stravaSync'
 import { APP_VERSION } from '../version'
@@ -24,6 +26,7 @@ function Row({ label, hint, children }: { label: string; hint?: string; children
 
 export default function Settings() {
   const s = useSettings()
+  const sessions = useSessions()
   const fileRef = useRef<HTMLInputElement>(null)
   const [msg, setMsg] = useState<string>('')
 
@@ -38,10 +41,12 @@ export default function Settings() {
     try {
       const text = await file.text()
       const b = parseBackup(text) // validates shape before we touch anything
-      const ok = window.confirm(
-        `Restore this backup?\n\n${b.sessions.length} sessions · ${b.maxes.length} maxes` +
-          `\nfrom ${b.exportedAt.slice(0, 10)}\n\nThis REPLACES all data currently on this phone.`,
-      )
+      const ok = await confirmAction({
+        title: 'Restore this backup?',
+        body: `${b.sessions.length} sessions · ${b.maxes.length} maxes\nfrom ${b.exportedAt.slice(0, 10)}\n\nThis REPLACES all data currently on this phone.`,
+        confirmLabel: 'Restore',
+        danger: true,
+      })
       if (ok) {
         await importBackup(text)
         setMsg('Backup restored.')
@@ -55,12 +60,25 @@ export default function Settings() {
   const fieldCls =
     'rounded-field border border-[var(--color-field-border)] bg-[var(--color-surface-sunk)] text-ink px-3.5 py-2.5 font-semibold min-h-[2.75rem]'
 
-  const isBeginner = s.programMode === 'beginner'
+  const mode: 'tb' | 'beginner' | 'abc' = s.programMode ?? 'tb'
+  const MODE_COPY: Record<typeof mode, { name: string; desc: string }> = {
+    tb: { name: 'Tactical Barbell', desc: 'Base Building → Operator — the full periodised plan.' },
+    beginner: {
+      name: 'Beginner',
+      desc: 'Linear Progression (dumbbell A/B) + Couch-to-5K — a gentler on-ramp.',
+    },
+    abc: {
+      name: 'Dumbbell A/B/C',
+      desc: 'A minimalist 3-day dumbbell split (Mon/Wed/Fri) with double progression, plus your Runna runs.',
+    },
+  }
   async function switchToBeginner() {
     if (
-      !window.confirm(
-        'Switch to Beginner mode?\n\nThis swaps your plan to Linear Progression + Couch-to-5K — a gentler on-ramp. Your Tactical Barbell setup is kept; you can switch back any time.',
-      )
+      !(await confirmAction({
+        title: 'Switch to Beginner mode?',
+        body: 'This swaps your plan to Linear Progression + Couch-to-5K — a gentler on-ramp. Your other setups are kept; you can switch back any time.',
+        confirmLabel: 'Switch',
+      }))
     )
       return
     const mon = isoDate(addDays(today(), -mondayIndex(today())))
@@ -72,9 +90,34 @@ export default function Settings() {
     })
     setMsg('Beginner mode on — Linear Progression + Couch-to-5K.')
   }
+  async function switchToAbc() {
+    if (
+      !(await confirmAction({
+        title: 'Switch to Dumbbell A/B/C?',
+        body: 'A minimalist 3-day dumbbell split (Mon/Wed/Fri) with double progression, plus your Runna runs. Bench, row and overhead press start from your recent working weights; your other setups are kept and you can switch back any time.',
+        confirmLabel: 'Switch',
+      }))
+    )
+      return
+    await saveSettings({
+      programMode: 'abc',
+      currentPhaseId: 'abc',
+      phaseStartDate: nextMonday(),
+      abc: { lifts: seedAbcWeights(sessions, s.dbIncrement) },
+    })
+    setMsg('Dumbbell A/B/C on — starting from your recent weights, plus your Runna runs.')
+  }
   async function switchToTB() {
-    if (!window.confirm('Switch back to Tactical Barbell (Base Building → Operator)?')) return
-    await saveSettings({ programMode: 'tb', currentPhaseId: 'base-building' })
+    if (
+      !(await confirmAction({
+        title: 'Switch to Tactical Barbell?',
+        body: 'Base Building → Operator. Your other setups are kept; you can switch back any time.',
+        confirmLabel: 'Switch',
+      }))
+    )
+      return
+    const mon = isoDate(addDays(today(), -mondayIndex(today())))
+    await saveSettings({ programMode: 'tb', currentPhaseId: 'base-building', phaseStartDate: mon })
     setMsg('Tactical Barbell mode.')
   }
 
@@ -82,25 +125,31 @@ export default function Settings() {
     <div className="stagger space-y-4">
       <Card elev="hero" className="topo-hero text-white border-white/10">
         <p className="eyebrow hero-text text-gold-hi">Tactical Barbell</p>
-        <p className="display-hero text-3xl text-white mt-1">SETTINGS</p>
+        <h2 className="display-hero text-3xl text-white mt-1">SETTINGS</h2>
       </Card>
 
       <Card>
         <p className="eyebrow text-muted mb-2">Program mode</p>
         <p className="text-xs text-muted mb-3 leading-relaxed">
-          {isBeginner
-            ? 'You’re on Beginner mode — Linear Progression (dumbbell A/B) + Couch-to-5K. Build a base, then step up to Tactical Barbell.'
-            : 'Tactical Barbell (Base Building → Operator). New to training? Beginner mode is a gentler on-ramp.'}
+          You’re on <b>{MODE_COPY[mode].name}</b> — {MODE_COPY[mode].desc}
         </p>
-        {isBeginner ? (
-          <Button variant="secondary" className="w-full" onClick={switchToTB}>
-            Switch to Tactical Barbell
-          </Button>
-        ) : (
-          <Button className="w-full" onClick={switchToBeginner}>
-            Switch to Beginner mode (LP + C25K)
-          </Button>
-        )}
+        <div className="space-y-2">
+          {mode !== 'tb' && (
+            <Button variant="secondary" className="w-full" onClick={switchToTB}>
+              Switch to Tactical Barbell
+            </Button>
+          )}
+          {mode !== 'beginner' && (
+            <Button variant="secondary" className="w-full" onClick={switchToBeginner}>
+              Switch to Beginner (LP + C25K)
+            </Button>
+          )}
+          {mode !== 'abc' && (
+            <Button variant="secondary" className="w-full" onClick={switchToAbc}>
+              Switch to Dumbbell A/B/C
+            </Button>
+          )}
+        </div>
       </Card>
 
       <Card>
@@ -133,6 +182,21 @@ export default function Settings() {
             />
           </Row>
           <Row
+            label="Dumbbell ceiling"
+            hint="Heaviest pair you own (kg per dumbbell). Working loads clamp here and flag when a wave would go heavier."
+          >
+            <SegmentedPicker<string>
+              label="Dumbbell ceiling"
+              value={String(s.dbMaxKg ?? 60)}
+              options={[
+                { v: '40', label: '40 kg' },
+                { v: '50', label: '50 kg' },
+                { v: '60', label: '60 kg' },
+              ]}
+              onChange={(v) => saveSettings({ dbMaxKg: Number(v) })}
+            />
+          </Row>
+          <Row
             label="Rest timer"
             hint="Time the between-set timer counts down. Auto uses the book's rests (longer on the heavy weeks) — recommended on a cut. 10 sec is for testing the beep."
           >
@@ -157,35 +221,55 @@ export default function Settings() {
       <Card>
         <p className="eyebrow text-muted mb-2">Program</p>
         <div className="divide-y divide-line/60">
-          <Row
-            label="Load basis"
-            hint="How every weight is worked out. K. Black recommends the 90% Training Max for high-frequency templates like Operator — you grease the groove and can hit every session, even on a bad day. True 1RM is heavier, for advanced lifters who find the TM too light."
-          >
-            <SegmentedPicker<LoadBasis>
+          {/* Load basis + phase picker only apply to Tactical Barbell (Operator uses tested
+              maxes); LP programs (Beginner / A/B/C) derive weight from in-session progression. */}
+          {!isLp(s) && (
+            <Row
               label="Load basis"
-              value={s.loadBasis}
-              options={[
-                { v: 'tm', label: 'Training Max (90%)' },
-                { v: '1rm', label: 'True 1RM' },
-              ]}
-              onChange={(v) => {
-                if (v !== s.loadBasis && window.confirm('Change how every weight is worked out? This rescales all your loads.'))
-                  saveSettings({ loadBasis: v })
-              }}
-            />
-          </Row>
-          <Row label="Current phase" hint="Advanced — the app normally moves you between phases at the right time.">
-            <SegmentedPicker<string>
-              label="Current phase"
-              value={s.currentPhaseId}
-              options={Object.values(PHASES).map((p) => ({ v: p.id, label: p.name }))}
-              onChange={(v) => {
-                if (v !== s.currentPhaseId && window.confirm('Switch phase? This changes your plan and where you are in it.'))
-                  saveSettings({ currentPhaseId: v })
-              }}
-            />
-          </Row>
-          <Row label="Phase start date" hint="The Monday your current phase's week 1 began.">
+              hint="How every weight is worked out. K. Black recommends the 90% Training Max for high-frequency templates like Operator — you grease the groove and can hit every session, even on a bad day. True 1RM is heavier, for advanced lifters who find the TM too light."
+            >
+              <SegmentedPicker<LoadBasis>
+                label="Load basis"
+                value={s.loadBasis}
+                options={[
+                  { v: 'tm', label: 'Training Max (90%)' },
+                  { v: '1rm', label: 'True 1RM' },
+                ]}
+                onChange={async (v) => {
+                  if (v === s.loadBasis) return
+                  if (
+                    await confirmAction({
+                      title: 'Change how every weight is worked out?',
+                      body: 'This rescales all your loads.',
+                      confirmLabel: 'Change',
+                    })
+                  )
+                    saveSettings({ loadBasis: v })
+                }}
+              />
+            </Row>
+          )}
+          {!isLp(s) && (
+            <Row label="Current phase" hint="Advanced — the app normally moves you between phases at the right time.">
+              <SegmentedPicker<string>
+                label="Current phase"
+                value={s.currentPhaseId}
+                options={Object.values(PHASES).map((p) => ({ v: p.id, label: p.name }))}
+                onChange={async (v) => {
+                  if (v === s.currentPhaseId) return
+                  if (
+                    await confirmAction({
+                      title: 'Switch phase?',
+                      body: 'This changes your plan and where you are in it.',
+                      confirmLabel: 'Switch',
+                    })
+                  )
+                    saveSettings({ currentPhaseId: v })
+                }}
+              />
+            </Row>
+          )}
+          <Row label="Phase start date" hint="The Monday your current plan's week 1 began.">
             <input
               type="date"
               aria-label="Phase start date"
@@ -202,6 +286,14 @@ export default function Settings() {
         <p className="text-xs text-muted mt-1 mb-3 leading-relaxed">
           Auto-tick your runs &amp; conditioning sessions — distance, pace and heart rate flow in from Strava automatically.
         </p>
+        {s.stravaNeedsReconnect && (
+          <p className="text-xs text-danger font-semibold mb-2">
+            Connection expired or revoked — reconnect to keep runs coming in.
+          </p>
+        )}
+        {!s.strava && s.stravaSyncError && (
+          <p className="text-xs text-danger mb-2">{s.stravaSyncError}</p>
+        )}
         {!stravaConfigured() ? (
           <p className="text-xs text-muted">Not set up on this build yet.</p>
         ) : s.strava ? (
@@ -288,28 +380,48 @@ export default function Settings() {
       </Card>
 
       <Card>
-        <p className="eyebrow text-muted">Demo data</p>
+        <p className="eyebrow text-muted">{import.meta.env.DEV ? 'Demo data' : 'Start over'}</p>
         <p className="text-xs text-muted mt-1 mb-3 leading-relaxed">
-          Fill the app with ~4 months of realistic history to show it off, then reset back to a clean
-          start whenever you're ready to train for real.
+          {import.meta.env.DEV
+            ? 'Fill the app with ~4 months of realistic history to show it off, then reset back to a clean start whenever you\u2019re ready to train for real.'
+            : 'Wipe everything back to a clean start. This can\u2019t be undone \u2014 export a backup first if you might want your history back.'}
         </p>
         <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            className="flex-1"
-            onClick={async () => {
-              setMsg('Loading demo history…')
-              const m = await import('../dev/seed')
-              setMsg(await m.seedFakeData())
-            }}
-          >
-            Load demo history
-          </Button>
+          {import.meta.env.DEV && (
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={async () => {
+                if (
+                  !(await confirmAction({
+                    title: 'Load demo history?',
+                    body: 'This REPLACES all data currently on this phone with ~4 months of fake history. Export a backup first if you want to keep your real log.',
+                    confirmLabel: 'Load demo',
+                    danger: true,
+                  }))
+                )
+                  return
+                setMsg('Loading demo history…')
+                const m = await import('../dev/seed')
+                setMsg(await m.seedFakeData())
+              }}
+            >
+              Load demo history
+            </Button>
+          )}
           <Button
             variant="danger"
             className="flex-1"
             onClick={async () => {
-              if (!window.confirm('Wipe all data back to a clean start?')) return
+              if (
+                !(await confirmAction({
+                  title: 'Wipe all data?',
+                  body: 'This resets the app back to a clean start. You can’t undo it — export a backup first if you might want your history back.',
+                  confirmLabel: 'Reset',
+                  danger: true,
+                }))
+              )
+                return
               const m = await import('../dev/seed')
               setMsg(await m.clearAll())
             }}

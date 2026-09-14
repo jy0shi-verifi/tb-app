@@ -1,12 +1,91 @@
 import { useEffect, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useSettings } from '../hooks'
-import { OPERATOR_LIFTS, OPERATOR_WAVE } from '../program'
-import { estimate1RM, maxToBasis, trainingMax, workingLoad } from '../lib/calc'
-import { db } from '../db'
+import { useSettings, useSessions } from '../hooks'
+import {
+  OPERATOR_LIFTS,
+  OPERATOR_WAVE,
+  isLp,
+  lpLifts,
+  lpProgressView,
+  lpWorkingKg,
+  lpDeloadPatch,
+} from '../program'
+import { DB_MAX, estimate1RM, maxToBasis, trainingMax, workingLoad } from '../lib/calc'
+import { db, saveSettings } from '../db'
 import { Card, Pill, Stepper } from '../components/ui'
 import Celebration, { type CelebrationContent } from '../components/Celebration'
-import type { MaxEntry } from '../types'
+import type { MaxEntry, Settings } from '../types'
+
+/**
+ * LP programs (Beginner / Dumbbell A/B/C) don't have a tested max — weight comes from
+ * in-session double progression. This gives them the one place to view and correct their
+ * current working weight per lift (the Operator wave table below is TB-only).
+ */
+function LpWorkingWeights({ settings }: { settings: Settings }) {
+  const sessions = useSessions()
+  const lifts = lpLifts(settings)
+  const prog = lpProgressView(sessions, settings)
+  const progById = Object.fromEntries(prog.map((p) => [p.id, p]))
+  const inc = settings.dbIncrement
+  const setKg = (id: string, kg: number) => saveSettings(lpDeloadPatch(settings, id, Math.max(0, kg)))
+  const name = settings.programMode === 'abc' ? 'Dumbbell A/B/C' : 'Beginner'
+
+  return (
+    <div className="space-y-4 stagger">
+      <Card elev="1">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="eyebrow text-muted">Working weights</p>
+            <h2 className="display-hero text-xl text-ink">{name} lifts</h2>
+          </div>
+          <Pill tone="soft-brand">kg per dumbbell</Pill>
+        </div>
+        <p className="text-xs text-muted mt-2 leading-relaxed">
+          What you&rsquo;re lifting right now. Add reps each session &mdash; the app bumps these for
+          you when you clear the top of the range. Nudge here only to correct a number.
+        </p>
+        <div className="mt-4 space-y-3">
+          {lifts.map((l) => {
+            const cur = lpWorkingKg(l.name, settings)
+            const p = progById[l.id]
+            return (
+              <div
+                key={l.id}
+                className="rounded-card bg-[var(--color-surface-sunk)] elev-sunk p-3.5 flex items-center justify-between gap-2"
+              >
+                <div className="min-w-0">
+                  <p className="font-bold text-ink text-[15px]">{l.name}</p>
+                  {p && p.delta !== 0 && (
+                    <p className="text-xs text-muted">
+                      start <span className="num-display">{p.start}</span> &rarr; now{' '}
+                      <span className="num-display">{p.current}</span> kg{' '}
+                      <span className="text-load">
+                        ({p.delta > 0 ? '+' : ''}
+                        {p.delta})
+                      </span>
+                    </p>
+                  )}
+                </div>
+                <Stepper
+                  value={
+                    <span className="num-display">
+                      {cur}
+                      <span className="text-xs text-muted"> kg</span>
+                    </span>
+                  }
+                  onDec={() => setKg(l.id, Math.round((cur - inc) * 10) / 10)}
+                  onInc={() => setKg(l.id, Math.round((cur + inc) * 10) / 10)}
+                  labelDec={`Less weight — ${l.name}`}
+                  labelInc={`More weight — ${l.name}`}
+                />
+              </div>
+            )
+          })}
+        </div>
+      </Card>
+    </div>
+  )
+}
 
 interface Field {
   w: string
@@ -42,6 +121,9 @@ export default function Maxes() {
         <div className="skeleton h-56 rounded-card" />
       </div>
     )
+
+  // LP programs get a working-weights editor instead of the Operator Test-Day/wave UI.
+  if (isLp(settings)) return <LpWorkingWeights settings={settings} />
 
   const setField = async (liftId: string, patch: Partial<Field>) => {
     const next = { ...fields[liftId], ...patch }
@@ -207,7 +289,9 @@ export default function Maxes() {
       <Card elev="1">
         <p className="eyebrow text-muted">Every week's loads</p>
         <h2 className="display-hero text-xl text-ink mt-0.5">Operator working weights</h2>
-        <p className="text-xs text-muted mt-1 mb-3">kg per dumbbell · ⚠︎ = over the 60 kg ceiling</p>
+        <p className="text-xs text-muted mt-1 mb-3">
+          kg per dumbbell · ⚠︎ = over the {settings.dbMaxKg ?? DB_MAX} kg ceiling
+        </p>
         {!anyMax ? (
           <p className="text-sm text-muted py-4 text-center">
             Enter your maxes above to see every week's loads.
@@ -253,7 +337,7 @@ export default function Maxes() {
                         bumpKg: 0,
                       }
                       const basis = maxToBasis(entry, settings.loadBasis)
-                      const lr = workingLoad(basis, wk.pct, settings.dbIncrement)
+                      const lr = workingLoad(basis, wk.pct, settings.dbIncrement, settings.dbMaxKg ?? DB_MAX)
                       return (
                         <td key={l.id} className="py-2 pr-1 text-right num-display text-load">
                           {lr.kg}

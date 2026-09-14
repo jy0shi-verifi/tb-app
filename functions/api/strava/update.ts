@@ -3,7 +3,10 @@
 // API sends no CORS headers, so a direct browser fetch is blocked — we forward
 // it here. The client sends its own access token (needs activity:write scope).
 
+import { originOk, rejectOrigin } from '../../_lib/origin'
+
 export async function onRequestPost(context: { request: Request }): Promise<Response> {
+  if (!originOk(context.request)) return rejectOrigin()
   let body: { accessToken?: string; activityId?: number; name?: string; description?: string }
   try {
     body = await context.request.json()

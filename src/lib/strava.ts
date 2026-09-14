@@ -7,19 +7,41 @@ export const STRAVA_CLIENT_ID: string = '263946'
 // read_all: pull activities; write: rename them back with their programme name.
 const SCOPE = 'activity:read_all,activity:write'
 const TOKEN_ENDPOINT = '/api/strava/token'
+const OAUTH_STATE_KEY = 'tb-strava-oauth-state'
+
+export class StravaError extends Error {
+  readonly kind: 'auth' | 'network' | 'server'
+  constructor(message: string, kind: 'auth' | 'network' | 'server' = 'server') {
+    super(message)
+    this.name = 'StravaError'
+    this.kind = kind
+  }
+}
 
 export function stravaConfigured(): boolean {
   return !!STRAVA_CLIENT_ID && STRAVA_CLIENT_ID !== '__STRAVA_CLIENT_ID__'
 }
 
+function randomState(): string {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID()
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`
+}
+
 /** Kick off the OAuth flow — sends the browser to Strava to authorise. */
 export function beginStravaAuth(): void {
+  const state = randomState()
+  try {
+    sessionStorage.setItem(OAUTH_STATE_KEY, state)
+  } catch {
+    /* private mode — callback will reject the missing state */
+  }
   const url = new URL('https://www.strava.com/oauth/authorize')
   url.searchParams.set('client_id', STRAVA_CLIENT_ID)
   url.searchParams.set('redirect_uri', `${window.location.origin}/`)
   url.searchParams.set('response_type', 'code')
   url.searchParams.set('scope', SCOPE)
   url.searchParams.set('approval_prompt', 'auto')
+  url.searchParams.set('state', state)
   window.location.assign(url.toString())
 }
 
@@ -35,14 +57,36 @@ export function stravaCanWrite(settings: Settings): boolean {
   return !!settings.strava?.scope?.includes('activity:write')
 }
 
+function cleanOAuthUrl(): void {
+  try {
+    sessionStorage.removeItem(OAUTH_STATE_KEY)
+  } catch {
+    /* no-op */
+  }
+  window.history.replaceState({}, '', window.location.pathname)
+}
+
 async function tokenExchange(payload: { code?: string; refreshToken?: string }): Promise<TokenResponse> {
-  const r = await fetch(TOKEN_ENDPOINT, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(payload),
-  })
-  const data = (await r.json()) as TokenResponse
-  if (!r.ok || !data.access_token) throw new Error('Strava token exchange failed')
+  let r: Response
+  try {
+    r = await fetch(TOKEN_ENDPOINT, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+  } catch {
+    throw new StravaError('Couldn’t reach Strava — check your connection.', 'network')
+  }
+  let data: TokenResponse & { error?: string; message?: string }
+  try {
+    data = (await r.json()) as TokenResponse & { error?: string; message?: string }
+  } catch {
+    throw new StravaError(`Strava token exchange failed (${r.status})`, r.status === 401 || r.status === 400 ? 'auth' : 'server')
+  }
+  if (!r.ok || !data.access_token) {
+    const kind = r.status === 401 || r.status === 400 || /invalid|unauthorized|grant/i.test(data.error ?? data.message ?? '') ? 'auth' : 'server'
+    throw new StravaError(data.message || data.error || `Strava token exchange failed (${r.status})`, kind)
+  }
   return data
 }
 
@@ -64,14 +108,34 @@ async function storeTokens(t: TokenResponse, scope?: string): Promise<void> {
 /** On app load: if we returned from Strava with ?code=…, exchange it and store tokens, then clean the URL. */
 export async function handleStravaRedirect(): Promise<boolean> {
   const params = new URLSearchParams(window.location.search)
+  const error = params.get('error')
   const code = params.get('code')
   const scope = params.get('scope')
+  const state = params.get('state')
+  let expected: string | null = null
+  try {
+    expected = sessionStorage.getItem(OAUTH_STATE_KEY)
+  } catch {
+    expected = null
+  }
+
+  if (error) {
+    cleanOAuthUrl()
+    throw new StravaError(
+      error === 'access_denied' ? 'Strava authorisation was cancelled.' : `Strava error: ${error}`,
+      'auth',
+    )
+  }
   if (!code || !scope) return false // not a Strava callback
+  if (!expected || state !== expected) {
+    cleanOAuthUrl()
+    throw new StravaError('Strava sign-in was rejected (state mismatch). Try connecting again.', 'auth')
+  }
   try {
     await storeTokens(await tokenExchange({ code }), scope)
     return true
   } finally {
-    window.history.replaceState({}, '', window.location.pathname)
+    cleanOAuthUrl()
   }
 }
 
@@ -99,14 +163,20 @@ export interface StravaActivity {
 
 export async function fetchStravaActivities(accessToken: string, afterEpoch: number): Promise<StravaActivity[]> {
   // Routed through our Pages Function (Strava's API has no CORS for browsers).
-  const r = await fetch('/api/strava/activities', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ accessToken, after: afterEpoch }),
-  })
+  let r: Response
+  try {
+    r = await fetch('/api/strava/activities', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ accessToken, after: afterEpoch }),
+    })
+  } catch {
+    throw new StravaError('Couldn’t reach Strava — check your connection.', 'network')
+  }
   const data = await r.json()
   if (!r.ok || !Array.isArray(data)) {
-    throw new Error(`activities ${r.status} ${JSON.stringify(data).slice(0, 140)}`)
+    const kind = r.status === 401 || r.status === 403 ? 'auth' : 'server'
+    throw new StravaError(`activities ${r.status} ${JSON.stringify(data).slice(0, 140)}`, kind)
   }
   return data as StravaActivity[]
 }
@@ -131,11 +201,11 @@ export async function updateStravaActivityName(
   if (r.status === 401 || r.status === 403) return false // not granted write scope
   if (!r.ok) {
     const t = await r.text()
-    throw new Error(`update ${r.status} ${t.slice(0, 140)}`)
+    throw new StravaError(`update ${r.status} ${t.slice(0, 140)}`, 'server')
   }
   return true
 }
 
 export async function disconnectStrava(): Promise<void> {
-  await saveSettings({ strava: undefined })
+  await saveSettings({ strava: undefined, stravaSyncError: undefined, stravaNeedsReconnect: false })
 }

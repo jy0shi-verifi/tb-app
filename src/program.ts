@@ -1,7 +1,30 @@
-import type { Lift, MaxEntry, Settings, SessionType, WaveWeek } from './types'
-import { maxToBasis, workingLoad } from './lib/calc'
+import type { Lift, LoggedExercise, MaxEntry, Settings, SessionLog, SessionType, WaveWeek } from './types'
+import { DB_MAX, maxToBasis, workingLoad } from './lib/calc'
 import { diffDays, parseISO } from './lib/date'
-import { beginnerSessionFor, type Interval } from './beginner'
+import {
+  ALL_BEGINNER_LIFTS,
+  applyBeginnerProgress,
+  beginnerDayLetter,
+  beginnerLiftId,
+  beginnerProgress,
+  beginnerStall,
+  REP_HI,
+  REP_LO,
+  workingKg as beginnerWorkingKg,
+  beginnerSessionFor,
+  type BeginnerLiftProgress,
+  type Interval,
+} from './beginner'
+import {
+  ABC_LIFTS,
+  abcLiftId,
+  abcLiftMeta,
+  abcProgress,
+  abcSessionFor,
+  abcStall,
+  abcWorkingKg,
+  applyAbcProgress,
+} from './abc'
 
 // ---------------------------------------------------------------------------
 // Resolved plan shapes (what a screen renders)
@@ -71,7 +94,7 @@ function operatorLift(
     let under = false
     if (entry) {
       const bm = maxToBasis(entry, settings.loadBasis)
-      const lr = workingLoad(bm, w.pct, settings.dbIncrement)
+      const lr = workingLoad(bm, w.pct, settings.dbIncrement, settings.dbMaxKg ?? DB_MAX)
       weight = lr.kg
       over = lr.overCeiling
       under = lr.underFloor
@@ -278,6 +301,8 @@ export const PHASES: Record<string, PhaseMeta> = {
   operator: { id: 'operator', name: 'Operator', lengthWeeks: 6, lifts: OPERATOR_LIFTS, wave: OPERATOR_WAVE },
   // Beginner Mode (LP + C25K) — an open-ended on-ramp, so it never "completes".
   beginner: { id: 'beginner', name: 'Beginner', lengthWeeks: 999, lifts: [] },
+  // Dumbbell A/B/C — an open-ended minimalist split (Mon/Wed/Fri lifting).
+  abc: { id: 'abc', name: 'Dumbbell A/B/C', lengthWeeks: 999, lifts: [] },
 }
 
 export function maxesMap(entries: MaxEntry[]): Record<string, MaxEntry> {
@@ -344,7 +369,102 @@ export function sessionFor(
   maxes: Record<string, MaxEntry>,
   settings: Settings,
 ): SessionPlan {
+  if (settings.programMode === 'abc' || phaseId === 'abc') return abcSessionFor(week, day, settings)
   if (settings.programMode === 'beginner' || phaseId === 'beginner') return beginnerSessionFor(week, day, settings)
   if (phaseId === 'operator') return operatorDay(week, day, maxes, settings)
   return baseBuildingDay(week, day)
+}
+
+// ---------------------------------------------------------------------------
+// Linear-progression dispatch — a thin layer so the screens (Session/History/
+// Today) can treat both LP programs (Beginner + Dumbbell A/B/C) uniformly
+// instead of hardcoding `programMode === 'beginner'`.
+// ---------------------------------------------------------------------------
+export interface LpLiftMeta {
+  id: string
+  repLo: number
+  repHi: number
+  step: number
+}
+
+/** Is the active program a linear-progression program (Beginner or A/B/C)? */
+export function isLp(settings: Settings): boolean {
+  return settings.programMode === 'beginner' || settings.programMode === 'abc'
+}
+
+/** The active LP program's meta (rep range + step + id) for an exercise name. */
+export function lpLiftMeta(name: string, settings: Settings): LpLiftMeta | undefined {
+  if (settings.programMode === 'abc') {
+    const l = abcLiftMeta(name)
+    return l ? { id: l.id, repLo: l.repLo, repHi: l.repHi, step: l.step } : undefined
+  }
+  const l = ALL_BEGINNER_LIFTS.find((x) => x.name === name)
+  return l ? { id: l.id, repLo: REP_LO, repHi: REP_HI, step: l.step } : undefined
+}
+
+/** The active LP program's lift id for an exercise name. */
+export function lpLiftId(name: string, settings: Settings): string | undefined {
+  return settings.programMode === 'abc' ? abcLiftId(name) : beginnerLiftId(name)
+}
+
+/** Current working weight (kg/DB) for an LP lift name (start default if unset). */
+export function lpWorkingKg(name: string, settings: Settings): number {
+  if (settings.programMode === 'abc') {
+    const l = abcLiftMeta(name)
+    return l ? abcWorkingKg(l, settings) : 0
+  }
+  const l = ALL_BEGINNER_LIFTS.find((x) => x.name === name)
+  return l ? beginnerWorkingKg(l, settings) : 0
+}
+
+/** Stall/deload suggestion for an LP lift, dispatched to the active program. */
+export function lpStall(
+  settings: Settings,
+  sessions: SessionLog[],
+  name: string,
+  workingKg: number,
+  inc: number,
+  before?: string,
+): { count: number; deloadTo: number } | null {
+  return settings.programMode === 'abc'
+    ? abcStall(sessions, name, workingKg, inc, before)
+    : beginnerStall(sessions, name, workingKg, inc, before)
+}
+
+/** A settings patch that deloads one LP lift to `toKg` in the right state slice. */
+export function lpDeloadPatch(settings: Settings, liftId: string, toKg: number): Partial<Settings> {
+  if (settings.programMode === 'abc') {
+    return { abc: { lifts: { ...(settings.abc?.lifts ?? {}), [liftId]: toKg } } }
+  }
+  return { beginner: { lifts: { ...(settings.beginner?.lifts ?? {}), [liftId]: toKg } } }
+}
+
+/**
+ * Run double progression off a finished LP session and return the settings patch
+ * to persist (or null if nothing changed), dispatched to the active program.
+ */
+export function lpApplyProgress(
+  settings: Settings,
+  pos: { week: number; day: number },
+  logged: LoggedExercise[],
+): Partial<Settings> | null {
+  if (settings.programMode === 'abc') {
+    const next = applyAbcProgress(settings, pos.day, logged)
+    return next ? { abc: { lifts: next } } : null
+  }
+  if (settings.programMode === 'beginner') {
+    const next = applyBeginnerProgress(settings, beginnerDayLetter(pos.week, pos.day), logged)
+    return next ? { beginner: { lifts: next } } : null
+  }
+  return null
+}
+
+/** Start → current working-weight progress rows for the active LP program. */
+export function lpProgressView(sessions: SessionLog[], settings: Settings): BeginnerLiftProgress[] {
+  return settings.programMode === 'abc' ? abcProgress(sessions, settings) : beginnerProgress(sessions, settings)
+}
+
+/** The full lift list for the active LP program (for progress/records views). */
+export function lpLifts(settings: Settings): { id: string; name: string; short: string }[] {
+  return settings.programMode === 'abc' ? ABC_LIFTS : ALL_BEGINNER_LIFTS
 }

@@ -1,10 +1,35 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Card } from '../components/ui'
+import { useSettings } from '../hooks'
 import ExerciseDetail from '../components/ExerciseDetail'
 import { EXERCISE_INFO } from '../exerciseInfo'
 
 type Section = { id: string; emoji: string; title: string; body: ReactNode }
+
+// Shared "form videos" section — takes whichever moves belong to the current program.
+function movesSection(order: string[]): Section {
+  return {
+    id: 'moves',
+    emoji: '🎥',
+    title: 'The lifts & moves — form videos',
+    body: (
+      <div className="flex flex-col gap-4">
+        <p className="text-muted">
+          Tap “Watch a form video” on any move (you can also tap a move mid-session for the same).
+        </p>
+        {order
+          .filter((n) => EXERCISE_INFO[n])
+          .map((name) => (
+            <div key={name} className="border-t border-line/60 pt-3">
+              <p className="font-bold text-ink mb-2">{name}</p>
+              <ExerciseDetail name={name} info={EXERCISE_INFO[name]} />
+            </div>
+          ))}
+      </div>
+    ),
+  }
+}
 
 // The lifts/moves in a sensible teaching order.
 const MOVE_ORDER = [
@@ -20,7 +45,7 @@ const MOVE_ORDER = [
   'Bicycle crunches',
 ]
 
-const SECTIONS: Section[] = [
+const TB_SECTIONS: Section[] = [
   {
     id: 'what',
     emoji: '🎯',
@@ -360,24 +385,7 @@ const SECTIONS: Section[] = [
       </p>
     ),
   },
-  {
-    id: 'moves',
-    emoji: '🎥',
-    title: 'The lifts & moves — form videos',
-    body: (
-      <div className="flex flex-col gap-4">
-        <p className="text-muted">
-          Tap “Watch a form video” on any move (you can also tap a move mid-session for the same).
-        </p>
-        {MOVE_ORDER.filter((n) => EXERCISE_INFO[n]).map((name) => (
-          <div key={name} className="border-t border-line/60 pt-3">
-            <p className="font-bold text-ink mb-2">{name}</p>
-            <ExerciseDetail name={name} info={EXERCISE_INFO[name]} />
-          </div>
-        ))}
-      </div>
-    ),
-  },
+  movesSection(MOVE_ORDER),
   {
     id: 'trouble',
     emoji: '🤔',
@@ -412,35 +420,357 @@ const SECTIONS: Section[] = [
   },
 ]
 
+const ABC_MOVE_ORDER = [
+  'Bulgarian Split Squat',
+  'DB Bench Press',
+  '1-Arm DB Row',
+  'DB Overhead Press',
+  'DB Lateral Raise',
+  'DB Curl',
+]
+
+const ABC_SECTIONS: Section[] = [
+  {
+    id: 'what',
+    emoji: '🎯',
+    title: 'What is Dumbbell A/B/C?',
+    body: (
+      <>
+        <p>
+          A minimalist <b>3-day dumbbell split</b> — all you need is a pair of adjustable dumbbells
+          and a bench. Three short lifting days (<b>Mon / Wed / Fri</b>) rotate through movements so
+          everything gets hit twice-ish a week, with your <b>Runna</b> runs slotted in between.
+        </p>
+        <p className="mt-2">
+          The idea is simple and sustainable: a handful of solid movements, taken to a challenging
+          (but not failure) effort, adding a little each session. No periodisation to think about —
+          just turn up, beat last time by a rep, and let the weight creep up over months.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'app',
+    emoji: '📱',
+    title: 'How to use this app (the daily loop)',
+    body: (
+      <>
+        <p>Every training morning it’s the same three steps:</p>
+        <ol className="list-decimal list-inside mt-2 flex flex-col gap-1.5">
+          <li>
+            Open <b>Today</b>. It shows exactly what today is (a lift day, a run, or rest).
+          </li>
+          <li>
+            Tap in. For lifts, do each set and <b>tick it off</b> — the rest timer starts itself.
+            Enter the reps you actually got. For runs, just go, then <b>Mark complete</b>.
+          </li>
+          <li>
+            Tap <b>how it felt</b> + any notes, then <b>Done</b>.
+          </li>
+        </ol>
+        <p className="mt-2">The other tabs:</p>
+        <ul className="list-disc list-inside mt-1 flex flex-col gap-1">
+          <li>
+            <b>Program</b> — the split laid out; tap any day to preview it.
+          </li>
+          <li>
+            <b>History</b> — your streak, PRs, strength trend, running stats.
+          </li>
+          <li>
+            <b>Maxes</b> — your current <b>working weight</b> per lift. The app moves these for you;
+            nudge them only to correct a number.
+          </li>
+          <li>
+            <b>Settings</b> — rest-timer length, theme, Strava, and <b>Back up your data</b> (export a
+            file now and then — it’s the only copy).
+          </li>
+        </ul>
+      </>
+    ),
+  },
+  {
+    id: 'week',
+    emoji: '🗓️',
+    title: 'Your week',
+    body: (
+      <>
+        <ul className="list-disc list-inside flex flex-col gap-1.5">
+          <li><b>Mon</b> — Day A: split squat · bench · row · overhead press</li>
+          <li><b>Tue</b> — Runna run</li>
+          <li><b>Wed</b> — Day B: split squat · bench · row · lateral raise</li>
+          <li><b>Thu</b> — Runna run</li>
+          <li><b>Fri</b> — Day C: overhead press · row · lateral raise · curl</li>
+          <li><b>Sat</b> — Runna run</li>
+          <li><b>Sun</b> — rest</li>
+        </ul>
+        <p className="mt-2">
+          Every lift is <b>3 sets</b>. Your runs come from <b>Runna</b> and import automatically from
+          Strava — you just do the lifts here.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'progression',
+    emoji: '📈',
+    title: 'How the weight goes up (double progression)',
+    body: (
+      <>
+        <p>
+          Each lift has a <b>rep range</b> — mostly <b>8–12</b> (lateral raise is <b>12–15</b>). The
+          rule is “add reps, then add weight”:
+        </p>
+        <ol className="list-decimal list-inside mt-2 flex flex-col gap-1.5">
+          <li>Pick a weight you can do for the bottom of the range on all 3 sets.</li>
+          <li>
+            Each session, try to <b>add a rep</b> or two, working toward the top of the range.
+          </li>
+          <li>
+            Once you hit the <b>top of the range on all 3 sets</b>, the app bumps the weight one
+            dumbbell increment next time and drops you back to the bottom of the range.
+          </li>
+        </ol>
+        <p className="mt-2">
+          The session screen shows <b>last time</b>, whether you’ve <b>stalled</b>, and when a{' '}
+          <b>+kg is coming</b> — so you always know the target. A rough day never rolls your weight
+          back; it just waits for you.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'golden',
+    emoji: '⏱️',
+    title: 'The Golden Rule: leave reps in the tank',
+    body: (
+      <>
+        <p className="font-semibold text-ink">Stop each set 1–2 reps before failure.</p>
+        <p className="mt-2">
+          You’re chasing reps in a range, not grinding to a standstill. Stopping just short keeps your
+          form clean, lets you hit all 3 sets, and still drives progress. Rest about{' '}
+          <b>90s–2 min</b> between sets (a bit more on the heavier lifts). Set your default in{' '}
+          <b>Settings → Rest timer</b>.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'conditioning',
+    emoji: '🏃',
+    title: 'Your runs (Runna via Strava)',
+    body: (
+      <>
+        <p>
+          Tue / Thu / Sat are your <b>Runna</b> days. Do the run Runna prescribes, and it imports here
+          automatically from Strava — no need to log anything by hand. Sunday is a full rest day.
+        </p>
+        <p className="mt-2 text-muted text-xs">
+          Connect Strava in <b>Settings</b> if you haven’t yet. Runs show up on Today and count toward
+          your streak once they sync.
+        </p>
+      </>
+    ),
+  },
+  movesSection(ABC_MOVE_ORDER),
+  {
+    id: 'trouble',
+    emoji: '🤔',
+    title: 'Bad day? Common questions',
+    body: (
+      <ul className="list-disc list-inside flex flex-col gap-1.5">
+        <li>
+          <b>Missed a day?</b> Nothing’s lost — open the next one and carry on. Rest days won’t break
+          your streak.
+        </li>
+        <li>
+          <b>Couldn’t hit the reps?</b> Fine — repeat the same weight next time and try to add a rep.
+          The app won’t drop your weight for one bad session.
+        </li>
+        <li>
+          <b>A weight feels wrong?</b> Nudge it in <b>Maxes</b> — that’s the one place to correct a
+          working weight.
+        </li>
+        <li>
+          <b>Tapped the wrong thing?</b> Re-open the session to edit, or delete the log from History.
+        </li>
+        <li>
+          <b>Something actually hurts</b> (not normal soreness)? Back off and get it looked at — no
+          session is worth an injury.
+        </li>
+      </ul>
+    ),
+  },
+]
+
+const BEGINNER_MOVE_ORDER = [
+  'Goblet / Front-rack Squat',
+  'DB Bench Press',
+  '1-Arm DB Row',
+  'DB Romanian Deadlift',
+  'DB Reverse Lunge',
+  'DB Overhead Press',
+]
+
+const BEGINNER_SECTIONS: Section[] = [
+  {
+    id: 'what',
+    emoji: '🎯',
+    title: 'What is the Beginner plan?',
+    body: (
+      <>
+        <p>
+          A gentle on-ramp: <b>dumbbell linear progression</b> for strength paired with a{' '}
+          <b>Couch-to-5K</b>-style running build. Two short full-body lifting days plus easy runs —
+          enough to build the habit and a base without burying you.
+        </p>
+        <p className="mt-2">
+          You add a little each time you train. Nothing fancy — just consistency and small,
+          repeatable steps.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'app',
+    emoji: '📱',
+    title: 'How to use this app (the daily loop)',
+    body: (
+      <>
+        <p>Every training day it’s the same three steps:</p>
+        <ol className="list-decimal list-inside mt-2 flex flex-col gap-1.5">
+          <li>
+            Open <b>Today</b> — it shows exactly what today is.
+          </li>
+          <li>
+            Tap in, do each set and <b>tick it off</b> (the rest timer starts itself); for runs, go
+            then <b>Mark complete</b>.
+          </li>
+          <li>
+            Tap <b>how it felt</b> + notes, then <b>Done</b>.
+          </li>
+        </ol>
+        <p className="mt-2">
+          <b>Maxes</b> holds your current working weight per lift (the app moves it for you), and{' '}
+          <b>Settings</b> is where you back up your data — export a file now and then.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'progression',
+    emoji: '📈',
+    title: 'How the weight goes up (double progression)',
+    body: (
+      <>
+        <p>
+          Each lift lives in a <b>rep range</b>. Add reps each session; once you hit the top of the
+          range on all your sets, the app bumps the weight one dumbbell increment and resets you to
+          the bottom of the range. A bad day never rolls your weight back.
+        </p>
+        <p className="mt-2">
+          The session screen shows <b>last time</b>, whether you’ve <b>stalled</b>, and when a{' '}
+          <b>+kg is coming</b>.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'running',
+    emoji: '🏃',
+    title: 'The running build (run-walk)',
+    body: (
+      <>
+        <p>
+          Runs are all <b>easy</b> and start as <b>run-walk</b> — jog a bit, walk a bit, repeat. Work
+          for <b>time, not distance</b>; the running intervals stretch out each week until you’re
+          running the whole thing. Conversational pace throughout — you should be able to talk.
+        </p>
+      </>
+    ),
+  },
+  {
+    id: 'golden',
+    emoji: '⏱️',
+    title: 'The Golden Rule: leave reps in the tank',
+    body: (
+      <p>
+        Stop each set 1–2 reps before failure — clean form beats grinding. Rest about{' '}
+        <b>90s–2 min</b> between sets; set your default in <b>Settings → Rest timer</b>.
+      </p>
+    ),
+  },
+  movesSection(BEGINNER_MOVE_ORDER),
+  {
+    id: 'trouble',
+    emoji: '🤔',
+    title: 'Bad day? Common questions',
+    body: (
+      <ul className="list-disc list-inside flex flex-col gap-1.5">
+        <li>
+          <b>Missed a day?</b> Open the next one and carry on — rest days won’t break your streak.
+        </li>
+        <li>
+          <b>Couldn’t hit the reps?</b> Repeat the same weight next time; the app won’t drop it for one
+          bad session.
+        </li>
+        <li>
+          <b>A weight feels wrong?</b> Nudge it in <b>Maxes</b>.
+        </li>
+        <li>
+          <b>Something actually hurts</b> (not normal soreness)? Back off and get it looked at.
+        </li>
+      </ul>
+    ),
+  },
+]
+
 export default function Guide() {
+  const s = useSettings()
+  const mode = s.programMode
+  const sections = mode === 'abc' ? ABC_SECTIONS : mode === 'beginner' ? BEGINNER_SECTIONS : TB_SECTIONS
+  const heroTitle = mode === 'abc' ? 'Your A/B/C guide' : mode === 'beginner' ? 'Your Beginner guide' : 'Your TB guide'
   const [open, setOpen] = useState<string | null>('what')
 
   return (
     <div className="flex flex-col gap-3 stagger">
       <Card elev="hero" pad="lg" className="topo-hero text-white">
-        <h2 className="display-hero text-2xl text-white hero-text">Your TB guide</h2>
+        <h2 className="display-hero text-2xl text-white hero-text">{heroTitle}</h2>
         <p className="text-white/90 text-sm mt-1 hero-text">
           The whole system, in plain English. Tap a topic — this is here so you rarely need to ask.
         </p>
       </Card>
 
-      {SECTIONS.map((s) => {
-        const isOpen = open === s.id
+      {sections.map((sec) => {
+        const isOpen = open === sec.id
         return (
-          <Card key={s.id} pad="none" className="overflow-hidden">
+          <Card key={sec.id} pad="none" className="overflow-hidden">
             <button
-              onClick={() => setOpen(isOpen ? null : s.id)}
+              type="button"
+              onClick={() => setOpen(isOpen ? null : sec.id)}
               aria-expanded={isOpen}
+              aria-controls={`guide-panel-${sec.id}`}
+              id={`guide-btn-${sec.id}`}
               className="w-full flex items-center gap-3 p-4 text-left min-h-11"
             >
-              <span className="text-xl">{s.emoji}</span>
-              <span className="flex-1 font-bold text-ink">{s.title}</span>
+              <span className="text-xl" aria-hidden>
+                {sec.emoji}
+              </span>
+              <span className="flex-1 font-bold text-ink">{sec.title}</span>
               <ChevronDown
                 size={18}
                 className={`text-muted transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
               />
             </button>
-            {isOpen && <div className="px-4 pb-4 text-sm text-ink">{s.body}</div>}
+            {isOpen && (
+              <div
+                id={`guide-panel-${sec.id}`}
+                role="region"
+                aria-labelledby={`guide-btn-${sec.id}`}
+                className="px-4 pb-4 text-sm text-ink"
+              >
+                {sec.body}
+              </div>
+            )}
           </Card>
         )
       })}

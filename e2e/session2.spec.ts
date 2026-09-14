@@ -5,6 +5,7 @@ import {
   seedState,
   readSessions,
   mondayOffset,
+  plusDays,
   OP_MAXES,
 } from './helpers'
 
@@ -72,4 +73,61 @@ test('SE circuit rests only when a whole round completes', async ({ page }) => {
   await expect(page.getByLabel('Skip rest')).toBeHidden() // one move — round not done
   for (let i = 1; i < 6; i++) await done.nth(i).click() // finish round 1 (6 moves)
   await expect(page.getByLabel('Skip rest')).toBeVisible()
+})
+
+test('a future session is preview-only (no logging)', async ({ page }) => {
+  const mon = mondayOffset(0)
+  const nextMon = mondayOffset(1) // always in the future
+  await seedState(page, {
+    settings: {
+      currentPhaseId: 'operator',
+      phaseStartDate: mon,
+      operatorBlock: 1,
+      operatorFirstRunDone: true,
+    },
+    maxes: OP_MAXES,
+  })
+  await page.goto(`/session/${nextMon}`)
+  await expect(page.getByText('Preview')).toBeVisible()
+  await page.getByLabel('Mark set done').first().click()
+  await page.waitForTimeout(400)
+  const rows = await readSessions(page)
+  expect(rows.find((r) => r.date === nextMon)).toBeUndefined()
+})
+
+test('un-ticking a Strava-imported run keeps it complete', async ({ page }) => {
+  const mon = mondayOffset(0)
+  const tue = plusDays(mon, 1) // Operator Tue = HIC
+  await seedState(page, {
+    settings: {
+      currentPhaseId: 'operator',
+      phaseStartDate: mon,
+      operatorBlock: 1,
+      operatorFirstRunDone: true,
+    },
+    maxes: OP_MAXES,
+    sessions: [
+      {
+        date: tue,
+        phaseId: 'operator',
+        week: 1,
+        day: 1,
+        type: 'hic',
+        title: 'Morning Run',
+        exercises: [],
+        done: true,
+        durationMin: 32,
+        distanceKm: 5.1,
+        stravaId: 4242,
+        createdAt: 1,
+      },
+    ],
+  })
+  await page.goto(`/session/${tue}`)
+  await expect(page.getByText(/Completed · via Strava/)).toBeVisible()
+  await page.getByText(/Completed · via Strava/).click()
+  await page.waitForTimeout(400)
+  const row = (await readSessions(page)).find((r) => r.date === tue)
+  expect(row?.done).toBe(true)
+  expect(row?.stravaId).toBe(4242)
 })

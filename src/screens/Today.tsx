@@ -3,7 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, ChevronRight, ExternalLink, AlertTriangle, X, Flame } from 'lucide-react'
 import { useMaxes, useSettings, useSessions, useSessionByDate } from '../hooks'
-import { maxesMap, OPERATOR_LIFTS, PHASES, resolvePosition, sessionFor } from '../program'
+import { isLp, maxesMap, OPERATOR_LIFTS, PHASES, resolvePosition, sessionFor } from '../program'
 import { isoDate, today, prettyDate, parseISO, diffDays, addDays, mondayIndex, nextMonday } from '../lib/date'
 import { db, saveSettings, clearProgression } from '../db'
 import { beginStravaAuth } from '../lib/strava'
@@ -11,6 +11,7 @@ import { shouldNudgeBackup, downloadBackup } from '../lib/backup'
 import { suggestBlockProgression, bumpedEntry, blockCompleted, stalledLiftsSinceRetest } from '../lib/progression'
 import { computeStreak, longestStreak, sessionsThisWeek } from '../lib/stats'
 import { Button, Card, Pill, SessionIcon, SESSION_META, CoinGlyph } from '../components/ui'
+import { confirmAction } from '../components/ConfirmDialog'
 import ShareWin from '../components/ShareWin'
 import type { SessionLog } from '../types'
 
@@ -175,9 +176,11 @@ export default function Today() {
     }
     async function retest() {
       if (
-        !window.confirm(
-          'Retest resets your progressed maxes back to your test numbers — you’ll re-enter fresh. Continue?',
-        )
+        !(await confirmAction({
+          title: 'Retest your maxes?',
+          body: 'This resets your progressed maxes back to your test numbers — you’ll re-enter fresh.',
+          confirmLabel: 'Retest',
+        }))
       )
         return
       // Snapshot each lift's max we're about to replace, so next block-end can
@@ -289,7 +292,7 @@ export default function Today() {
   // ---- an active training day ----
   const plan = sessionFor(pos.phaseId, pos.week, pos.day, mm, settings)
   const meta = SESSION_META[plan.type]
-  const isBeginner = settings.programMode === 'beginner'
+  const isLpMode = isLp(settings)
   // lifts/circuits open the session logger; runs (Runna-owned) mark-complete on Today
   const isLoggable = plan.type === 'lift' || plan.type === 'se' || (plan.intervals?.length ?? 0) > 0
   const isTestDay = plan.title === 'Test Day'
@@ -377,12 +380,14 @@ export default function Today() {
         <div className="flex items-center justify-between">
           <span className="text-sm text-muted">{prettyDate(now)}</span>
           <Pill tone="soft-brand">
-            {isBeginner ? `Beginner · Wk ${pos.week}` : `${phase.name} · Wk ${pos.week}/${phase.lengthWeeks}`}
+            {isLpMode ? `${phase.name} · Wk ${pos.week}` : `${phase.name} · Wk ${pos.week}/${phase.lengthWeeks}`}
           </Pill>
         </div>
-        {isBeginner ? (
+        {isLpMode ? (
           <p className="text-[11px] text-muted mt-2">
-            Linear Progression, plus your own running from Runna. Add weight when you earn it; the runs build the engine.
+            {settings.programMode === 'abc'
+              ? 'Dumbbell A/B/C — Mon/Wed/Fri lifting with double progression, plus your Runna runs. Add weight when you earn it.'
+              : 'Linear Progression, plus your own running from Runna. Add weight when you earn it; the runs build the engine.'}
           </p>
         ) : (
           <>
@@ -521,7 +526,7 @@ export default function Today() {
 
           {anyCeiling && (
             <p className="text-xs text-gold-ink mt-2">
-              ⚠︎ Past your 60 kg dumbbell — hold here and add reps.
+              ⚠︎ Past your {settings.dbMaxKg ?? 60} kg dumbbell — hold here and add reps.
             </p>
           )}
           {anyFloor && (

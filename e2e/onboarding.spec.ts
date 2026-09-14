@@ -18,3 +18,13 @@ test('a legacy settings row without onboarded skips onboarding', async ({ page }
   })
   await expect(page.getByRole('heading', { name: /handled/i })).toHaveCount(0)
 })
+
+test('onboarding can start on Dumbbell A/B/C', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('radio', { name: /Dumbbell A\/B\/C/ }).click()
+  await page.getByRole('button', { name: /Get started/i }).click()
+  await page.getByRole('button', { name: /Let's go/i }).click()
+  await expect(page.getByRole('link', { name: 'Today' })).toBeVisible()
+  await expect(page.getByText('Dumbbell A/B/C').first()).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Weights' })).toBeVisible()
+})

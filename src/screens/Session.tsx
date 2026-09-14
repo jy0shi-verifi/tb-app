@@ -3,16 +3,28 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { createPortal } from 'react-dom'
 import { Check, Timer, X, Plus, Minus, Smile, Meh, Frown, ChevronDown } from 'lucide-react'
-import { maxesMap, resolvePosition, sessionFor, type SessionPlan } from '../program'
+import {
+  isLp,
+  lpApplyProgress,
+  lpDeloadPatch,
+  lpLiftId,
+  lpLiftMeta,
+  lpStall,
+  lpWorkingKg,
+  maxesMap,
+  resolvePosition,
+  sessionFor,
+  type SessionPlan,
+} from '../program'
 import { EXERCISE_INFO } from '../exerciseInfo'
 import ExerciseDetail from '../components/ExerciseDetail'
 import { isoDate, parseISO, prettyDate, today } from '../lib/date'
 import { db, DEFAULT_SETTINGS, saveSettings } from '../db'
 import IntervalTimer from '../components/IntervalTimer'
-import { applyBeginnerProgress, beginnerDayLetter, beginnerLiftId, beginnerStall, REP_HI } from '../beginner'
 import { estimate1RM } from '../lib/calc'
 import { bestEst1RM, lastPerformance } from '../lib/stats'
 import { Button, Card, SegmentedPicker, SetCheck, SessionIcon } from '../components/ui'
+import { confirmAction } from '../components/ConfirmDialog'
 import Celebration, { type CelebrationContent } from '../components/Celebration'
 import ShareWin from '../components/ShareWin'
 import type { LoggedExercise, SessionLog } from '../types'
@@ -121,7 +133,7 @@ function SetRow({
       <span className="w-4 text-center text-xs font-bold text-muted shrink-0 num-display">{index + 1}</span>
       {loaded && (
         <div className="flex items-center rounded-pill bg-surface elev-sunk overflow-hidden">
-          <button onClick={() => bumpW(-inc)} className={STEP} aria-label="Less weight">
+          <button onClick={() => bumpW(-inc)} className={STEP} aria-label={`Less weight, set ${index + 1}`}>
             <Minus size={15} />
           </button>
           <div className="w-12 text-center border-x border-line">
@@ -132,18 +144,18 @@ function SetRow({
               onChange={(e) => onSet({ weight: e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1') })}
               onFocus={(e) => e.currentTarget.select()}
               placeholder="0"
-              aria-label="Weight per dumbbell"
+              aria-label={`Weight per dumbbell, set ${index + 1}`}
               className="w-full text-center num-display text-ink text-[15px] leading-none bg-transparent outline-none focus:text-brand-ink"
             />
             <span className="text-[10px] text-muted block leading-none">kg/DB</span>
           </div>
-          <button onClick={() => bumpW(inc)} className={STEP} aria-label="More weight">
+          <button onClick={() => bumpW(inc)} className={STEP} aria-label={`More weight, set ${index + 1}`}>
             <Plus size={15} />
           </button>
         </div>
       )}
       <div className="flex items-center rounded-pill bg-surface elev-sunk overflow-hidden">
-        <button onClick={() => bumpR(-1)} className={STEP} aria-label="Fewer reps">
+        <button onClick={() => bumpR(-1)} className={STEP} aria-label={`Fewer reps, set ${index + 1}`}>
           <Minus size={15} />
         </button>
         <div className="w-10 text-center border-x border-line">
@@ -153,17 +165,17 @@ function SetRow({
             value={s.reps}
             onChange={(e) => onSet({ reps: e.target.value.replace(/[^0-9]/g, '') })}
             onFocus={(e) => e.currentTarget.select()}
-            aria-label="Reps"
+            aria-label={`Reps, set ${index + 1}`}
             className="w-full text-center num-display text-ink text-[15px] leading-none bg-transparent outline-none focus:text-brand-ink"
           />
           <span className="text-[10px] text-muted block leading-none">reps</span>
         </div>
-        <button onClick={() => bumpR(1)} className={STEP} aria-label="More reps">
+        <button onClick={() => bumpR(1)} className={STEP} aria-label={`More reps, set ${index + 1}`}>
           <Plus size={15} />
         </button>
       </div>
       <div className="ml-auto shrink-0">
-        <SetCheck done={s.done} onToggle={onToggle} label="Mark set done" />
+        <SetCheck done={s.done} onToggle={onToggle} label={`Mark set done, set ${index + 1}`} />
       </div>
     </div>
   )
@@ -174,6 +186,10 @@ export default function Session() {
   const params = useParams()
   const iso = params.date ?? isoDate(today())
   const when = parseISO(iso)
+  const todayIso = isoDate(today())
+  // Future days are preview-only: you can look at the plan, but logging/progression
+  // only happens on the day itself (stops previewing next week banking a workout).
+  const isFuture = iso > todayIso
 
   const settings = useLiveQuery(async () => (await db.settings.get('app')) ?? DEFAULT_SETTINGS, [])
   const maxes = useLiveQuery(() => db.maxes.toArray(), [])
@@ -201,15 +217,15 @@ export default function Session() {
   useEffect(() => {
     if (!ready || !plan || ex !== null) return
     const fromLog = logged && logged.exercises.length > 0
-    const beginnerLift = settings.programMode === 'beginner' && plan.type === 'lift'
+    const lpLift = isLp(settings) && plan.type === 'lift'
     setEx(
       plan.exercises.map((e, i) => {
         const saved = fromLog ? logged!.exercises[i] : undefined
-        // Beginner double progression: pre-fill last time's reps (so the natural move
-        // is to beat them), UNLESS a +2 kg bump just raised the working weight — then
+        // LP double progression: pre-fill last time's reps (so the natural move
+        // is to beat them), UNLESS a bump just raised the working weight — then
         // keep the range floor the plan already set (reps reset on a weight bump).
         const working = e.sets[0]?.weight
-        const last = beginnerLift && !fromLog ? lastPerformance(allSessions, e.name, iso) : null
+        const last = lpLift && !fromLog ? lastPerformance(allSessions, e.name, iso) : null
         const prefill = last && last.weight === working ? last.reps : null
         return {
           name: e.name,
@@ -292,7 +308,7 @@ export default function Session() {
 
   // autosave after the first interaction
   useEffect(() => {
-    if (!touched.current || !ready || !plan || !pos || !ex) return
+    if (!touched.current || !ready || !plan || !pos || !ex || isFuture) return
     const save = async () => {
       // Re-read the freshest row at write time — an auto-sync may have merged
       // Strava HR/duration into it since this component rendered; using a stale
@@ -346,11 +362,15 @@ export default function Session() {
   const isLifting = plan.exercises.length > 0
   const isRest = plan.type === 'rest'
   const isSE = plan.type === 'se'
+  // A Strava-imported run/HIC is done because the activity exists — un-ticking
+  // would hide it from the streak and the next sync would skip it (already linked).
+  const stravaLocked = !!logged?.stravaId && (plan.type === 'run' || plan.type === 'hic')
   const restSec = restSeconds(plan, pos.week, settings.restSec)
   const inc = settings.dbIncrement
-  const beginnerLift = settings.programMode === 'beginner' && plan.type === 'lift'
+  const lpLift = isLp(settings) && plan.type === 'lift'
 
   const setSet = (ei: number, si: number, patch: Partial<SetState>) => {
+    if (isFuture) return
     touched.current = true
     setEx((prev) =>
       prev!.map((e, i) =>
@@ -358,14 +378,14 @@ export default function Session() {
       ),
     )
   }
-  // Deload a stalled beginner lift: drop this session's sets to the lighter weight AND
+  // Deload a stalled LP lift: drop this session's sets to the lighter weight AND
   // persist it as the new working weight, so LP resumes building from there.
   const applyDeload = (ei: number, liftId: string, toKg: number) => {
     touched.current = true
     setEx((prev) =>
       prev!.map((e, i) => (i === ei ? { ...e, sets: e.sets.map((s) => ({ ...s, weight: String(toKg) })) } : e)),
     )
-    saveSettings({ beginner: { lifts: { ...(settings.beginner?.lifts ?? {}), [liftId]: toKg } } })
+    saveSettings(lpDeloadPatch(settings, liftId, toKg))
   }
   const startRest = () => {
     primeAudio() // unlock audio within this tap so the end-beep can sound
@@ -406,6 +426,7 @@ export default function Session() {
     }
   }
   const toggleDone = (ei: number, si: number) => {
+    if (isFuture) return
     const cur = ex[ei].sets[si].done
     setSet(ei, si, { done: !cur })
     if (cur) return
@@ -417,14 +438,18 @@ export default function Session() {
   }
 
   const setMetaTouched = (patch: Partial<MetaState>) => {
+    if (isFuture) return
     touched.current = true
     setMeta((m) => ({ ...m, ...patch }))
   }
 
-  // Leaving a session: in Beginner mode, run the LP double-progression off what was
-  // actually logged (bump a lift 2 kg once all 3 sets hit 12), then go back.
+  // Leaving a session: in an LP program (Beginner or A/B/C), run the double-progression
+  // off what was actually logged (bump a lift once all 3 sets hit the top), then go back.
   async function finish() {
-    if (settings?.programMode === 'beginner' && plan?.type === 'lift' && pos && ex) {
+    // Only run double progression for TODAY's session that was actually edited here —
+    // never when merely viewing a past log (would roll the weight back) or previewing
+    // a future day (would bump it early).
+    if (settings && isLp(settings) && plan?.type === 'lift' && pos && ex && iso === todayIso && touched.current) {
       const loggedEx = ex.map((e) => ({
         name: e.name,
         sets: e.sets.map((s) => ({
@@ -433,8 +458,8 @@ export default function Session() {
           done: s.done,
         })),
       }))
-      const next = applyBeginnerProgress(settings, beginnerDayLetter(pos.week, pos.day), loggedEx)
-      if (next) await saveSettings({ beginner: { lifts: next } })
+      const patch = lpApplyProgress(settings, pos, loggedEx)
+      if (patch) await saveSettings(patch)
     }
     nav(-1)
   }
@@ -482,6 +507,15 @@ export default function Session() {
         {plan.detail && !isLifting && <p className="text-sm text-muted mt-2">{plan.detail}</p>}
         {isLifting && plan.detail && <p className="text-xs text-muted mt-2">{plan.detail}</p>}
       </div>
+
+      {isFuture && (
+        <Card className="bg-warm border-warm-edge/40">
+          <p className="text-sm font-bold text-ink">Preview</p>
+          <p className="text-xs text-muted mt-0.5">
+            This one comes around on {prettyDate(when)}. Have a look — you'll log it on the day.
+          </p>
+        </Card>
+      )}
 
       {/* completion / PR moment — PRs show as soon as a top set beats your best */}
       {(doneSets > 0 || prs.length > 0) && (
@@ -563,7 +597,11 @@ export default function Session() {
                     <p className="font-medium text-ink text-[15px] truncate">{e.name}</p>
                     <p className="text-xs text-muted">{e.sets[round].reps} reps</p>
                   </div>
-                  <SetCheck done={e.sets[round].done} onToggle={() => toggleDone(ei, round)} label="Mark done" />
+                  <SetCheck
+                    done={e.sets[round].done}
+                    onToggle={() => toggleDone(ei, round)}
+                    label={`Mark done, ${e.name}, round ${round + 1}`}
+                  />
                 </div>
               ))}
             </div>
@@ -592,13 +630,16 @@ export default function Session() {
               )}
               {e.note && <p className="text-xs text-muted mt-0.5">{e.note}</p>}
             </div>
-            {beginnerLift &&
+            {lpLift &&
               (() => {
                 const last = lastPerformance(allSessions, e.name, iso)
-                const liftId = beginnerLiftId(e.name)
-                const working = liftId ? settings.beginner?.lifts?.[liftId] ?? 0 : 0
-                const stall = liftId ? beginnerStall(allSessions, e.name, working, inc, iso) : null
-                const atTop = e.sets.filter((s) => s.done && Number(s.reps) >= REP_HI).length
+                const liftId = lpLiftId(e.name, settings)
+                const meta = lpLiftMeta(e.name, settings)
+                const repHi = meta?.repHi ?? 12
+                const step = meta?.step ?? 2
+                const working = liftId ? lpWorkingKg(e.name, settings) : 0
+                const stall = liftId ? lpStall(settings, allSessions, e.name, working, inc, iso) : null
+                const atTop = e.sets.filter((s) => s.done && Number(s.reps) >= repHi).length
                 const need = e.sets.length - atTop
                 return (
                   <div className="-mt-1 mb-2 space-y-1.5">
@@ -632,8 +673,8 @@ export default function Session() {
                         }`}
                       >
                         {need <= 0
-                          ? '✓ +2 kg next session'
-                          : `${need} more ${need === 1 ? 'set' : 'sets'} at ${REP_HI} → +2 kg`}
+                          ? `✓ +${step} kg next session`
+                          : `${need} more ${need === 1 ? 'set' : 'sets'} at ${repHi} → +${step} kg`}
                       </span>
                     )}
                   </div>
@@ -668,12 +709,24 @@ export default function Session() {
         )}
         <Card className="space-y-3">
           <button
-            onClick={() => setMetaTouched({ done: !meta.done })}
+            type="button"
+            onClick={() => {
+              if (stravaLocked && meta.done) return
+              setMetaTouched({ done: !meta.done })
+            }}
+            aria-pressed={meta.done}
             className={`w-full rounded-field py-4 font-bold text-lg flex items-center justify-center gap-2 transition active:scale-[0.98] ${
               meta.done ? 'gold-gradient text-on-gold' : 'bg-[var(--color-surface-sunk)] text-ink border border-line'
-            }`}
+            } ${stravaLocked && meta.done ? 'cursor-default' : ''}`}
           >
-            <Check size={22} /> {meta.done ? 'Completed' : isRest ? 'Mark rest taken' : 'Mark complete'}
+            <Check size={22} />{' '}
+            {meta.done
+              ? stravaLocked
+                ? 'Completed · via Strava'
+                : 'Completed'
+              : isRest
+                ? 'Mark rest taken'
+                : 'Mark complete'}
           </button>
           {!isRest && !plan.intervals &&
             (logged && (logged.durationMin != null || logged.distanceKm != null) ? (
@@ -715,7 +768,7 @@ export default function Session() {
               <Timer size={22} />
               <div className="flex-1">
                 <p className="text-xs text-white/80">Rest</p>
-                <p className="num-display text-2xl leading-none">
+                <p className="num-display text-2xl leading-none" aria-live="polite" aria-atomic="true">
                   {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
                 </p>
               </div>
@@ -780,7 +833,15 @@ export default function Session() {
       {logged?.id && (
         <button
           onClick={async () => {
-            if (!window.confirm('Delete this logged session?')) return
+            if (
+              !(await confirmAction({
+                title: 'Delete this logged session?',
+                body: 'This removes it from your history. You can’t undo it.',
+                confirmLabel: 'Delete',
+                danger: true,
+              }))
+            )
+              return
             await db.sessions.delete(logged.id!)
             nav(-1)
           }}

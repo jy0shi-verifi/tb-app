@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Check, Flame, Footprints, Trash2 } from 'lucide-react'
 import { useSessions, useSettings } from '../hooks'
-import { OPERATOR_LIFTS, PHASES } from '../program'
-import { beginnerProgress } from '../beginner'
+import { OPERATOR_LIFTS, PHASES, isLp, lpProgressView } from '../program'
 import { estimate1RM } from '../lib/calc'
 import { badges, computeStreak, liftRecords, runStats, weekSummary } from '../lib/stats'
 import { db, deleteSession } from '../db'
 import { Card, EmptyState, SessionIcon, SESSION_META } from '../components/ui'
+import { confirmAction } from '../components/ConfirmDialog'
 import { CoinBadge, PaceTrend, ProgressRing, StrengthTrend } from '../components/dataviz'
 import { parseISO, diffDays, today } from '../lib/date'
 
@@ -30,7 +30,15 @@ function tierFor(key: string): 'bronze' | 'steel' | 'gold' | 'black' {
 
 async function confirmDelete(id?: number) {
   if (id == null) return
-  if (window.confirm('Delete this logged session?')) await deleteSession(id)
+  if (
+    await confirmAction({
+      title: 'Delete this logged session?',
+      body: 'This removes it from your history. You can’t undo it.',
+      confirmLabel: 'Delete',
+      danger: true,
+    })
+  )
+    await deleteSession(id)
 }
 
 /** Average pace as "m:ss /km" from minutes + km, or null if either is missing. */
@@ -125,8 +133,8 @@ export default function History() {
   if (!sessions.length)
     return <EmptyState title="No sessions logged yet" sub="Log your first session and it lands here." />
 
-  const isBeginner = settings.programMode === 'beginner'
-  const prog = isBeginner ? beginnerProgress(sessions, settings) : []
+  const lp = isLp(settings)
+  const prog = lp ? lpProgressView(sessions, settings) : []
   const totalAdded = Math.round(prog.reduce((n, p) => n + Math.max(0, p.delta), 0) * 10) / 10
   const streak = computeStreak(sessions)
   const summary = weekSummary(sessions)
@@ -194,7 +202,7 @@ export default function History() {
 
       {/* this week */}
       <Card>
-        <p className="eyebrow text-muted mb-3">This week</p>
+        <h2 className="eyebrow text-muted mb-3">This week</h2>
         <div className="grid grid-cols-3 gap-3 text-center">
           <div>
             <p className="num-display text-2xl text-brand-ink">{summary.lifts}</p>
@@ -259,8 +267,8 @@ export default function History() {
         </div>
       )}
 
-      {/* beginner progress — start → current working weight per LP lift */}
-      {isBeginner && (
+      {/* LP progress — start → current working weight per lift */}
+      {lp && (
         <Card>
           <p className="eyebrow text-muted mb-3">Your lifts</p>
           <div className="space-y-2.5">
@@ -295,7 +303,7 @@ export default function History() {
       )}
 
       {/* strength chart */}
-      {!isBeginner && chartData.length >= 2 && (
+      {!lp && chartData.length >= 2 && (
         <Card>
           <p className="eyebrow text-muted">Strength trend</p>
           <p className="text-xs text-muted mt-1 mb-3">best estimated 1RM to date · kg per dumbbell</p>
@@ -328,7 +336,7 @@ export default function History() {
       )}
 
       {/* records */}
-      {!isBeginner && records.some((r) => r.heaviest > 0) && (
+      {!lp && records.some((r) => r.heaviest > 0) && (
         <Card>
           <p className="eyebrow text-muted mb-3">Personal records</p>
           <div className="space-y-2.5">

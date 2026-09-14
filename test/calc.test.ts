@@ -24,7 +24,13 @@ describe('estimate1RM — Brzycki, matches KB’s book worked examples (TB1 p104
   it('is safe at the degenerate boundaries', () => {
     expect(estimate1RM(0, 5)).toBe(0)
     expect(estimate1RM(50, 0)).toBe(0)
-    expect(estimate1RM(50, 37)).toBe(50)
+  })
+  it('clamps high-rep sets so they can’t inflate the estimate', () => {
+    // reps are clamped at 12: a 20-rep set is treated as a 12-rep set, and any
+    // absurd rep count (e.g. 37) can never blow the denominator up.
+    expect(estimate1RM(50, 20)).toBeCloseTo(estimate1RM(50, 12), 5)
+    expect(estimate1RM(50, 37)).toBeCloseTo(estimate1RM(50, 12), 5)
+    expect(estimate1RM(50, 12)).toBeCloseTo((50 * 36) / 25, 5)
   })
 })
 
@@ -88,6 +94,11 @@ describe('load clamps (4kg floor, 60kg ceiling, overCeiling flag)', () => {
     const r = workingLoad(4, 70, 2)
     expect(r.underFloor).toBe(true)
     expect(r.kg).toBe(4)
+  })
+  it('honours a custom dumbbell ceiling', () => {
+    const r = workingLoad(90, 95, 2, 40)
+    expect(r.overCeiling).toBe(true)
+    expect(r.kg).toBe(40)
   })
 })
 

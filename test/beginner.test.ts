@@ -67,6 +67,12 @@ describe('LP double progression', () => {
     const next = applyBeginnerProgress(base, 'A', loggedAt(8, () => 14))
     expect(next?.[LP_A[0].id]).toBe(14)
   })
+  it('never silently deloads when a session is lighter than the stored weight', () => {
+    const heavy = { ...base, beginner: { lifts: { ...defaultBeginnerWeights(), bg_squat: 20 } } }
+    const next = applyBeginnerProgress(heavy, 'A', loggedAt(8, (kg) => kg))
+    // squat used 10 (start) against stored 20 — keep 20, don't roll back
+    expect(next?.[LP_A[0].id]).toBeUndefined()
+  })
 })
 
 describe('LP stall → deload', () => {

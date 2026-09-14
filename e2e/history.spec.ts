@@ -1,4 +1,4 @@
-import { test, expect, seedState, isoOffset, OP_MAXES } from './helpers'
+import { test, expect, seedState, isoOffset, OP_MAXES, confirmDialog } from './helpers'
 
 const OP = { currentPhaseId: 'operator', phaseStartDate: isoOffset(0), operatorBlock: 1 }
 
@@ -28,8 +28,8 @@ test('deleting a session from History removes it and persists', async ({ page })
   })
   await page.goto('/history')
   await expect(page.getByText('A Lift')).toBeVisible()
-  page.on('dialog', (d) => d.accept())
   await page.getByLabel('Delete session').first().click()
+  await confirmDialog(page, 'Delete')
   await expect(page.getByText('A Lift')).toBeHidden()
   await page.reload()
   await expect(page.getByText('A Lift')).toHaveCount(0)

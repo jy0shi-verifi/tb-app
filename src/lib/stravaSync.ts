@@ -13,7 +13,9 @@ import { musclesForExercises } from '../exerciseInfo'
 import type { LoggedExercise, MaxEntry, Settings, SessionLog } from '../types'
 
 // Strava activity types we treat as a run/HIC (the plan decides run vs HIC by day).
-const RUN_TYPES = new Set(['Run', 'TrailRun', 'VirtualRun', 'Walk', 'Hike'])
+// Walk/Hike are deliberately excluded — a casual walk shouldn't auto-tick a run day
+// or pollute running stats/pace.
+const RUN_TYPES = new Set(['Run', 'TrailRun', 'VirtualRun'])
 // Strava types we treat as a strength/circuit session (matched to a logged lift/SE).
 const LIFT_TYPES = new Set(['WeightTraining', 'Workout', 'Crossfit'])
 
@@ -141,16 +143,29 @@ export async function syncStrava(): Promise<number> {
     if (pos.status !== 'active') continue
 
     const prev = byDate.get(date)
-    if (prev?.stravaId) continue // already synced this day
+    if (prev?.stravaId) {
+      // Already linked. If someone un-ticked a Strava-sourced run, put it back —
+      // Strava is the source of truth for runs.
+      if (!prev.done && prev.id && (prev.type === 'run' || prev.type === 'hic')) {
+        await db.sessions.update(prev.id, { done: true })
+        byDate.set(date, { ...prev, done: true })
+        synced++
+      }
+      continue
+    }
     if (prev && (prev.type === 'lift' || prev.type === 'se')) continue // don't clobber a logged lift
 
-    // Beginner mode: running is owned by Runna. Log ANY run (whatever day it lands
-    // on) and keep Runna's own activity name — never rename it on Strava. TB mode:
-    // only auto-tick a scheduled run/HIC day and name it by where it lands.
-    const beginnerRun = settings.programMode === 'beginner' || pos.phaseId === 'beginner'
+    // LP programs (Beginner / Dumbbell A/B/C): running is owned by Runna. Log ANY run
+    // (whatever day it lands on) and keep Runna's own activity name — never rename it on
+    // Strava. TB mode: only auto-tick a scheduled run/HIC day and name it by where it lands.
+    const runnaOwned =
+      settings.programMode === 'beginner' ||
+      settings.programMode === 'abc' ||
+      pos.phaseId === 'beginner' ||
+      pos.phaseId === 'abc'
     let recType: 'run' | 'hic' = 'run'
     let name: string
-    if (beginnerRun) {
+    if (runnaOwned) {
       name = a.name?.trim() || 'Run'
     } else {
       const plan = sessionFor(pos.phaseId, pos.week, pos.day, maxes, settings)
@@ -180,7 +195,7 @@ export async function syncStrava(): Promise<number> {
     synced++
 
     // Push the programme name back onto Strava (TB only; never overwrite Runna's names).
-    if (!beginnerRun && canWrite && a.name !== name) {
+    if (!runnaOwned && canWrite && a.name !== name) {
       try {
         await updateStravaActivityName(token, a.id, name)
       } catch {
@@ -207,7 +222,9 @@ export async function importStravaHistory(): Promise<number> {
   const activities = await fetchStravaActivities(token, nowEpoch - 730 * 86400) // last ~2 years
 
   const seen = new Set(
-    (await db.sessions.toArray()).map((s) => s.stravaId).filter((x): x is number => x != null),
+    ((await db.sessions.orderBy('stravaId').keys()) as (number | undefined)[]).filter(
+      (x): x is number => typeof x === 'number',
+    ),
   )
 
   const toAdd: SessionLog[] = []

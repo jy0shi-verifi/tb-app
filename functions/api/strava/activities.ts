@@ -3,7 +3,10 @@
 // CORS headers, so a direct browser fetch is blocked — we forward it here instead.
 // The client sends its own access token (the user's own; no secret involved).
 
+import { originOk, rejectOrigin } from '../../_lib/origin'
+
 export async function onRequestPost(context: { request: Request }): Promise<Response> {
+  if (!originOk(context.request)) return rejectOrigin()
   let body: { accessToken?: string; after?: number }
   try {
     body = await context.request.json()
