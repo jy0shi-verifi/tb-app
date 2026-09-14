@@ -196,7 +196,11 @@ export function applyAbcProgress(
     // the weight actually used (most recent non-empty set) — respects mid-session edits
     const used = doneSets[doneSets.length - 1].weight ?? abcWorkingKg(l, settings)
     const clearedTop = doneSets.length >= 3 && doneSets.every((s) => s.reps >= l.repHi)
-    const nk = clearedTop ? used + l.step : used
+    // Clear the top on all sets → bump. Otherwise keep whatever was used, but never let a
+    // lighter-than-current session silently deload the working weight (a bad day shouldn't
+    // roll you back — explicit deloads go through the stall button).
+    const current = next[l.id] ?? abcWorkingKg(l, settings)
+    const nk = clearedTop ? used + l.step : Math.max(used, current)
     if (nk !== next[l.id]) {
       next[l.id] = nk
       changed = true

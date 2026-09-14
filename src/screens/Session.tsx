@@ -185,6 +185,10 @@ export default function Session() {
   const params = useParams()
   const iso = params.date ?? isoDate(today())
   const when = parseISO(iso)
+  const todayIso = isoDate(today())
+  // Future days are preview-only: you can look at the plan, but logging/progression
+  // only happens on the day itself (stops previewing next week banking a workout).
+  const isFuture = iso > todayIso
 
   const settings = useLiveQuery(async () => (await db.settings.get('app')) ?? DEFAULT_SETTINGS, [])
   const maxes = useLiveQuery(() => db.maxes.toArray(), [])
@@ -303,7 +307,7 @@ export default function Session() {
 
   // autosave after the first interaction
   useEffect(() => {
-    if (!touched.current || !ready || !plan || !pos || !ex) return
+    if (!touched.current || !ready || !plan || !pos || !ex || isFuture) return
     const save = async () => {
       // Re-read the freshest row at write time — an auto-sync may have merged
       // Strava HR/duration into it since this component rendered; using a stale
@@ -362,6 +366,7 @@ export default function Session() {
   const lpLift = isLp(settings) && plan.type === 'lift'
 
   const setSet = (ei: number, si: number, patch: Partial<SetState>) => {
+    if (isFuture) return
     touched.current = true
     setEx((prev) =>
       prev!.map((e, i) =>
@@ -417,6 +422,7 @@ export default function Session() {
     }
   }
   const toggleDone = (ei: number, si: number) => {
+    if (isFuture) return
     const cur = ex[ei].sets[si].done
     setSet(ei, si, { done: !cur })
     if (cur) return
@@ -428,6 +434,7 @@ export default function Session() {
   }
 
   const setMetaTouched = (patch: Partial<MetaState>) => {
+    if (isFuture) return
     touched.current = true
     setMeta((m) => ({ ...m, ...patch }))
   }
@@ -435,7 +442,10 @@ export default function Session() {
   // Leaving a session: in an LP program (Beginner or A/B/C), run the double-progression
   // off what was actually logged (bump a lift once all 3 sets hit the top), then go back.
   async function finish() {
-    if (settings && isLp(settings) && plan?.type === 'lift' && pos && ex) {
+    // Only run double progression for TODAY's session that was actually edited here —
+    // never when merely viewing a past log (would roll the weight back) or previewing
+    // a future day (would bump it early).
+    if (settings && isLp(settings) && plan?.type === 'lift' && pos && ex && iso === todayIso && touched.current) {
       const loggedEx = ex.map((e) => ({
         name: e.name,
         sets: e.sets.map((s) => ({
@@ -493,6 +503,15 @@ export default function Session() {
         {plan.detail && !isLifting && <p className="text-sm text-muted mt-2">{plan.detail}</p>}
         {isLifting && plan.detail && <p className="text-xs text-muted mt-2">{plan.detail}</p>}
       </div>
+
+      {isFuture && (
+        <Card className="bg-warm border-warm-edge/40">
+          <p className="text-sm font-bold text-ink">Preview</p>
+          <p className="text-xs text-muted mt-0.5">
+            This one comes around on {prettyDate(when)}. Have a look — you'll log it on the day.
+          </p>
+        </Card>
+      )}
 
       {/* completion / PR moment — PRs show as soon as a top set beats your best */}
       {(doneSets > 0 || prs.length > 0) && (

@@ -322,23 +322,32 @@ export default function Settings() {
       </Card>
 
       <Card>
-        <p className="eyebrow text-muted">Demo data</p>
+        <p className="eyebrow text-muted">{import.meta.env.DEV ? 'Demo data' : 'Start over'}</p>
         <p className="text-xs text-muted mt-1 mb-3 leading-relaxed">
-          Fill the app with ~4 months of realistic history to show it off, then reset back to a clean
-          start whenever you're ready to train for real.
+          {import.meta.env.DEV
+            ? 'Fill the app with ~4 months of realistic history to show it off, then reset back to a clean start whenever you\u2019re ready to train for real.'
+            : 'Wipe everything back to a clean start. This can\u2019t be undone \u2014 export a backup first if you might want your history back.'}
         </p>
         <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            className="flex-1"
-            onClick={async () => {
-              setMsg('Loading demo history…')
-              const m = await import('../dev/seed')
-              setMsg(await m.seedFakeData())
-            }}
-          >
-            Load demo history
-          </Button>
+          {import.meta.env.DEV && (
+            <Button
+              variant="secondary"
+              className="flex-1"
+              onClick={async () => {
+                if (
+                  !window.confirm(
+                    'Load demo history?\n\nThis REPLACES all data currently on this phone with ~4 months of fake history. Export a backup first if you want to keep your real log.',
+                  )
+                )
+                  return
+                setMsg('Loading demo history…')
+                const m = await import('../dev/seed')
+                setMsg(await m.seedFakeData())
+              }}
+            >
+              Load demo history
+            </Button>
+          )}
           <Button
             variant="danger"
             className="flex-1"
