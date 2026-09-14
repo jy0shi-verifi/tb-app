@@ -1,4 +1,4 @@
-import { test, expect, seedState, readSettings, mondayOffset, plusDays } from './helpers'
+import { test, expect, seedState, readSettings, mondayOffset, plusDays, confirmDialog } from './helpers'
 
 const ABC_WEIGHTS = { abc_split: 8, abc_bench: 10, abc_row: 10, abc_ohp: 6, abc_lat: 5, abc_curl: 8 }
 
@@ -102,16 +102,17 @@ test('switching to A/B/C carries over recent weights for shared lifts', async ({
     ],
   })
 
-  page.on('dialog', (d) => d.accept())
   await page.goto('/settings')
   await page.getByRole('button', { name: /Switch to Dumbbell A\/B\/C/ }).click()
+  await confirmDialog(page, 'Switch')
   await expect(page.getByText(/starting from your recent weights/i)).toBeVisible()
 
   const saved = await readSettings(page)
   const lifts = (saved?.abc as { lifts: Record<string, number> }).lifts
-  expect(lifts.abc_bench).toBe(26) // carried over
-  expect(lifts.abc_row).toBe(22)
-  expect(lifts.abc_ohp).toBe(16)
+  // 26×6 / 22×8 / 16×8 Operator sets are converted to a ~10-rep A/B/C start
+  expect(lifts.abc_bench).toBe(22)
+  expect(lifts.abc_row).toBe(20)
+  expect(lifts.abc_ohp).toBe(14)
   expect(lifts.abc_split).toBe(8) // no history → light default
   expect(lifts.abc_lat).toBe(5)
   expect(lifts.abc_curl).toBe(8)

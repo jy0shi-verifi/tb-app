@@ -42,6 +42,16 @@ export const test = base.extend<{ errors: string[]; _noSplash: void }>({
 
 export { expect }
 
+/** Click the in-app confirm dialog's primary action. */
+export async function confirmDialog(page: import('@playwright/test').Page, label = 'OK') {
+  await page.getByRole('dialog').getByRole('button', { name: label }).click()
+}
+
+/** Dismiss the in-app confirm dialog. */
+export async function cancelDialog(page: import('@playwright/test').Page) {
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
+}
+
 function iso(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }

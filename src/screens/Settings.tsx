@@ -8,6 +8,7 @@ import { defaultBeginnerWeights } from '../beginner'
 import { seedAbcWeights } from '../abc'
 import { isoDate, today, addDays, mondayIndex, nextMonday } from '../lib/date'
 import { Button, Card, SegmentedPicker } from '../components/ui'
+import { confirmAction } from '../components/ConfirmDialog'
 import { beginStravaAuth, disconnectStrava, stravaCanWrite, stravaConfigured } from '../lib/strava'
 import { syncStrava, importStravaHistory, devTagLatestAsOperatorRun } from '../lib/stravaSync'
 import { APP_VERSION } from '../version'
@@ -40,10 +41,12 @@ export default function Settings() {
     try {
       const text = await file.text()
       const b = parseBackup(text) // validates shape before we touch anything
-      const ok = window.confirm(
-        `Restore this backup?\n\n${b.sessions.length} sessions · ${b.maxes.length} maxes` +
-          `\nfrom ${b.exportedAt.slice(0, 10)}\n\nThis REPLACES all data currently on this phone.`,
-      )
+      const ok = await confirmAction({
+        title: 'Restore this backup?',
+        body: `${b.sessions.length} sessions · ${b.maxes.length} maxes\nfrom ${b.exportedAt.slice(0, 10)}\n\nThis REPLACES all data currently on this phone.`,
+        confirmLabel: 'Restore',
+        danger: true,
+      })
       if (ok) {
         await importBackup(text)
         setMsg('Backup restored.')
@@ -71,9 +74,11 @@ export default function Settings() {
   }
   async function switchToBeginner() {
     if (
-      !window.confirm(
-        'Switch to Beginner mode?\n\nThis swaps your plan to Linear Progression + Couch-to-5K — a gentler on-ramp. Your other setups are kept; you can switch back any time.',
-      )
+      !(await confirmAction({
+        title: 'Switch to Beginner mode?',
+        body: 'This swaps your plan to Linear Progression + Couch-to-5K — a gentler on-ramp. Your other setups are kept; you can switch back any time.',
+        confirmLabel: 'Switch',
+      }))
     )
       return
     const mon = isoDate(addDays(today(), -mondayIndex(today())))
@@ -87,9 +92,11 @@ export default function Settings() {
   }
   async function switchToAbc() {
     if (
-      !window.confirm(
-        'Switch to Dumbbell A/B/C?\n\nA minimalist 3-day dumbbell split (Mon/Wed/Fri) with double progression, plus your Runna runs. Bench, row and overhead press start from your recent working weights; your other setups are kept and you can switch back any time.',
-      )
+      !(await confirmAction({
+        title: 'Switch to Dumbbell A/B/C?',
+        body: 'A minimalist 3-day dumbbell split (Mon/Wed/Fri) with double progression, plus your Runna runs. Bench, row and overhead press start from your recent working weights; your other setups are kept and you can switch back any time.',
+        confirmLabel: 'Switch',
+      }))
     )
       return
     await saveSettings({
@@ -101,7 +108,14 @@ export default function Settings() {
     setMsg('Dumbbell A/B/C on — starting from your recent weights, plus your Runna runs.')
   }
   async function switchToTB() {
-    if (!window.confirm('Switch to Tactical Barbell (Base Building → Operator)?')) return
+    if (
+      !(await confirmAction({
+        title: 'Switch to Tactical Barbell?',
+        body: 'Base Building → Operator. Your other setups are kept; you can switch back any time.',
+        confirmLabel: 'Switch',
+      }))
+    )
+      return
     const mon = isoDate(addDays(today(), -mondayIndex(today())))
     await saveSettings({ programMode: 'tb', currentPhaseId: 'base-building', phaseStartDate: mon })
     setMsg('Tactical Barbell mode.')
@@ -111,7 +125,7 @@ export default function Settings() {
     <div className="stagger space-y-4">
       <Card elev="hero" className="topo-hero text-white border-white/10">
         <p className="eyebrow hero-text text-gold-hi">Tactical Barbell</p>
-        <p className="display-hero text-3xl text-white mt-1">SETTINGS</p>
+        <h2 className="display-hero text-3xl text-white mt-1">SETTINGS</h2>
       </Card>
 
       <Card>
@@ -168,6 +182,21 @@ export default function Settings() {
             />
           </Row>
           <Row
+            label="Dumbbell ceiling"
+            hint="Heaviest pair you own (kg per dumbbell). Working loads clamp here and flag when a wave would go heavier."
+          >
+            <SegmentedPicker<string>
+              label="Dumbbell ceiling"
+              value={String(s.dbMaxKg ?? 60)}
+              options={[
+                { v: '40', label: '40 kg' },
+                { v: '50', label: '50 kg' },
+                { v: '60', label: '60 kg' },
+              ]}
+              onChange={(v) => saveSettings({ dbMaxKg: Number(v) })}
+            />
+          </Row>
+          <Row
             label="Rest timer"
             hint="Time the between-set timer counts down. Auto uses the book's rests (longer on the heavy weeks) — recommended on a cut. 10 sec is for testing the beep."
           >
@@ -206,8 +235,15 @@ export default function Settings() {
                   { v: 'tm', label: 'Training Max (90%)' },
                   { v: '1rm', label: 'True 1RM' },
                 ]}
-                onChange={(v) => {
-                  if (v !== s.loadBasis && window.confirm('Change how every weight is worked out? This rescales all your loads.'))
+                onChange={async (v) => {
+                  if (v === s.loadBasis) return
+                  if (
+                    await confirmAction({
+                      title: 'Change how every weight is worked out?',
+                      body: 'This rescales all your loads.',
+                      confirmLabel: 'Change',
+                    })
+                  )
                     saveSettings({ loadBasis: v })
                 }}
               />
@@ -219,8 +255,15 @@ export default function Settings() {
                 label="Current phase"
                 value={s.currentPhaseId}
                 options={Object.values(PHASES).map((p) => ({ v: p.id, label: p.name }))}
-                onChange={(v) => {
-                  if (v !== s.currentPhaseId && window.confirm('Switch phase? This changes your plan and where you are in it.'))
+                onChange={async (v) => {
+                  if (v === s.currentPhaseId) return
+                  if (
+                    await confirmAction({
+                      title: 'Switch phase?',
+                      body: 'This changes your plan and where you are in it.',
+                      confirmLabel: 'Switch',
+                    })
+                  )
                     saveSettings({ currentPhaseId: v })
                 }}
               />
@@ -350,9 +393,12 @@ export default function Settings() {
               className="flex-1"
               onClick={async () => {
                 if (
-                  !window.confirm(
-                    'Load demo history?\n\nThis REPLACES all data currently on this phone with ~4 months of fake history. Export a backup first if you want to keep your real log.',
-                  )
+                  !(await confirmAction({
+                    title: 'Load demo history?',
+                    body: 'This REPLACES all data currently on this phone with ~4 months of fake history. Export a backup first if you want to keep your real log.',
+                    confirmLabel: 'Load demo',
+                    danger: true,
+                  }))
                 )
                   return
                 setMsg('Loading demo history…')
@@ -367,7 +413,15 @@ export default function Settings() {
             variant="danger"
             className="flex-1"
             onClick={async () => {
-              if (!window.confirm('Wipe all data back to a clean start?')) return
+              if (
+                !(await confirmAction({
+                  title: 'Wipe all data?',
+                  body: 'This resets the app back to a clean start. You can’t undo it — export a backup first if you might want your history back.',
+                  confirmLabel: 'Reset',
+                  danger: true,
+                }))
+              )
+                return
               const m = await import('../dev/seed')
               setMsg(await m.clearAll())
             }}

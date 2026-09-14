@@ -11,7 +11,7 @@ test('rest-timer setting persists across reload', async ({ page }) => {
 test('theme choice persists across reload', async ({ page }) => {
   await setupOperator(page)
   await page.goto('/settings')
-  await page.getByRole('button', { name: 'Dark', exact: true }).click()
+  await page.getByRole('radio', { name: 'Dark', exact: true }).click()
   await expect(page.locator('html')).toHaveClass(/dark/)
   await page.reload()
   await expect(page.locator('html')).toHaveClass(/dark/)

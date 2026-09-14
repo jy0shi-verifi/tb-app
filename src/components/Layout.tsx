@@ -75,7 +75,10 @@ export default function Layout() {
       </div>
 
       {/* floating glass tab bar with an ember active pill */}
-      <nav className="fixed bottom-0 inset-x-0 z-10 safe-bottom bg-surface/85 backdrop-blur-xl border-t border-line/60 shadow-[0_-8px_28px_-18px_color-mix(in_srgb,var(--color-brand)_45%,transparent)]">
+      <nav
+        aria-label="Main"
+        className="fixed bottom-0 inset-x-0 z-10 safe-bottom bg-surface/85 backdrop-blur-xl border-t border-line/60 shadow-[0_-8px_28px_-18px_color-mix(in_srgb,var(--color-brand)_45%,transparent)]"
+      >
         <div className="max-w-xl mx-auto grid grid-cols-6">
           {NAV.map((n) => {
             const Icon = n.icon

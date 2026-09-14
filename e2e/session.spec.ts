@@ -32,7 +32,7 @@ test('direct weight entry + feel/notes journaling persists to History', async ({
 
   const weight = page.getByLabel('Weight per dumbbell').first()
   await weight.fill('20')
-  await page.getByRole('button', { name: /Solid/ }).click()
+  await page.getByRole('radio', { name: /Solid/ }).click()
   await page.getByPlaceholder(/Notes/i).fill('felt strong today')
   await page.getByLabel('Mark set done').first().click()
 

@@ -11,6 +11,7 @@ import { shouldNudgeBackup, downloadBackup } from '../lib/backup'
 import { suggestBlockProgression, bumpedEntry, blockCompleted, stalledLiftsSinceRetest } from '../lib/progression'
 import { computeStreak, longestStreak, sessionsThisWeek } from '../lib/stats'
 import { Button, Card, Pill, SessionIcon, SESSION_META, CoinGlyph } from '../components/ui'
+import { confirmAction } from '../components/ConfirmDialog'
 import ShareWin from '../components/ShareWin'
 import type { SessionLog } from '../types'
 
@@ -175,9 +176,11 @@ export default function Today() {
     }
     async function retest() {
       if (
-        !window.confirm(
-          'Retest resets your progressed maxes back to your test numbers — you’ll re-enter fresh. Continue?',
-        )
+        !(await confirmAction({
+          title: 'Retest your maxes?',
+          body: 'This resets your progressed maxes back to your test numbers — you’ll re-enter fresh.',
+          confirmLabel: 'Retest',
+        }))
       )
         return
       // Snapshot each lift's max we're about to replace, so next block-end can

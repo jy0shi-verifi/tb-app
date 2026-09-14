@@ -24,6 +24,7 @@ import IntervalTimer from '../components/IntervalTimer'
 import { estimate1RM } from '../lib/calc'
 import { bestEst1RM, lastPerformance } from '../lib/stats'
 import { Button, Card, SegmentedPicker, SetCheck, SessionIcon } from '../components/ui'
+import { confirmAction } from '../components/ConfirmDialog'
 import Celebration, { type CelebrationContent } from '../components/Celebration'
 import ShareWin from '../components/ShareWin'
 import type { LoggedExercise, SessionLog } from '../types'
@@ -132,7 +133,7 @@ function SetRow({
       <span className="w-4 text-center text-xs font-bold text-muted shrink-0 num-display">{index + 1}</span>
       {loaded && (
         <div className="flex items-center rounded-pill bg-surface elev-sunk overflow-hidden">
-          <button onClick={() => bumpW(-inc)} className={STEP} aria-label="Less weight">
+          <button onClick={() => bumpW(-inc)} className={STEP} aria-label={`Less weight, set ${index + 1}`}>
             <Minus size={15} />
           </button>
           <div className="w-12 text-center border-x border-line">
@@ -143,18 +144,18 @@ function SetRow({
               onChange={(e) => onSet({ weight: e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1') })}
               onFocus={(e) => e.currentTarget.select()}
               placeholder="0"
-              aria-label="Weight per dumbbell"
+              aria-label={`Weight per dumbbell, set ${index + 1}`}
               className="w-full text-center num-display text-ink text-[15px] leading-none bg-transparent outline-none focus:text-brand-ink"
             />
             <span className="text-[10px] text-muted block leading-none">kg/DB</span>
           </div>
-          <button onClick={() => bumpW(inc)} className={STEP} aria-label="More weight">
+          <button onClick={() => bumpW(inc)} className={STEP} aria-label={`More weight, set ${index + 1}`}>
             <Plus size={15} />
           </button>
         </div>
       )}
       <div className="flex items-center rounded-pill bg-surface elev-sunk overflow-hidden">
-        <button onClick={() => bumpR(-1)} className={STEP} aria-label="Fewer reps">
+        <button onClick={() => bumpR(-1)} className={STEP} aria-label={`Fewer reps, set ${index + 1}`}>
           <Minus size={15} />
         </button>
         <div className="w-10 text-center border-x border-line">
@@ -164,17 +165,17 @@ function SetRow({
             value={s.reps}
             onChange={(e) => onSet({ reps: e.target.value.replace(/[^0-9]/g, '') })}
             onFocus={(e) => e.currentTarget.select()}
-            aria-label="Reps"
+            aria-label={`Reps, set ${index + 1}`}
             className="w-full text-center num-display text-ink text-[15px] leading-none bg-transparent outline-none focus:text-brand-ink"
           />
           <span className="text-[10px] text-muted block leading-none">reps</span>
         </div>
-        <button onClick={() => bumpR(1)} className={STEP} aria-label="More reps">
+        <button onClick={() => bumpR(1)} className={STEP} aria-label={`More reps, set ${index + 1}`}>
           <Plus size={15} />
         </button>
       </div>
       <div className="ml-auto shrink-0">
-        <SetCheck done={s.done} onToggle={onToggle} label="Mark set done" />
+        <SetCheck done={s.done} onToggle={onToggle} label={`Mark set done, set ${index + 1}`} />
       </div>
     </div>
   )
@@ -361,6 +362,9 @@ export default function Session() {
   const isLifting = plan.exercises.length > 0
   const isRest = plan.type === 'rest'
   const isSE = plan.type === 'se'
+  // A Strava-imported run/HIC is done because the activity exists — un-ticking
+  // would hide it from the streak and the next sync would skip it (already linked).
+  const stravaLocked = !!logged?.stravaId && (plan.type === 'run' || plan.type === 'hic')
   const restSec = restSeconds(plan, pos.week, settings.restSec)
   const inc = settings.dbIncrement
   const lpLift = isLp(settings) && plan.type === 'lift'
@@ -593,7 +597,11 @@ export default function Session() {
                     <p className="font-medium text-ink text-[15px] truncate">{e.name}</p>
                     <p className="text-xs text-muted">{e.sets[round].reps} reps</p>
                   </div>
-                  <SetCheck done={e.sets[round].done} onToggle={() => toggleDone(ei, round)} label="Mark done" />
+                  <SetCheck
+                    done={e.sets[round].done}
+                    onToggle={() => toggleDone(ei, round)}
+                    label={`Mark done, ${e.name}, round ${round + 1}`}
+                  />
                 </div>
               ))}
             </div>
@@ -701,12 +709,24 @@ export default function Session() {
         )}
         <Card className="space-y-3">
           <button
-            onClick={() => setMetaTouched({ done: !meta.done })}
+            type="button"
+            onClick={() => {
+              if (stravaLocked && meta.done) return
+              setMetaTouched({ done: !meta.done })
+            }}
+            aria-pressed={meta.done}
             className={`w-full rounded-field py-4 font-bold text-lg flex items-center justify-center gap-2 transition active:scale-[0.98] ${
               meta.done ? 'gold-gradient text-on-gold' : 'bg-[var(--color-surface-sunk)] text-ink border border-line'
-            }`}
+            } ${stravaLocked && meta.done ? 'cursor-default' : ''}`}
           >
-            <Check size={22} /> {meta.done ? 'Completed' : isRest ? 'Mark rest taken' : 'Mark complete'}
+            <Check size={22} />{' '}
+            {meta.done
+              ? stravaLocked
+                ? 'Completed · via Strava'
+                : 'Completed'
+              : isRest
+                ? 'Mark rest taken'
+                : 'Mark complete'}
           </button>
           {!isRest && !plan.intervals &&
             (logged && (logged.durationMin != null || logged.distanceKm != null) ? (
@@ -748,7 +768,7 @@ export default function Session() {
               <Timer size={22} />
               <div className="flex-1">
                 <p className="text-xs text-white/80">Rest</p>
-                <p className="num-display text-2xl leading-none">
+                <p className="num-display text-2xl leading-none" aria-live="polite" aria-atomic="true">
                   {Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}
                 </p>
               </div>
@@ -813,7 +833,15 @@ export default function Session() {
       {logged?.id && (
         <button
           onClick={async () => {
-            if (!window.confirm('Delete this logged session?')) return
+            if (
+              !(await confirmAction({
+                title: 'Delete this logged session?',
+                body: 'This removes it from your history. You can’t undo it.',
+                confirmLabel: 'Delete',
+                danger: true,
+              }))
+            )
+              return
             await db.sessions.delete(logged.id!)
             nav(-1)
           }}

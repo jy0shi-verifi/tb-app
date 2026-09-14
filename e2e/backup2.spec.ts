@@ -1,4 +1,4 @@
-import { test, expect, seedState, readSessions, isoOffset, OP_MAXES } from './helpers'
+import { test, expect, seedState, readSessions, isoOffset, OP_MAXES, confirmDialog } from './helpers'
 
 async function importFile(page: import('@playwright/test').Page, obj: unknown) {
   await page.locator('input[type="file"]').setInputFiles({
@@ -34,7 +34,6 @@ test('import rejects a backup with no app settings row', async ({ page }) => {
 test('a valid backup restores after confirmation', async ({ page }) => {
   await seedState(page, { settings: { currentPhaseId: 'base-building', phaseStartDate: isoOffset(0) } })
   await page.goto('/settings')
-  page.on('dialog', (d) => d.accept())
   await importFile(page, {
     app: 'tb-app',
     version: 1,
@@ -43,6 +42,7 @@ test('a valid backup restores after confirmation', async ({ page }) => {
     maxes: [{ liftId: 'op_bench', testWeight: 20, testReps: 5, bumpKg: 0 }],
     sessions: [{ date: isoOffset(-2), phaseId: 'operator', week: 1, day: 0, type: 'lift', title: 'Restored Lift', exercises: [], done: true, createdAt: 1 }],
   })
+  await confirmDialog(page, 'Restore')
   await expect(page.getByText(/Backup restored/i)).toBeVisible()
   expect((await readSessions(page)).some((r) => r.title === 'Restored Lift')).toBe(true)
 })

@@ -72,7 +72,7 @@ export default function Program() {
             </button>
             <div className="text-center">
               <p className="eyebrow text-muted">{phase.name}</p>
-              <p className="num-display text-xl text-ink leading-tight">Week {week}</p>
+              <h2 className="num-display text-xl text-ink leading-tight">Week {week}</h2>
               {wavePct(week) != null && (
                 <p className="text-xs font-bold text-load">
                   {feelWord(wavePct(week))} · {wavePct(week)}%

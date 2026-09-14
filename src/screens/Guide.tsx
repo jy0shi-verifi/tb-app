@@ -745,18 +745,32 @@ export default function Guide() {
         return (
           <Card key={sec.id} pad="none" className="overflow-hidden">
             <button
+              type="button"
               onClick={() => setOpen(isOpen ? null : sec.id)}
               aria-expanded={isOpen}
+              aria-controls={`guide-panel-${sec.id}`}
+              id={`guide-btn-${sec.id}`}
               className="w-full flex items-center gap-3 p-4 text-left min-h-11"
             >
-              <span className="text-xl">{sec.emoji}</span>
+              <span className="text-xl" aria-hidden>
+                {sec.emoji}
+              </span>
               <span className="flex-1 font-bold text-ink">{sec.title}</span>
               <ChevronDown
                 size={18}
                 className={`text-muted transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}
               />
             </button>
-            {isOpen && <div className="px-4 pb-4 text-sm text-ink">{sec.body}</div>}
+            {isOpen && (
+              <div
+                id={`guide-panel-${sec.id}`}
+                role="region"
+                aria-labelledby={`guide-btn-${sec.id}`}
+                className="px-4 pb-4 text-sm text-ink"
+              >
+                {sec.body}
+              </div>
+            )}
           </Card>
         )
       })}

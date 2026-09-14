@@ -7,6 +7,7 @@ import { estimate1RM } from '../lib/calc'
 import { badges, computeStreak, liftRecords, runStats, weekSummary } from '../lib/stats'
 import { db, deleteSession } from '../db'
 import { Card, EmptyState, SessionIcon, SESSION_META } from '../components/ui'
+import { confirmAction } from '../components/ConfirmDialog'
 import { CoinBadge, PaceTrend, ProgressRing, StrengthTrend } from '../components/dataviz'
 import { parseISO, diffDays, today } from '../lib/date'
 
@@ -29,7 +30,15 @@ function tierFor(key: string): 'bronze' | 'steel' | 'gold' | 'black' {
 
 async function confirmDelete(id?: number) {
   if (id == null) return
-  if (window.confirm('Delete this logged session?')) await deleteSession(id)
+  if (
+    await confirmAction({
+      title: 'Delete this logged session?',
+      body: 'This removes it from your history. You can’t undo it.',
+      confirmLabel: 'Delete',
+      danger: true,
+    })
+  )
+    await deleteSession(id)
 }
 
 /** Average pace as "m:ss /km" from minutes + km, or null if either is missing. */
@@ -193,7 +202,7 @@ export default function History() {
 
       {/* this week */}
       <Card>
-        <p className="eyebrow text-muted mb-3">This week</p>
+        <h2 className="eyebrow text-muted mb-3">This week</h2>
         <div className="grid grid-cols-3 gap-3 text-center">
           <div>
             <p className="num-display text-2xl text-brand-ink">{summary.lifts}</p>

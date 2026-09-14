@@ -2,6 +2,7 @@ import { Component, type ReactNode } from 'react'
 import { downloadBackup } from '../lib/backup'
 import { saveSettings, DEFAULT_SETTINGS } from '../db'
 import { nextMonday } from '../lib/date'
+import { confirmAction } from './ConfirmDialog'
 
 interface State {
   error: Error | null
@@ -45,7 +46,14 @@ export default class ErrorBoundary extends Component<{ children: ReactNode }, St
             </button>
             <button
               onClick={async () => {
-                if (!window.confirm('Reset app settings to defaults? Your logged sessions are kept.'))
+                if (
+                  !(await confirmAction({
+                    title: 'Reset app settings to defaults?',
+                    body: 'Your logged sessions are kept.',
+                    confirmLabel: 'Reset',
+                    danger: true,
+                  }))
+                )
                   return
                 await saveSettings({ ...DEFAULT_SETTINGS, phaseStartDate: nextMonday(), onboarded: true })
                 window.location.reload()

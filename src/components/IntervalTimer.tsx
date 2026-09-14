@@ -155,7 +155,9 @@ export default function IntervalTimer({
       <p className="eyebrow text-white/80">
         {isJog ? 'JOG' : cur?.sec === 300 && idx === 0 ? 'WARM-UP WALK' : 'WALK'} · interval {idx + 1}/{intervals.length}
       </p>
-      <p className="num-display text-6xl leading-none my-2 hero-text">{fmt(remaining)}</p>
+      <p className="num-display text-6xl leading-none my-2 hero-text" aria-live="polite" aria-atomic="true">
+        {fmt(remaining)}
+      </p>
       <p className="text-sm text-white/85">
         {nxt ? `Next: ${nxt.kind === 'jog' ? 'jog' : 'walk'} ${fmt(nxt.sec)}` : 'Last one — finish strong'}
       </p>

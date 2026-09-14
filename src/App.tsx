@@ -7,6 +7,7 @@ import { syncStrava } from './lib/stravaSync'
 import Layout from './components/Layout'
 import UpdatePrompt from './components/UpdatePrompt'
 import IntroSplash, { shouldPlayIntro } from './components/IntroSplash'
+import { ConfirmHost } from './components/ConfirmDialog'
 import Onboarding from './screens/Onboarding'
 import Today from './screens/Today'
 import Session from './screens/Session'
@@ -83,6 +84,7 @@ export default function App() {
     <>
       {content}
       {showSplash && <IntroSplash onDone={() => setShowSplash(false)} />}
+      <ConfirmHost />
     </>
   )
 }
