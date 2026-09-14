@@ -14,6 +14,13 @@ export class TBDatabase extends Dexie {
       maxes: 'liftId',
       sessions: '++id, date, phaseId',
     })
+    // v2: index stravaId so de-duping imported activities is an indexed lookup
+    // rather than a full table scan (Dexie migrates existing rows automatically).
+    this.version(2).stores({
+      settings: 'id',
+      maxes: 'liftId',
+      sessions: '++id, date, phaseId, stravaId',
+    })
   }
 }
 
@@ -60,8 +67,13 @@ export async function requestPersistentStorage(): Promise<boolean> {
 }
 
 export async function saveSettings(patch: Partial<Settings>): Promise<void> {
-  const cur = (await db.settings.get('app')) ?? DEFAULT_SETTINGS
-  await db.settings.put({ ...cur, ...patch, id: 'app' })
+  // Read-modify-write inside a transaction so two near-simultaneous saves (e.g. a
+  // Strava sync writing lastStravaSyncAt while the user toggles a setting) can't
+  // clobber each other's changes — Dexie serialises transactions on the table.
+  await db.transaction('rw', db.settings, async () => {
+    const cur = (await db.settings.get('app')) ?? DEFAULT_SETTINGS
+    await db.settings.put({ ...cur, ...patch, id: 'app' })
+  })
 }
 
 export async function deleteSession(id: number): Promise<void> {

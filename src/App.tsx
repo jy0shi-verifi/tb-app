@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db, saveSettings } from './db'
-import { handleStravaRedirect } from './lib/strava'
+import { handleStravaRedirect, StravaError } from './lib/strava'
 import { syncStrava } from './lib/stravaSync'
 import Layout from './components/Layout'
 import UpdatePrompt from './components/UpdatePrompt'
@@ -27,8 +27,7 @@ async function runSync(): Promise<void> {
     await saveSettings({ stravaSyncError: undefined, stravaNeedsReconnect: false })
   } catch (e) {
     const msg = (e as Error)?.message ?? 'unknown error'
-    // A failed token refresh means the connection was revoked/expired.
-    const needsReconnect = /token|refresh|401|invalid/i.test(msg)
+    const needsReconnect = e instanceof StravaError ? e.kind === 'auth' : /token|refresh|401|invalid/i.test(msg)
     await saveSettings({ stravaSyncError: msg.slice(0, 140), stravaNeedsReconnect: needsReconnect })
   }
 }
@@ -50,7 +49,11 @@ export default function App() {
         const s = await db.settings.get('app')
         if (s?.strava && Date.now() - (s.lastStravaSyncAt ?? 0) > AUTO_SYNC_THROTTLE_MS) return runSync()
       })
-      .catch(() => {})
+      .catch(async (e) => {
+        const msg = (e as Error)?.message ?? 'unknown error'
+        const needsReconnect = e instanceof StravaError ? e.kind === 'auth' : /token|refresh|401|invalid/i.test(msg)
+        await saveSettings({ stravaSyncError: msg.slice(0, 140), stravaNeedsReconnect: needsReconnect })
+      })
   }, [])
 
   let content: ReactNode

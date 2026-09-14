@@ -70,6 +70,8 @@ export type ThemeMode = 'system' | 'light' | 'dark'
 export interface Settings {
   id: 'app'
   dbIncrement: DbIncrement
+  /** heaviest pair of DBs on hand (kg per dumbbell). Working loads clamp here. Default 60. */
+  dbMaxKg?: number
   loadBasis: LoadBasis
   currentPhaseId: string
   phaseStartDate: string // ISO yyyy-mm-dd (Monday of week 1)

@@ -523,7 +523,7 @@ export default function Today() {
 
           {anyCeiling && (
             <p className="text-xs text-gold-ink mt-2">
-              ⚠︎ Past your 60 kg dumbbell — hold here and add reps.
+              ⚠︎ Past your {settings.dbMaxKg ?? 60} kg dumbbell — hold here and add reps.
             </p>
           )}
           {anyFloor && (

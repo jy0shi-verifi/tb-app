@@ -1,5 +1,5 @@
 import type { Lift, LoggedExercise, MaxEntry, Settings, SessionLog, SessionType, WaveWeek } from './types'
-import { maxToBasis, workingLoad } from './lib/calc'
+import { DB_MAX, maxToBasis, workingLoad } from './lib/calc'
 import { diffDays, parseISO } from './lib/date'
 import {
   ALL_BEGINNER_LIFTS,
@@ -94,7 +94,7 @@ function operatorLift(
     let under = false
     if (entry) {
       const bm = maxToBasis(entry, settings.loadBasis)
-      const lr = workingLoad(bm, w.pct, settings.dbIncrement)
+      const lr = workingLoad(bm, w.pct, settings.dbIncrement, settings.dbMaxKg ?? DB_MAX)
       weight = lr.kg
       over = lr.overCeiling
       under = lr.underFloor

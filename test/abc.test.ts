@@ -94,10 +94,17 @@ describe('applyAbcProgress (double progression)', () => {
     expect(next!.abc_bench).toBe(12) // 10 + 2
   })
 
-  it('does not bump when a set falls short of the top', () => {
-    const next = applyAbcProgress(base, 0, dayALogged(11))
-    // only bench could change on this set of reps; 11 < 12 so nothing progresses
-    expect(next).toBeNull()
+  it('never silently deloads when a session is lighter than the stored weight', () => {
+    const heavy = { ...base, abc: { lifts: { ...defaultAbcWeights(), abc_bench: 20 } } }
+    const lightBench: LoggedExercise[] = [
+      { name: 'Bulgarian Split Squat', sets: Array.from({ length: 3 }, () => ({ weight: 8, reps: 10, done: true })) },
+      { name: 'DB Bench Press', sets: Array.from({ length: 3 }, () => ({ weight: 12, reps: 8, done: true })) },
+      { name: '1-Arm DB Row', sets: Array.from({ length: 3 }, () => ({ weight: 10, reps: 9, done: true })) },
+      { name: 'DB Overhead Press', sets: Array.from({ length: 3 }, () => ({ weight: 6, reps: 8, done: true })) },
+    ]
+    const next = applyAbcProgress(heavy, 0, lightBench)
+    // a bad day at 12kg must not roll the stored 20kg back
+    expect(next?.abc_bench).toBeUndefined()
   })
 
   it('lateral raise needs 15 (its own repHi), not 12', () => {
@@ -132,13 +139,14 @@ describe('seedAbcWeights (carry over recent weights on switch)', () => {
     exercises,
   })
 
-  it('carries over shared movements from the log and defaults the rest', () => {
+  it('carries over shared movements from the log (scaled to the 8–12 range) and defaults the rest', () => {
     const sessions = [
       // older, heavier bench that should be ignored in favour of the most recent
       liftSession('2026-08-01', [
         { name: 'DB Bench Press', sets: [{ weight: 30, reps: 5, done: true }] },
       ]),
-      // most recent session — these weights should seed A/B/C
+      // most recent session — these weights should seed A/B/C. They're heavy low-rep
+      // Operator sets, so the seed backs them off to a doable ~10-rep weight.
       liftSession('2026-09-10', [
         { name: 'DB Bench Press', sets: [{ weight: 24, reps: 6, done: true }, { weight: 24, reps: 6, done: true }] },
         { name: '1-Arm DB Row', sets: [{ weight: 22, reps: 8, done: true }] },
@@ -146,9 +154,13 @@ describe('seedAbcWeights (carry over recent weights on switch)', () => {
       ]),
     ]
     const seeded = seedAbcWeights(sessions)
-    expect(seeded.abc_bench).toBe(24) // most recent, not the older 30
-    expect(seeded.abc_row).toBe(22)
-    expect(seeded.abc_ohp).toBe(16)
+    // 24×6 → est 1RM ~27.9 → ~10-rep weight ~20.9 → floor to 20 (uses the most recent
+    // set, not the older 30×5 which would seed 24)
+    expect(seeded.abc_bench).toBe(20)
+    expect(seeded.abc_row).toBe(20)
+    expect(seeded.abc_ohp).toBe(14)
+    // always lighter than the raw logged weight — scaled for the higher rep range
+    expect(seeded.abc_bench).toBeLessThan(24)
     // movements with no history keep their light defaults
     const d = defaultAbcWeights()
     expect(seeded.abc_split).toBe(d.abc_split)

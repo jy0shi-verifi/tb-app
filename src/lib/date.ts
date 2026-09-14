@@ -28,7 +28,11 @@ export function addDays(d: Date, n: number): Date {
 }
 
 export function diffDays(a: Date, b: Date): number {
-  return Math.round((a.getTime() - b.getTime()) / 86_400_000)
+  // Compare calendar dates via UTC midnight of each local Y-M-D so a DST spring
+  // forward (23h) or fall back (25h) can't shift the day count by ±1.
+  const ua = Date.UTC(a.getFullYear(), a.getMonth(), a.getDate())
+  const ub = Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())
+  return Math.round((ua - ub) / 86_400_000)
 }
 
 export const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']

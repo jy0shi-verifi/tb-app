@@ -10,7 +10,7 @@ import {
   lpWorkingKg,
   lpDeloadPatch,
 } from '../program'
-import { estimate1RM, maxToBasis, trainingMax, workingLoad } from '../lib/calc'
+import { DB_MAX, estimate1RM, maxToBasis, trainingMax, workingLoad } from '../lib/calc'
 import { db, saveSettings } from '../db'
 import { Card, Pill, Stepper } from '../components/ui'
 import Celebration, { type CelebrationContent } from '../components/Celebration'
@@ -289,7 +289,9 @@ export default function Maxes() {
       <Card elev="1">
         <p className="eyebrow text-muted">Every week's loads</p>
         <h2 className="display-hero text-xl text-ink mt-0.5">Operator working weights</h2>
-        <p className="text-xs text-muted mt-1 mb-3">kg per dumbbell · ⚠︎ = over the 60 kg ceiling</p>
+        <p className="text-xs text-muted mt-1 mb-3">
+          kg per dumbbell · ⚠︎ = over the {settings.dbMaxKg ?? DB_MAX} kg ceiling
+        </p>
         {!anyMax ? (
           <p className="text-sm text-muted py-4 text-center">
             Enter your maxes above to see every week's loads.
@@ -335,7 +337,7 @@ export default function Maxes() {
                         bumpKg: 0,
                       }
                       const basis = maxToBasis(entry, settings.loadBasis)
-                      const lr = workingLoad(basis, wk.pct, settings.dbIncrement)
+                      const lr = workingLoad(basis, wk.pct, settings.dbIncrement, settings.dbMaxKg ?? DB_MAX)
                       return (
                         <td key={l.id} className="py-2 pr-1 text-right num-display text-load">
                           {lr.kg}

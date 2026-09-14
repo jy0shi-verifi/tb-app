@@ -96,7 +96,7 @@ export default function Settings() {
       programMode: 'abc',
       currentPhaseId: 'abc',
       phaseStartDate: nextMonday(),
-      abc: { lifts: seedAbcWeights(sessions) },
+      abc: { lifts: seedAbcWeights(sessions, s.dbIncrement) },
     })
     setMsg('Dumbbell A/B/C on — starting from your recent weights, plus your Runna runs.')
   }
@@ -243,6 +243,14 @@ export default function Settings() {
         <p className="text-xs text-muted mt-1 mb-3 leading-relaxed">
           Auto-tick your runs &amp; conditioning sessions — distance, pace and heart rate flow in from Strava automatically.
         </p>
+        {s.stravaNeedsReconnect && (
+          <p className="text-xs text-danger font-semibold mb-2">
+            Connection expired or revoked — reconnect to keep runs coming in.
+          </p>
+        )}
+        {!s.strava && s.stravaSyncError && (
+          <p className="text-xs text-danger mb-2">{s.stravaSyncError}</p>
+        )}
         {!stravaConfigured() ? (
           <p className="text-xs text-muted">Not set up on this build yet.</p>
         ) : s.strava ? (

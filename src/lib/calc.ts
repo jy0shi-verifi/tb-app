@@ -11,8 +11,11 @@ export const DB_MAX = 60
  */
 export function estimate1RM(weight: number, reps: number): number {
   if (weight <= 0 || reps <= 0) return 0
-  if (reps >= 37) return weight
-  return (weight * 36) / (37 - reps)
+  // Brzycki is only trustworthy for low-rep sets; past ~12 reps it inflates fast and
+  // near reps=37 it blows up. Clamp the rep count so a high-rep set (e.g. a 15-rep
+  // lateral raise) can't produce an absurd estimate.
+  const r = Math.min(reps, 12)
+  return (weight * 36) / (37 - r)
 }
 
 /** Training Max = 90% of true 1RM (TB standard). */
@@ -45,12 +48,14 @@ export function workingLoad(
   basisMaxPerDb: number,
   pct: number,
   increment: DbIncrement,
+  ceiling: number = DB_MAX,
 ): LoadResult {
+  const cap = ceiling > 0 ? ceiling : DB_MAX
   const raw = (basisMaxPerDb * pct) / 100
   let kg = Math.floor(raw / increment) * increment
-  const overCeiling = raw > DB_MAX
+  const overCeiling = raw > cap
   const underFloor = kg < DB_MIN
-  kg = Math.max(DB_MIN, Math.min(DB_MAX, kg))
+  kg = Math.max(DB_MIN, Math.min(cap, kg))
   return { kg, raw, overCeiling, underFloor }
 }
 

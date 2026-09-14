@@ -4,6 +4,7 @@
 import type { LoggedExercise, Settings, SessionLog } from './types'
 import type { PlannedExercise, SessionPlan } from './program'
 import { lastPerformance } from './lib/stats'
+import { estimate1RM } from './lib/calc'
 
 export interface AbcLift {
   id: string
@@ -43,16 +44,25 @@ export function defaultAbcWeights(): Record<string, number> {
 
 /**
  * Starting working weights when switching INTO A/B/C: for any movement already in the
- * training log (bench, row, overhead press carry over from Operator/Beginner), start
- * from the most recent weight actually lifted — it's the same lift, so it should be
- * liftable. Movements with no history (split squat, lateral raise, curl) fall back to
- * their light defaults.
+ * training log (bench, row, overhead press carry over from Operator/Beginner), seed a
+ * weight appropriate for A/B/C's rep ranges. The logged set may be a heavy Operator
+ * ~5RM, which is too heavy to hit for 8–12 reps — so convert it to an estimated 1RM and
+ * back off to a weight you could do for the lower-middle of THIS lift's range. That
+ * starts you challenged but able to finish all 3 sets; double progression takes it from
+ * there. Movements with no history (split squat, lateral raise, curl) keep their light
+ * defaults.
  */
-export function seedAbcWeights(sessions: SessionLog[]): Record<string, number> {
+export function seedAbcWeights(sessions: SessionLog[], increment = 2): Record<string, number> {
   const out = defaultAbcWeights()
   for (const l of ABC_LIFTS) {
     const perf = lastPerformance(sessions, l.name, '9999-12-31')
-    if (perf?.weight && perf.weight > 0) out[l.id] = perf.weight
+    const lastReps = perf?.reps.at(-1)
+    if (!perf?.weight || perf.weight <= 0 || !lastReps || lastReps <= 0) continue
+    const e1rm = estimate1RM(perf.weight, lastReps)
+    const targetReps = Math.min(l.repHi, l.repLo + 2, 12)
+    const target = (e1rm * (37 - targetReps)) / 36 // Brzycki inverse
+    const rounded = Math.floor(target / increment) * increment
+    out[l.id] = Math.max(l.startKg, rounded)
   }
   return out
 }
